@@ -49,21 +49,24 @@ final class SimulationModel {
 
     private static double[] pose(double t) {
         double[] p=position(t);
-        double w=2*Math.PI/(DURATION_NS*1e-9),theta=w*t;
-        double vx=-2.65*w*Math.sin(theta),vz=3.35*w*Math.cos(theta);
-        double yaw=Math.atan2(vx,-vz)+.022*Math.sin(2*Math.PI*1.15*t)+.009*Math.sin(2*Math.PI*7.2*t+.3);
-        double pitch=.018*Math.sin(2*Math.PI*.63*t+.4)+.008*Math.sin(2*Math.PI*7.7*t);
-        double roll=.016*Math.sin(2*Math.PI*1.9*t+1.1)+.007*Math.sin(2*Math.PI*8.4*t+.2);
+        double dt=.006;
+        double[] before=position(t-dt),after=position(t+dt);
+        double vx=(after[0]-before[0])/(2*dt),vz=(after[2]-before[2])/(2*dt);
+        double yaw=Math.atan2(vx,-vz)+.008*Math.sin(2*Math.PI*.72*t)+.0025*Math.sin(2*Math.PI*3.1*t+.3);
+        double pitch=.008*Math.sin(2*Math.PI*.63*t+.4)+.0025*Math.sin(2*Math.PI*2.4*t);
+        double roll=.009*Math.sin(2*Math.PI*1.9*t+1.1)+.002*Math.sin(2*Math.PI*2.8*t+.2);
         return new double[]{p[0],p[1],p[2],yaw,pitch,roll};
     }
 
     private static double[] position(double t) {
-        double w=2*Math.PI/(DURATION_NS*1e-9),theta=w*t;
-        double gait=2*Math.PI*2.05*t;
+        // A smooth superellipse gives a square closed loop with eased, rounded corners.
+        // No map geometry is consumed by the image-only reconstruction pipeline.
+        double theta=2*Math.PI*t/(DURATION_NS*1e-9),power=2.0/8.0;
+        double gait=2*Math.PI*1.85*t;
         return new double[]{
-            2.65*Math.cos(theta)+.009*Math.sin(2*Math.PI*8.3*t+.4),
-            1.42+.018*Math.sin(gait)+.004*Math.sin(2*Math.PI*8*t+1.3),
-            3.35*Math.sin(theta)+.007*Math.sin(gait+.8)+.006*Math.cos(2*Math.PI*9.1*t)
+            3.05*Math.copySign(Math.pow(Math.abs(Math.cos(theta)),power),Math.cos(theta))+.0025*Math.sin(2*Math.PI*5.2*t+.4),
+            1.42+.009*Math.sin(gait)+.0015*Math.sin(2*Math.PI*4.1*t+1.3),
+            3.05*Math.copySign(Math.pow(Math.abs(Math.sin(theta)),power),Math.sin(theta))+.002*Math.sin(gait+.8)+.002*Math.cos(2*Math.PI*5.7*t)
         };
     }
 

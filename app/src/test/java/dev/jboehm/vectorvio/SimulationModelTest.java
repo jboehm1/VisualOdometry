@@ -25,4 +25,9 @@ public class SimulationModelTest {
         }
         assertEquals(9.80665,meanVertical/count,.15);
     }
+    @Test public void loopVisitsSquareExtremesAndReturnsToStart(){
+        SimulationModel.Sample start=SimulationModel.sample(0),quarter=SimulationModel.sample(SimulationModel.DURATION_NS/4),half=SimulationModel.sample(SimulationModel.DURATION_NS/2),end=SimulationModel.sample(SimulationModel.DURATION_NS-1_000_000L);
+        assertEquals(3.05,start.x,.02);assertEquals(3.05,quarter.z,.02);assertEquals(-3.05,half.x,.02);
+        assertTrue(Math.hypot(start.x-end.x,start.z-end.z)<.02);
+    }
 }

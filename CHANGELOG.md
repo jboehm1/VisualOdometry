@@ -1,3 +1,11 @@
+# 0.6.0-alpha — Square-loop visual replay
+
+- Change the deterministic walk to a square corridor loop with softened corners and substantially reduced continuous phone shake.
+- Render a more structured corridor scene and process its camera pixels with an image-only corner detector and patch tracker.
+- Draw tracked feature overlays and a relative visual path/landmark map built from image correspondences; the reconstruction receives no simulated pose or scene geometry.
+- Keep truth pose separate for comparison, and document that the lightweight relative odometer uses a scale prior and is not a validated SLAM benchmark.
+- Add tests for square-loop closure and image-derived feature tracking/reset behavior.
+
 # 0.5.0-alpha — Deterministic offline simulation
 
 - Add an offline replay with a procedurally rendered indoor camera walk, hand-held motion, synchronized accelerometer/gyroscope values and known ground-truth pose.
