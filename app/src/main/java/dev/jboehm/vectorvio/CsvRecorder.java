@@ -65,8 +65,11 @@ public final class CsvRecorder {
     }
 
     public void event(String label, long wallTimeMs) {
-        // Event names come from fixed application constants, never untrusted input.
-        append(label + "," + wallTimeMs + ",,,,,,,,,,,,,,,,,\n");
+        String[] columns = new String[19];
+        java.util.Arrays.fill(columns, "");
+        columns[0] = label;
+        columns[1] = Long.toString(wallTimeMs);
+        append(String.join(",", columns) + "\n");
     }
 
     public void pose(long wallMs, long timestampNs, float[] position, float[] q,
