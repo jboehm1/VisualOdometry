@@ -3,8 +3,8 @@ package dev.jboehm.vectorvio;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Canvas;
-import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Bitmap;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
@@ -159,7 +159,7 @@ public final class SimulationActivity extends Activity {
         }
         private void drawMap(Canvas c,int w,int h){
             float l=w-d(155),t=d(115),r=w-d(14),b=t+d(147);panel(c,l,t,r,b);text(c,"RELATIVE VISUAL MAP",l+d(10),t+d(19),8,0xFFAAC0CC,true);
-            float cx=(l+r)*.5f,cy=t+d(82),scale=d(15);
+            float cx=(l+r)*.5f,cy=t+d(78),maxExtent=1f;if(visionResult!=null)for(float[] q:visionResult.path)maxExtent=Math.max(maxExtent,Math.max(Math.abs(q[0]),Math.abs(q[1])));float scale=Math.min(d(15),d(53)/maxExtent);
             if(visionResult!=null){Path path=new Path();for(int i=0;i<visionResult.path.size();i++){float[] q=visionResult.path.get(i);float x=cx+q[0]*scale,z=cy+q[1]*scale;if(i==0)path.moveTo(x,z);else path.lineTo(x,z);}paint.reset();paint.setAntiAlias(true);paint.setColor(0xFF55D9D8);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d(1.5f));c.drawPath(path,paint);
                 for(int i=Math.max(0,visionResult.points.size()-180);i<visionResult.points.size();i++){SyntheticVision.MapPoint p=visionResult.points.get(i);paint.setStyle(Paint.Style.FILL);paint.setColor(p.depth<2?0xFFFFC976:0xFF65CBE3);c.drawCircle(cx+p.x*scale,cy+p.z*scale,d(1.5f),paint);}
                 paint.setColor(0xFFFFCA75);paint.setStyle(Paint.Style.FILL);c.drawCircle(cx+visionResult.x*scale,cy+visionResult.z*scale,d(4),paint);}
@@ -189,14 +189,5 @@ public final class SimulationActivity extends Activity {
         private void wallArt(Canvas c,double x,double z,double width,double height,int color){quad(c,x-width/2,.75,z,x+width/2,.75,z,x+width/2,.75+height,z,x-width/2,.75+height,z,color,0xFFB7C5BC);}
         private void wallArtX(Canvas c,double x,double z,double width,double height,int color){quad(c,x,.05,z-width/2,x,.05,z+width/2,x,height,z+width/2,x,height,z-width/2,color,0xFFB7C5BC);}
         private void light(Canvas c,double x,double y,double z){float[] q=project(x,y,z);if(q!=null){paint.reset();paint.setAntiAlias(true);paint.setColor(0xFFFFE8B3);c.drawCircle(q[0],q[1],d(3),paint);}}
-        private void box3d(Canvas c,double x,double y,double z,double width,double height,double depth,int color){
-            double x0=x-width/2,x1=x+width/2,z0=z-depth/2,z1=z+depth/2;
-            quad(c,x0,y,z0,x1,y,z0,x1,y+height,z0,x0,y+height,z0,color,0x667B978A);
-            quad(c,x1,y,z0,x1,y,z1,x1,y+height,z1,x1,y+height,z0,darken(color),0x667B978A);
-            quad(c,x0,y+height,z0,x1,y+height,z0,x1,y+height,z1,x0,y+height,z1,lighten(color),0x667B978A);
-        }
-        private int darken(int color){return Color.rgb((Color.red(color)*3)/4,(Color.green(color)*3)/4,(Color.blue(color)*3)/4);}
-        private int lighten(int color){return Color.rgb(Math.min(255,Color.red(color)+28),Math.min(255,Color.green(color)+28),Math.min(255,Color.blue(color)+28));}
-        private void drawReticle(Canvas c,int w,int h){float x=w*.5f,y=h*.4f;paint.reset();paint.setAntiAlias(true);paint.setColor(0x9974FCE1);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d(1));c.drawCircle(x,y,d(17),paint);paint.setStyle(Paint.Style.FILL);c.drawCircle(x,y,d(2),paint);}
     }
 }

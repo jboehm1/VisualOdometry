@@ -6,7 +6,7 @@ import java.util.List;
 
 /** Image-only feature tracking and a small relative map for the deterministic replay. */
 final class SyntheticVision {
-    static final int WIDTH=320, HEIGHT=240;
+    static final int WIDTH=480, HEIGHT=360;
     private static final int MAX_FEATURES=120, MAX_MAP=1400, BORDER=8;
     private final ArrayList<Point> previous=new ArrayList<>();
     private final ArrayList<MapPoint> map=new ArrayList<>();

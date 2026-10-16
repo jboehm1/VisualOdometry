@@ -53,6 +53,10 @@ The workflow also compiles an unsigned release variant for build coverage; it is
 - CLI with a locally installed Gradle 8.13: `gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease`. A Gradle wrapper JAR is **not** checked in; CI provisions Gradle directly.
 - Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. Never distribute a debug-signed APK as a Play Store release.
 
+### Deterministic simulation
+
+The offline replay generates a 40-second square corridor walk with smoothly rounded corners and synchronized synthetic IMU values. Its rendered camera pixels go through a separate Harris-corner/patch-matching tracker; the displayed relative path and landmarks are reconstructed from those pixel correspondences, with no access to the simulated pose or scene geometry. Ground-truth pose is shown separately as evaluation reference. The lightweight replay tracker uses a scale prior and produces a relative feature map, not metric 3D SLAM or a validated accuracy benchmark. Reset and the fixed seed provide repeatable sessions; CSV export contains the deterministic pose and IMU ground truth.
+
 ## Instrument display
 
 The translucent overlay is drawn over a portrait camera feed:
