@@ -47,6 +47,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private final Odometer odometer = new Odometer();
     private GLSurfaceView surface;
     private HudView hud;
+    private ImuMonitor imu;
+    private final SceneMapper mapper=new SceneMapper();
+    private volatile boolean clearMap=false;
+    private long lastSceneNs=0;
+    private long previousFrameNs=0;
+    private float cameraHz=0;
     private TextView recordButton;
     private CameraBackground background;
     private CsvRecorder recorder;
@@ -72,6 +78,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
 
         recorder = new CsvRecorder(this);
+        imu=new ImuMonitor(this);
+        imu.setListener((type,t,x,y,z)->{
+            if(odometer.isRecording())recorder.imu(type,t,x,y,z);
+        });
         FrameLayout root=new FrameLayout(this);
         root.setBackgroundColor(0xFF091723);
         surface=new GLSurfaceView(this);
@@ -99,6 +109,22 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         FrameLayout.LayoutParams controls=new FrameLayout.LayoutParams(-1,dp(61),Gravity.BOTTOM);
         controls.leftMargin=dp(9);controls.rightMargin=dp(9);controls.bottomMargin=dp(17);
         root.addView(actions,controls);
+        LinearLayout modes=new LinearLayout(this);
+        TextView layers=action("LAYERS",0xCC102D39,Color.WHITE);
+        TextView sensors=action("IMU",0xCC102D39,Color.WHITE);
+        TextView map=action("MAP",0xCC102D39,Color.WHITE);
+        modes.addView(layers,weighted());modes.addView(sensors,weighted());modes.addView(map,weighted());
+        FrameLayout.LayoutParams modeLayout=new FrameLayout.LayoutParams(-1,dp(48),Gravity.TOP);
+        modeLayout.topMargin=dp(142);modeLayout.leftMargin=dp(12);modeLayout.rightMargin=dp(12);
+        root.addView(modes,modeLayout);
+        layers.setOnClickListener(v->hud.cycleLayers());
+        layers.setOnLongClickListener(v->{
+            new AlertDialog.Builder(this).setTitle("Explore your local map")
+                .setMessage("LAYERS cycles planes, point cloud and trail. Cyan = horizontal planes, violet = vertical planes, gold = measured scene points. These are geometric surfaces, not recognized objects.\n\nThe cyan trail follows the camera at phone height. Turn around to see where you walked. It is a see-through overlay, with no real-world occlusion.\n\nMAP expands the current independent segment. Unknown motion across tracking gaps is excluded. IMU shows device-axis acceleration (including gravity) and angular velocity.\n\nAccuracy is unmeasured. ARCore manages a local map; this app does not save or reload a persistent SLAM map. CSV includes diagnostic IMU samples, not calibrated camera–IMU research data.")
+                .setPositiveButton("GOT IT",null).show();return true;
+        });
+        sensors.setOnClickListener(v->hud.toggleSensors());
+        map.setOnClickListener(v->hud.toggleMap());
         setContentView(root);
 
         recordButton.setOnClickListener(v->toggleRecording());
@@ -138,6 +164,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             recorder.event("PAUSE",System.currentTimeMillis());
             recordButton.setText("RESUME");
             message="Paused — movement during pause is excluded";
+            clearMap=true;
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         } else {
             if(needsNewFile) {
@@ -173,6 +200,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 if(odometer.snapshot(SystemClock.elapsedRealtime()).recording)
                     recorder.event("RESET",System.currentTimeMillis());
                 odometer.reset();
+                clearMap=true;
                 needsNewFile=true;
                 markerCount=0;
                 recordButton.setText("START");
@@ -221,6 +249,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     @Override protected void onResume() {
         super.onResume();
+        imu.start();
         startAr();
     }
     private void startAr() {
@@ -243,7 +272,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 }
                 Session created=new Session(this);
                 Config config=new Config(created);
-                config.setPlaneFindingMode(Config.PlaneFindingMode.DISABLED);
+                config.setPlaneFindingMode(Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL);
                 config.setLightEstimationMode(Config.LightEstimationMode.DISABLED);
                 config.setDepthMode(Config.DepthMode.DISABLED);
                 config.setUpdateMode(Config.UpdateMode.LATEST_CAMERA_IMAGE);
@@ -276,6 +305,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
     }
     @Override protected void onPause() {
+        imu.stop();
         long now=SystemClock.elapsedRealtime();
         if(odometer.snapshot(now).recording){
             odometer.pause(now);
@@ -284,6 +314,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if(rendererRunning) {
+            surface.queueEvent(()->mapper.clear());
             surface.onPause();
             rendererRunning=false;
         }
@@ -322,6 +353,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             if(width<=0||height<=0) return;
             s.setDisplayGeometry(getWindowManager().getDefaultDisplay().getRotation(),width,height);
             Frame frame=s.update();
+            if(clearMap){mapper.clear();clearMap=false;}
+            Odometer.Result poseResult=Odometer.Result.INACTIVE;
             if(frame.getTimestamp()!=0) background.draw(frame);
             Camera camera=frame.getCamera();
             if(camera.getTrackingState()==TrackingState.TRACKING && frame.getTimestamp()>0) {
@@ -331,7 +364,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 Pose pose=camera.getPose();
                 float[] xyz=pose.getTranslation();
                 float[] quaternion=pose.getRotationQuaternion();
-                odometer.onPose(xyz[0],xyz[1],xyz[2],frame.getTimestamp());
+                poseResult=odometer.onPose(xyz[0],xyz[1],xyz[2],frame.getTimestamp());
                 long wallMs=System.currentTimeMillis();
                 if(frame.getTimestamp()-lastLoggedFrameNs>=100_000_000L
                        && odometer.snapshot(SystemClock.elapsedRealtime()).recording
@@ -346,7 +379,20 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 trackingLabel="SEARCHING";
                 message="Tracking paused: "+why.replace('_',' ').toLowerCase(Locale.US);
             }
+            if(frame.getTimestamp()>previousFrameNs && previousFrameNs>0) {
+                float hz=1_000_000_000f/(frame.getTimestamp()-previousFrameNs);
+                cameraHz=.9f*cameraHz+.1f*hz;
+            }
+            if(frame.getTimestamp()>0) previousFrameNs=frame.getTimestamp();
+            // Anchor updates follow every pose result. Publish bounded geometry at ~20 Hz.
+            if(poseResult==Odometer.Result.REFERENCE || poseResult==Odometer.Result.GAP || poseResult==Odometer.Result.REJECTED) mapper.clear();
             long now=SystemClock.elapsedRealtime();
+            if(now-lastSceneNs>=50) {
+                lastSceneNs=now;
+                SceneMapper.Snapshot scene=mapper.update(s,frame,poseResult);
+                float[] sensors=imu.snapshot();float hz=cameraHz;
+                runOnUiThread(()->hud.updateScene(scene,sensors,hz));
+            }
             if(now-lastHudUpdateMs>110) {
                 lastHudUpdateMs=now;
                 if(recorder.problem()!=null) message="CSV ERROR: check Android logcat";
@@ -359,6 +405,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             trackingLabel="TRACK LOST";
             message=ex.getClass().getSimpleName()+": check camera / AR service";
             odometer.lostTracking();
+            mapper.clear();
+            runOnUiThread(this::refreshHud);
         }
     }
 }

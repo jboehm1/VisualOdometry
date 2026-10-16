@@ -1,3 +1,9 @@
+> **0.2 update:** Spatial Explorer work is on `feature/slam-explorer`.
+> Read [SPATIAL_EXPLORER.md](SPATIAL_EXPLORER.md) first. It supersedes the 0.1
+> inventory below: planes/points/anchored trail and diagnostic IMU CSV are added;
+> displacement and height are now current-segment quantities. Physical phone
+> validation remains pending. Consult the exact branch CI run for build evidence.
+
 # VECTOR VIO — Complete Development Handoff
 **Snapshot:** 2026-10-16 (Europe/Berlin)  
 **Repository:** https://github.com/jboehm1/VisualOdometry  

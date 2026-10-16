@@ -6,10 +6,19 @@
 
 This replaces the abandoned 2019 notebook *as an application direction*, without deleting it: the original [VO.ipynb](VO.ipynb) remains in history, with its exact original commit preserved at [backup/2019-original-colab](https://github.com/jboehm1/VisualOdometry/tree/backup/2019-original-colab). Android work lives on [feature/android-vio-odometer](https://github.com/jboehm1/VisualOdometry/tree/feature/android-vio-odometer) until verified and reviewed.
 
+## Spatial Explorer 0.2
+
+See [SPATIAL_EXPLORER.md](docs/SPATIAL_EXPLORER.md) for controls, mapping semantics,
+CSV v2 and validation. New: real horizontal/vertical plane boundaries, measured
+point-cloud overlays, anchored camera-height trail, expandable segment map and
+live raw accelerometer/gyro diagnostics with timestamped CSV samples. ARCore
+provides the local tracking/map engine; persistent maps and explicit loop closure
+are not implemented. Physical S21 validation is still pending.
+
 ## What you can do
 
 - Open a live camera preview with a custom high-contrast, semi-transparent **VIO HUD**.
-- Read metric **accumulated path**, **net displacement**, **smoothed speed**, **relative height**, **elapsed time**, and tracking status.
+- Read metric **accumulated path**, **current-segment displacement**, **smoothed speed**, **relative height**, **elapsed time**, and tracking status.
 - Inspect a small local **top-down X/Z trajectory map**, using ARCore's Y-up world frame.
 - **START / PAUSE / RESUME / RESET / MARK** a recording and **EXPORT** past sessions as CSV.
 - Keep data **on the phone**; the app requests camera access only (not GPS or storage permission). Android document picker controls exported file destinations.
@@ -76,9 +85,9 @@ The app is not a GPS odometer: it never requests location permission and does no
 | Field | Definition | Unit |
 |---|---|---|
 | PATH DISTANCE | Sum of accepted consecutive 3D world-position increments | m |
-| DISPLACEMENT | Length of cumulative accepted translation vector | m |
+| DISPLACEMENT | Length of accepted translation vector in current segment | m |
 | SPEED | Smoothed magnitude of observed translation per time interval | km/h |
-| Δ HEIGHT | Sum of accepted Y increments (Y is up in ARCore world frame) | m |
+| Δ HEIGHT | Current-segment accepted Y change (ARCore Y up) | m |
 | HORIZONTAL | Sum of XZ-plane increments, present in CSV | m |
 | SEGMENTS | Number of independently initialized tracked intervals | count |
 | GAPS/OUTLIERS | Rejected intervals, written into telemetry | count |
@@ -88,7 +97,7 @@ When the tracking signal becomes unreliable, the accumulator does **not** preten
 ### Your data
 
 - Raw camera video is *shown*, never saved by this app.
-- Raw accelerometer/gyro samples are *not exposed* by ARCore and **are not** separately logged here.
+- Raw accelerometer/gyro samples are separately logged through Android SensorManager in CSV v2; these are diagnostic device-axis readings, not ARCore internal calibrated measurements.
 - Each session CSV contains device-wall timestamp, frame timestamp, camera position, orientation quaternion, derived metric counters and explicit events.
 - Files remain in app-private `files/sessions`; EXPORT uses Android's native document picker. Reset retains previous sessions, and EXPORT lets you pick historical recordings.
 - No app account, telemetry service, advertising, network permission or GPS permission.

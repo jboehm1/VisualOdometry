@@ -1,3 +1,12 @@
+# 0.2.0-alpha — Spatial Explorer
+
+- Add actual ARCore plane polygons, sparse scene points and anchored camera-height trail.
+- Add homogeneous view clipping, four layer modes, expandable segment map and in-app help.
+- Add live device-axis acceleration/gyro, measured stream rates, graph and CSV v2 IMU rows.
+- Keep total distance across gaps but restart displacement/height and map per segment.
+- Add projection and segment regression coverage; document limits and phone tests.
+- No physical-device accuracy or persistent SLAM map claim.
+
 # Changelog
 
 ## 0.1.0-alpha (2026-10-16)

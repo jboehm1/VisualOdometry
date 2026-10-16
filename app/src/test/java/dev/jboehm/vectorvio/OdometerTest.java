@@ -105,4 +105,18 @@ public class OdometerTest {
         for(int i=1;i<=4;i++) o.onPose(i*.01,0,0,1_000_000_000L+i*100_000_000L);
         assertEquals(.04,o.snapshot(100).totalMeters,1e-8);
     }
+
+    @Test public void newSegmentDoesNotPretendToShareOldWorldOrientation() {
+        Odometer o=new Odometer();o.start(0);
+        o.onPose(0,0,0,1_000_000_000L);o.onPose(1,0,0,1_100_000_000L);
+        o.lostTracking();o.onPose(80,20,50,1_200_000_000L);
+        o.onPose(80,20,50.5,1_300_000_000L);
+        Odometer.Snapshot s=o.snapshot(500);
+        assertEquals(1.5,s.totalMeters,1e-8);
+        assertEquals(.5,s.displacementMeters,1e-8);
+        assertEquals(0,s.verticalMeters,0);
+        assertEquals(2,s.segments);
+        assertEquals(1,s.trail.get(0).segment);
+        assertEquals(2,s.trail.get(s.trail.size()-1).segment);
+    }
 }

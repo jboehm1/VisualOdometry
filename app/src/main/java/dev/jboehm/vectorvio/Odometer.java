@@ -26,7 +26,9 @@ public final class Odometer {
 
     public static final class Point {
         public final double x, y, z;
-        public Point(double x, double y, double z) { this.x = x; this.y = y; this.z = z; }
+        public final int segment;
+        public Point(double x, double y, double z) { this(x,y,z,0); }
+        public Point(double x,double y,double z,int segment) { this.x=x;this.y=y;this.z=z;this.segment=segment; }
         public double distance(Point p) {
             return Math.sqrt(Math.pow(x-p.x,2) + Math.pow(y-p.y,2) + Math.pow(z-p.z,2));
         }
@@ -127,7 +129,7 @@ public final class Odometer {
             lastObservedNs = timestampNs;
             referencePoseNs = timestampNs;
             segments++;
-            if (trail.isEmpty()) trail.add(new Point(netX, netY, netZ));
+            beginTrailSegment();
             return Result.REFERENCE;
         }
         // Check gaps against the previous FRAME, not the previous accepted
@@ -144,6 +146,7 @@ public final class Odometer {
             speedMps = 0;
             gaps++;
             segments++;
+            beginTrailSegment();
             return Result.GAP;
         }
         // Check instantaneous frame-to-frame motion for relocalization jumps,
@@ -154,6 +157,7 @@ public final class Odometer {
             speedMps = 0;
             outliers++;
             segments++;
+            beginTrailSegment();
             return Result.REJECTED;
         }
 
@@ -182,13 +186,22 @@ public final class Odometer {
         referencePoseNs = timestampNs;
 
         Point last = trail.isEmpty() ? null : trail.get(trail.size()-1);
-        Point current = new Point(netX, netY, netZ);
+        Point current = new Point(netX, netY, netZ, segments);
         if (last == null || Math.hypot(current.x-last.x, current.z-last.z) >= TRAIL_MIN_SPACING_METERS) {
             if (trail.size() == MAX_TRAIL_POINTS) trail.remove(0);
             trail.add(current);
         }
         return Result.ACCEPTED;
     }
+
+    private void beginTrailSegment() {
+        // A new independent local frame. Never stitch unknown rotations/translations.
+        netX=netY=netZ=0;
+        if(trail.size()==MAX_TRAIL_POINTS) trail.remove(0);
+        trail.add(new Point(0,0,0,segments));
+    }
+
+    public synchronized boolean isRecording(){return recording;}
 
     public synchronized Snapshot snapshot(long nowMs) { return new Snapshot(this, nowMs); }
 }

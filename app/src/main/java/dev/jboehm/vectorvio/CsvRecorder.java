@@ -30,7 +30,7 @@ public final class CsvRecorder {
     private static final String TAG = "VectorVIO";
     private static final String HEADER =
         "event,wall_time_ms,frame_time_ns,tracking,x_m,y_m,z_m,qx,qy,qz,qw," +
-        "path_m,horizontal_m,displacement_m,vertical_m,speed_mps,segments,gaps,outliers\n";
+        "path_m,horizontal_m,displacement_m,vertical_m,speed_mps,segments,gaps,outliers,sensor_time_ns,sensor_type,imu_x,imu_y,imu_z\n";
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final File directory;
@@ -65,22 +65,35 @@ public final class CsvRecorder {
     }
 
     public void event(String label, long wallTimeMs) {
-        String[] columns = new String[19];
+        String[] columns = new String[24];
         java.util.Arrays.fill(columns, "");
         columns[0] = label;
         columns[1] = Long.toString(wallTimeMs);
         append(String.join(",", columns) + "\n");
+        io.execute(()->{try{if(writer!=null)writer.flush();}catch(Exception e){failure("CSV flush failed",e);}});
     }
 
     public void pose(long wallMs, long timestampNs, float[] position, float[] q,
                      Odometer.Snapshot s) {
         String row = String.format(Locale.US,
             "POSE,%d,%d,TRACKING,%.6f,%.6f,%.6f,%.7f,%.7f,%.7f,%.7f," +
-            "%.6f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d\n",
+            "%.6f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d,,,,,\n",
             wallMs,timestampNs,position[0],position[1],position[2],
             q[0],q[1],q[2],q[3],s.totalMeters,s.horizontalMeters,
             s.displacementMeters,s.verticalMeters,s.speedMps,s.segments,s.gaps,s.outliers);
         append(row);
+    }
+
+    /** SensorManager device axes; accelerometer m/s² including gravity, gyro rad/s.
+     * Timestamps are Android sensor monotonic time; not asserted synchronized with ARCore.
+     */
+    public void imu(int type,long timestamp,float x,float y,float z) {
+        String[] columns=new String[24];java.util.Arrays.fill(columns, "");
+        columns[0]="IMU";columns[1]=Long.toString(System.currentTimeMillis());
+        columns[19]=Long.toString(timestamp);
+        columns[20]=type==android.hardware.Sensor.TYPE_ACCELEROMETER?"ACCEL":"GYRO";
+        columns[21]=Float.toString(x);columns[22]=Float.toString(y);columns[23]=Float.toString(z);
+        append(String.join(",",columns)+"\n");
     }
 
     private void append(String line) {
