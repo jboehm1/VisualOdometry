@@ -1,3 +1,11 @@
+# 0.5.0-alpha — Deterministic offline simulation
+
+- Add an offline replay with a procedurally rendered indoor camera walk, hand-held motion, synchronized accelerometer/gyroscope values and known ground-truth pose.
+- Add repeatable 40-second route playback, pause/reset/loop controls, playback speed and 60 Hz CSV export using a fixed synthetic seed.
+- Make camera and ARCore optional at installation so simulation can run without light, camera permission, network or an ARCore-capable phone.
+- Add deterministic simulation tests for repeatability, route motion, gravity level and finite sensor values.
+- Simulation imagery and IMU are generated test inputs, not real camera recordings or measured phone sensors.
+
 # 0.4.0-alpha — Live scene map and named POIs
 
 - Replace the expanded path-only view with a bounded live X/Z scene map of point samples, tracked plane footprints, camera path and placed POIs.

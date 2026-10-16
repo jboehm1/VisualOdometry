@@ -133,18 +133,20 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         TextView layers=action("LAYERS",0xCC102D39,Color.WHITE);
         TextView sensors=action("IMU",0xCC102D39,Color.WHITE);
         TextView map=action("MAPS",0xCC102D39,Color.WHITE);
-        modes.addView(layers,weighted());modes.addView(sensors,weighted());modes.addView(map,weighted());
+        TextView simulation=action("SIM",0xCC102D39,Color.WHITE);
+        modes.addView(layers,weighted());modes.addView(sensors,weighted());modes.addView(map,weighted());modes.addView(simulation,weighted());
         FrameLayout.LayoutParams modeLayout=new FrameLayout.LayoutParams(-1,dp(48),Gravity.TOP);
         modeLayout.topMargin=dp(142);modeLayout.leftMargin=dp(12);modeLayout.rightMargin=dp(12);
         root.addView(modes,modeLayout);
         layers.setOnClickListener(v->{hud.cycleLayers();preferences.edit().putInt("overlay_layers",hud.layers()).apply();});
         layers.setOnLongClickListener(v->{
             new AlertDialog.Builder(this).setTitle("Explore your local map")
-                .setMessage("LAYERS cycles planes, point cloud and trail. Cyan = horizontal planes, violet = vertical planes, gold = measured scene points. These are geometric surfaces, not recognized objects.\n\nThe cyan trail follows the camera at phone height. Turn around to see where you walked. It is a see-through overlay, with no real-world occlusion.\n\nMAPS opens the detailed live scene map, save/3D inspection, export, loop checks and settings. Place named POIs at tracked planes; labels come from you, not automatic object detection. Unknown motion across tracking gaps is excluded. IMU shows device-axis acceleration (including gravity) and angular velocity.\n\nAccuracy is unmeasured. ARCore manages a local map; saved snapshots can be reopened in 3D, but do not restore the private ARCore tracking map. CSV includes diagnostic IMU samples, not calibrated camera–IMU research data.")
+                .setMessage("LAYERS cycles planes, point cloud and trail. Cyan = horizontal planes, violet = vertical planes, gold = measured scene points. These are geometric surfaces, not recognized objects.\n\nThe cyan trail follows the camera at phone height. Turn around to see where you walked. It is a see-through overlay, with no real-world occlusion.\n\nMAPS opens the detailed live scene map, save/3D inspection, export, loop checks and settings. Place named POIs at tracked planes; labels come from you, not automatic object detection. Unknown motion across tracking gaps is excluded. IMU shows device-axis acceleration (including gravity) and angular velocity.\n\nSIM runs a deterministic generated indoor video and synchronized synthetic IMU without camera permission or ARCore; it is for repeatable debug tests, not measured sensor data.\n\nAccuracy is unmeasured. ARCore manages a local map; saved snapshots can be reopened in 3D, but do not restore the private ARCore tracking map. CSV includes diagnostic IMU samples, not calibrated camera–IMU research data.")
                 .setPositiveButton("GOT IT",null).show();return true;
         });
         sensors.setOnClickListener(v->hud.toggleSensors());
         map.setOnClickListener(v->mapMenu());
+        simulation.setOnClickListener(v->startActivity(new Intent(this,SimulationActivity.class)));
         setContentView(root);
 
         recordButton.setOnClickListener(v->toggleRecording());
@@ -290,7 +292,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private void mapMenu() {
         String[] choices={"Expand / collapse live map","Save snapshot ("+savedKeyframes+" keyframes · "+savedPois+" POI)"+(mapFull?" — capture full; save/reset":""),
             "Open saved 3D maps / export", "Return-to-start loop check", "Photo keyframes: "+(photoKeyframes?"ON":"OFF"), "Import saved map ZIP",
-            "Mapping & overlay settings", "Place a point of interest"};
+            "Mapping & overlay settings", "Place a point of interest", "Open offline simulation"};
         new AlertDialog.Builder(this).setTitle("MAPS · local spatial snapshots")
             .setItems(choices,(dialog,index)->{
                 if(index==0)hud.toggleMap();
@@ -306,6 +308,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 }
                 if(index==6)mappingSettings();
                 if(index==7)placePoi();
+                if(index==8)startActivity(new Intent(this,SimulationActivity.class));
                 if(index==4) {
                     if(photoKeyframes){photoKeyframes=false;Toast.makeText(this,"Future photo capture disabled; existing photos retained",Toast.LENGTH_LONG).show();}
                     else new AlertDialog.Builder(this).setTitle("Save real camera keyframes?")

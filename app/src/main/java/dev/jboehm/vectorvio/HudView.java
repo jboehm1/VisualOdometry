@@ -122,7 +122,7 @@ public final class HudView extends View {
         drawReticle(c,w,h);
 
         label(c,"VECTOR",d(20),d(52),d(25)/dp,INK,true);
-        label(c,"/ SPATIAL EXPLORER  ·  0.4",d(20),d(72),10,MUTED,false);
+        label(c,"/ SPATIAL EXPLORER  ·  0.5",d(20),d(72),10,MUTED,false);
         box(c,w-d(132),d(32),w-d(16),d(63),10,0xCF0B2630,0x5539F4D2);
         disc(c,w-d(118),d(47),d(4),s!=null&&s.tracking?CYAN:AMBER,false);
         String tiny=trackingText.length()>14?trackingText.substring(0,14):trackingText;

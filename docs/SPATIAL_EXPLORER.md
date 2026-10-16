@@ -1,4 +1,4 @@
-# VECTOR Spatial Explorer 0.2
+# VECTOR Spatial Explorer 0.5
 
 This milestone adds local mapping inspection to the ARCore visual–inertial odometer.
 **Hardware validation is pending.** Build success cannot establish tracking accuracy.
@@ -184,6 +184,26 @@ PLY can be opened in CloudCompare, MeshLab or another compatible 3D viewer.
 Images use diagnostic camera capture; no calibrated synchronized VIO dataset is
 claimed. CSV recording/export remains separate. New maps use snapshot v3; old v2
 maps remain importable.
+
+## Offline simulation and deterministic replay
+
+The **SIM** control opens a standalone simulation and never requests camera
+permission. It renders a changing indoor walk-through from a fixed synthetic
+room and a scripted handheld camera path. A 40-second trajectory repeats every
+40 seconds. `SimulationModel` samples ground-truth position/orientation plus
+accelerometer and gyroscope values from the same time base, with fixed, smooth
+hand tremor, walking cadence and deterministic sensor noise. Playback supports
+pause, reset, looping and 0.5×/1×/1.5× speed; CSV export writes exactly 60
+samples per second with pose, acceleration, angular velocity, units and seed.
+
+This mode is useful for UI, synchronization, persistence and deterministic math
+regression, including dark environments and devices without ARCore. It is a
+procedural rendered scene, not recorded or photoreal camera footage, and its
+synthetic inertial values are not calibrated measurements from a physical
+phone. It does not inject frames into ARCore or exercise ARCore tracking,
+feature extraction, relocalization or VIO accuracy. The synthetic data model
+has repeatability and finite-value unit tests; the live pipeline still needs
+recorded datasets and phone-based acceptance tests.
 
 ## Closing a loop
 
