@@ -223,7 +223,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 odometer.reset();
                 clearMap=true;
                 String previousAutoName=autoMapName;
-                surface.queueEvent(()->{MapArchive previous=mapCapture.snapshot();if(!previous.frames.isEmpty())persistMap(previous,previousAutoName,false);mapCapture.reset();});
+                surface.queueEvent(()->{MapArchive previous=mapCapture.snapshot();if(!previous.frames.isEmpty()||!previous.pois.isEmpty())persistMap(previous,previousAutoName,false);mapCapture.reset();});
                 autoMapName="map_"+System.currentTimeMillis()+"_0.vmap";
                 needsNewFile=true;
                 markerCount=0;
@@ -461,7 +461,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             surface.queueEvent(()->{
                 mapper.clear();mapCapture.finishSegment();
                 MapArchive archive=mapCapture.snapshot();
-                if(!archive.frames.isEmpty())persistMap(archive,autoName,false);
+                if(!archive.frames.isEmpty()||!archive.pois.isEmpty())persistMap(archive,autoName,false);
             });
             surface.onPause();
             rendererRunning=false;
