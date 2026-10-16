@@ -35,7 +35,9 @@ public final class SimulationActivity extends Activity {
     private boolean playing=true,loop=true;
     private long baseSimNs=0,baseClockNs;
     private SimulationView simulationView;
-    private TextView playButton,speedButton,loopButton;
+    private TextView playButton,speedButton,loopButton,lightButton;
+    private int lightIndex=0;
+    private static final float[] EXPOSURES={1f,.38f,.14f,.045f};
     private final Runnable render=new Runnable(){@Override public void run(){
         if(!playing&&!loop&&baseSimNs>=SimulationModel.DURATION_NS)baseSimNs=SimulationModel.DURATION_NS-1;
         long time=currentTime();
@@ -62,16 +64,17 @@ public final class SimulationActivity extends Activity {
         simulationView=new SimulationView();root.addView(simulationView,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout controls=new LinearLayout(this);controls.setGravity(Gravity.CENTER);controls.setPadding(dp(6),dp(7),dp(6),dp(7));
         controls.setBackgroundColor(0xE9081924);
-        playButton=button("PAUSE");speedButton=button("1.0×");TextView reset=button("RESET");loopButton=button("LOOP ON");TextView export=button("CSV");
-        controls.addView(playButton,weighted());controls.addView(speedButton,weighted());controls.addView(reset,weighted());controls.addView(loopButton,weighted());controls.addView(export,weighted());
+        playButton=button("PAUSE");speedButton=button("1.0×");TextView reset=button("RESET");loopButton=button("LOOP ON");lightButton=button("LIGHT 100%");TextView export=button("CSV");
+        controls.addView(playButton,weighted());controls.addView(speedButton,weighted());controls.addView(reset,weighted());controls.addView(loopButton,weighted());controls.addView(lightButton,weighted());controls.addView(export,weighted());
         FrameLayout.LayoutParams cp=new FrameLayout.LayoutParams(-1,dp(60),Gravity.BOTTOM);root.addView(controls,cp);
         playButton.setOnClickListener(v->{if(playing){baseSimNs=currentTime();playing=false;}else{baseClockNs=SystemClock.elapsedRealtimeNanos();playing=true;}tickNow();});
         speedButton.setOnClickListener(v->{baseSimNs=currentTime();baseClockNs=SystemClock.elapsedRealtimeNanos();speedIndex=(speedIndex+1)%speeds.length;speedButton.setText(String.format(Locale.US,"%.1f×",speeds[speedIndex]/1e9));tickNow();});
         reset.setOnClickListener(v->{baseSimNs=0;baseClockNs=SystemClock.elapsedRealtimeNanos();playing=true;tickNow();});
         loopButton.setOnClickListener(v->{loop=!loop;loopButton.setText(loop?"LOOP ON":"LOOP OFF");if(loop)baseClockNs=SystemClock.elapsedRealtimeNanos();});
+        lightButton.setTextSize(8);lightButton.setOnClickListener(v->{lightIndex=(lightIndex+1)%EXPOSURES.length;lightButton.setText(new String[]{"LIGHT 100%","LIGHT 38%","LIGHT 14%","DARK 4%"}[lightIndex]);simulationView.invalidate();});
         export.setOnClickListener(v->exportCsv());
         simulationView.setOnClickListener(v->new android.app.AlertDialog.Builder(this).setTitle("About this simulation")
-            .setMessage("A deterministic 40-second square-loop corridor walk is rendered locally at playback time. A separate image-only feature tracker processes the rendered frames and builds the displayed relative path and feature landmarks; it receives no ground-truth pose or corridor geometry. Ground-truth pose is shown separately for evaluation. Relative visual motion uses a simple scale prior, so this replay is useful for repeatable tracker/UI debugging, not a validated SLAM accuracy benchmark.\n\nThe scene is synthetic rather than recorded footage, and its synchronized accelerometer/gyroscope values are simulated. Use reset and the fixed seed to compare runs reproducibly.")
+            .setMessage("A deterministic 40-second square-loop corridor walk is rendered locally at playback time. A separate image-only feature tracker processes the rendered frames and builds the displayed relative path and feature landmarks; it receives no ground-truth pose or corridor geometry. Ground-truth pose is shown separately for evaluation. The LIGHT control applies deterministic exposure loss and read noise before vision tracking. Relative visual motion uses a simple scale prior, so this replay is useful for repeatable tracker/UI debugging, not a validated SLAM accuracy benchmark.\n\nThe scene is synthetic rather than recorded footage, and its synchronized accelerometer/gyroscope values are simulated. Use reset and the fixed seed to compare runs reproducibly.")
             .setPositiveButton("OK",null).show());
         setContentView(root);tickNow();
     }
@@ -127,9 +130,10 @@ public final class SimulationActivity extends Activity {
         @Override protected void onDraw(Canvas c){
             super.onDraw(c);int w=getWidth(),h=getHeight();if(w<=0||h<=0)return;
             if(cameraFrame==null)cameraFrame=Bitmap.createBitmap(SyntheticVision.WIDTH,SyntheticVision.HEIGHT,Bitmap.Config.ARGB_8888);
-            if(processedFrames%2==0){Canvas fc=new Canvas(cameraFrame);fc.drawColor(Color.BLACK);fc.save();fc.scale(SyntheticVision.WIDTH/(float)w,SyntheticVision.HEIGHT/(float)h);drawVideo(fc,w,h);fc.restore();int[] pixels=new int[SyntheticVision.WIDTH*SyntheticVision.HEIGHT];cameraFrame.getPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);visionResult=vision.process(pixels,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);}
+            if(processedFrames%2==0){Canvas fc=new Canvas(cameraFrame);fc.drawColor(Color.BLACK);fc.save();fc.scale(SyntheticVision.WIDTH/(float)w,SyntheticVision.HEIGHT/(float)h);drawVideo(fc,w,h);fc.restore();int[] pixels=new int[SyntheticVision.WIDTH*SyntheticVision.HEIGHT];cameraFrame.getPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);applyExposure(pixels);cameraFrame.setPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);visionResult=vision.process(pixels,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);}
             processedFrames++;c.drawColor(0xFF101E27);c.drawBitmap(cameraFrame,null,new RectF(0,0,w,h),null);drawTrackingOverlay(c,w,h);drawTop(c,w);drawMap(c,w,h);drawTelemetry(c,w,h);
         }
+        private void applyExposure(int[] pixels){float exposure=EXPOSURES[lightIndex];if(exposure>=.999f)return;int frame=processedFrames;for(int i=0;i<pixels.length;i++){int p=pixels[i];int noise=exposure<.2f?(((i*1103515245+frame*12345)>>>28)&15):0;int r=Math.min(255,Math.round(((p>>16)&255)*exposure)+noise),g=Math.min(255,Math.round(((p>>8)&255)*exposure)+noise),b=Math.min(255,Math.round((p&255)*exposure)+noise);pixels[i]=(p&0xff000000)|(r<<16)|(g<<8)|b;}}
         private void drawTrackingOverlay(Canvas c,int w,int h){if(visionResult==null)return;for(SyntheticVision.Point p:visionResult.tracked){float x=p.x*w/SyntheticVision.WIDTH,y=p.y*h/SyntheticVision.HEIGHT;paint.reset();paint.setAntiAlias(true);paint.setColor(0xFF72F2B5);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d(1.4f));c.drawCircle(x,y,d(4),paint);paint.setStyle(Paint.Style.FILL);c.drawCircle(x,y,d(1.5f),paint);}text(c,"TRACKED FEATURES  "+visionResult.trackedCount,d(14),h-d(224),9,0xFF72F2B5,true);}
         private void drawVideo(Canvas c,int w,int h){
             float horizon=h*.39f-(float)(sample.pitch*h*.65);paint.setShader(new android.graphics.LinearGradient(0,0,0,horizon,0xFF334959,0xFF9AA6A3,android.graphics.Shader.TileMode.CLAMP));c.drawRect(0,0,w,horizon,paint);paint.setShader(null);

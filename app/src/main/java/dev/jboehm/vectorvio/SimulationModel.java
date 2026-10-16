@@ -52,8 +52,8 @@ final class SimulationModel {
         double dt=.006;
         double[] before=position(t-dt),after=position(t+dt);
         double vx=(after[0]-before[0])/(2*dt),vz=(after[2]-before[2])/(2*dt);
-        double yaw=Math.atan2(vx,-vz)+.008*Math.sin(2*Math.PI*.72*t)+.0025*Math.sin(2*Math.PI*3.1*t+.3);
-        double pitch=.008*Math.sin(2*Math.PI*.63*t+.4)+.0025*Math.sin(2*Math.PI*2.4*t);
+        double yaw=Math.atan2(vx,-vz)+.008*Math.sin(2*Math.PI*.7*t)+.0025*Math.sin(2*Math.PI*3.1*t+.3);
+        double pitch=.008*Math.sin(2*Math.PI*.625*t+.4)+.0025*Math.sin(2*Math.PI*2.4*t);
         double roll=.009*Math.sin(2*Math.PI*1.9*t+1.1)+.002*Math.sin(2*Math.PI*2.8*t+.2);
         return new double[]{p[0],p[1],p[2],yaw,pitch,roll};
     }
