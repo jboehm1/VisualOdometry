@@ -89,8 +89,7 @@ public final class CsvRecorder {
         });
     }
 
-    public void export(Context context, Uri destination, Consumer<String> callback) {
-        File source = currentFile;
+    public void export(Context context, File source, Uri destination, Consumer<String> callback) {
         if (source == null) {
             callback.accept("Start a recording before exporting.");
             return;
