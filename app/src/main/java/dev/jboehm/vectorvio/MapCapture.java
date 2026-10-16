@@ -33,6 +33,7 @@ final class MapCapture {
         if(start!=null){start.detach();start=null;}
         lastPose=null;previousQuaternion=null;closureMeters=-1;
     }
+    boolean full(){return count()>=MapArchive.MAX_FRAMES || live.size()>=64;}
     int count(){return frozen.size()+live.size();}
     int imageCount(){int n=0;for(Live k:live)if(k.image.length>0)n++;for(MapArchive.Keyframe k:frozen)if(k.image.length>0)n++;return n;}
     void update(Session session,Frame frame,Odometer.Result result,int currentSegment,boolean images) {

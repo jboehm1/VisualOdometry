@@ -32,6 +32,8 @@ public final class HudView extends View {
     private String notice = "Move slowly and scan a textured environment";
     private int markers = 0;
     private int keyframes=0,photos=0;
+    private boolean mapFull=false;
+    public void updateCapture(int frames,int images,boolean full){mapFull=full;updateCapture(frames,images);}
     public void updateCapture(int keyframes,int photos){this.keyframes=keyframes;this.photos=photos;invalidate();}
     private SceneMapper.Snapshot scene;
     private float[] imu=new float[8];
@@ -129,7 +131,7 @@ public final class HudView extends View {
         if(scene!=null) {
             label(c,String.format(Locale.US,"%d H / %d V PLANES   ·   %d POINTS   ·   %.0f FPS",scene.horizontal,scene.vertical,scene.points,cameraHz),d(20),d(226),9,INK,true);
         }
-        if(scene!=null) label(c,String.format(Locale.US,"MAP %d/128 KF · %d PHOTOS · GAPS %d · REJECT %d",keyframes,photos,s==null?0:s.gaps,s==null?0:s.outliers),d(20),d(242),9,MUTED,false);
+        if(scene!=null) label(c,String.format(Locale.US,"MAP %d KF%s · %d IMG · GAPS %d · REJECT %d",keyframes,mapFull?" FULL":"",photos,s==null?0:s.gaps,s==null?0:s.outliers),d(20),d(242),9,MUTED,false);
         if(expandedMap) drawMiniMap(c,d(14),d(253),w-d(28),Math.max(d(80),h-d(564)),s);
         else if(sensors) drawSensors(c,d(14),h-d(478),w-d(28),d(168));
         else drawMiniMap(c,w-d(157),h-d(454),d(137),d(145),s);

@@ -53,6 +53,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private final java.util.concurrent.ExecutorService mapIo=java.util.concurrent.Executors.newSingleThreadExecutor();
     private volatile boolean photoKeyframes=false;
     private volatile int savedKeyframes=0,capturedImages=0;
+    private volatile boolean mapFull=false;
     private volatile String autoMapName="map_"+System.currentTimeMillis()+"_0.vmap";
     private volatile boolean clearMap=false;
     private long lastSceneNs=0;
@@ -269,7 +270,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
 
     private void mapMenu() {
-        String[] choices={"Expand / collapse live map","Save mapping snapshot ("+savedKeyframes+" keyframes)",
+        String[] choices={"Expand / collapse live map","Save mapping snapshot ("+savedKeyframes+" keyframes)"+(mapFull?" — capture full; save/reset":""),
             "Open saved 3D maps / export", "Return-to-start loop check", "Photo keyframes: "+(photoKeyframes?"ON":"OFF"), "Import saved map ZIP"};
         new AlertDialog.Builder(this).setTitle("MAPS · local spatial snapshots")
             .setItems(choices,(dialog,index)->{
@@ -287,7 +288,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 if(index==4) {
                     if(photoKeyframes){photoKeyframes=false;Toast.makeText(this,"Future photo capture disabled; existing photos retained",Toast.LENGTH_LONG).show();}
                     else new AlertDialog.Builder(this).setTitle("Save real camera keyframes?")
-                        .setMessage("Optional JPEG photos are saved with map snapshots on this phone and included when exporting a map ZIP. They may contain people or private surroundings. No upload occurs. Up to 128 sparse camera keyframes; no video recording.")
+                        .setMessage("Optional JPEG photos are saved with map snapshots on this phone and included when exporting a map ZIP. They may contain people or private surroundings. No upload occurs. Maximum 64 anchored keyframes per uninterrupted segment and 128 total. No video recording.")
                         .setNegativeButton("CANCEL",null).setPositiveButton("ENABLE PHOTOS",(d,w)->photoKeyframes=true).show();
                 }
             }).show();
@@ -473,7 +474,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             }
             if(frame.getTimestamp()>0) previousFrameNs=frame.getTimestamp();
             mapCapture.update(s,frame,poseResult,odometer.currentSegment(),photoKeyframes);
-            savedKeyframes=mapCapture.count();capturedImages=mapCapture.imageCount();
+            savedKeyframes=mapCapture.count();capturedImages=mapCapture.imageCount();mapFull=mapCapture.full();
             // Anchor updates follow every pose result. Publish bounded geometry at ~20 Hz.
             if(poseResult==Odometer.Result.REFERENCE || poseResult==Odometer.Result.GAP || poseResult==Odometer.Result.REJECTED) mapper.clear();
             long now=SystemClock.elapsedRealtime();
@@ -481,8 +482,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 lastSceneNs=now;
                 SceneMapper.Snapshot scene=mapper.update(s,frame,poseResult,width,height);
                 float[] sensors=imu.snapshot();float hz=cameraHz;
-                int keyframes=savedKeyframes,images=capturedImages;
-                runOnUiThread(()->{hud.updateScene(scene,sensors,hz);hud.updateCapture(keyframes,images);});
+                int keyframes=savedKeyframes,images=capturedImages;boolean full=mapFull;
+                runOnUiThread(()->{hud.updateScene(scene,sensors,hz);hud.updateCapture(keyframes,images,full);});
             }
             if(now-lastHudUpdateMs>110) {
                 lastHudUpdateMs=now;
