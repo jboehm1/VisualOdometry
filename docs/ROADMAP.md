@@ -8,6 +8,7 @@
 - Tracking-gap handling, outlier rejection, tiny-motion deadband.
 - Per-session private CSV and user-controlled export of historical sessions.
 - Unit tests for deterministic odometer math.
+- Python CSV audit/plotting utility with parser tests and a step-by-step VIO learning guide.
 - GitHub Actions debug-APK build and test workflow.
 
 ## Not yet verified or implemented
