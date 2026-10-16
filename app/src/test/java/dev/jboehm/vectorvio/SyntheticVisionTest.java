@@ -22,6 +22,7 @@ public class SyntheticVisionTest {
         for(int i=0;i<frame.length;i++)frame[i]=(i*7919)|0xff000000;
         vision.process(frame,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);vision.reset();
         SyntheticVision.Result result=vision.process(frame,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);
-        assertEquals(0,result.points.size());assertEquals(0,result.path.size());
+        assertEquals(0,result.points.size());assertEquals(1,result.path.size());
+        assertEquals(0f,result.path.get(0)[0],0);assertEquals(0f,result.path.get(0)[1],0);
     }
 }
