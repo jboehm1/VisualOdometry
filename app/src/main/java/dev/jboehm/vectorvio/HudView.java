@@ -36,7 +36,6 @@ public final class HudView extends View {
     public HudView(Context context) {
         super(context);
         dp = getResources().getDisplayMetrics().density;
-        setLayerType(View.LAYER_TYPE_SOFTWARE, null);
     }
     private float d(float value) { return value*dp; }
 
