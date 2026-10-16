@@ -11,9 +11,11 @@ on:
 permissions:
   contents: read
 
-# Push and PR events for the same branch should not waste two CI runners.
+# Push and PR events for the same commit should not waste two CI runners.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  # Keep push and PR checks for the same commit together, while allowing a
+  # newer commit to validate independently if an older hosted runner stalls.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 jobs:
