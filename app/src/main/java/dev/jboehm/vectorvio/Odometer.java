@@ -65,11 +65,12 @@ public final class Odometer {
 
     private boolean recording = false, tracking = false;
     private Point reference;
+    private Point lastObserved;
     private double totalMeters, horizontalMeters, ascentMeters, descentMeters;
     private double netX, netY, netZ, speedMps;
     private long samples, outliers, gaps;
     private int segments;
-    private long previousPoseNs, elapsedMs, resumeTimeMs;
+    private long lastObservedNs, referencePoseNs, elapsedMs, resumeTimeMs;
     private final ArrayList<Point> trail = new ArrayList<>();
 
     public synchronized void start(long nowMs) {
@@ -77,6 +78,7 @@ public final class Odometer {
         recording = true;
         tracking = false;
         reference = null;
+        lastObserved = null;
         resumeTimeMs = nowMs;
         speedMps = 0;
     }
@@ -87,6 +89,7 @@ public final class Odometer {
         recording = false;
         tracking = false;
         reference = null;
+        lastObserved = null;
         speedMps = 0;
     }
 
@@ -94,11 +97,12 @@ public final class Odometer {
         recording = false;
         tracking = false;
         reference = null;
+        lastObserved = null;
         totalMeters = horizontalMeters = ascentMeters = descentMeters = 0;
         netX = netY = netZ = speedMps = 0;
         samples = outliers = gaps = 0;
         segments = 0;
-        elapsedMs = resumeTimeMs = previousPoseNs = 0;
+        elapsedMs = resumeTimeMs = lastObservedNs = referencePoseNs = 0;
         trail.clear();
     }
 
@@ -106,6 +110,7 @@ public final class Odometer {
         if (tracking && recording) gaps++;
         tracking = false;
         reference = null;
+        lastObserved = null;
         speedMps = 0;
     }
 
@@ -118,32 +123,42 @@ public final class Odometer {
         samples++;
         if (reference == null) {
             reference = p;
-            previousPoseNs = timestampNs;
+            lastObserved = p;
+            lastObservedNs = timestampNs;
+            referencePoseNs = timestampNs;
             segments++;
             if (trail.isEmpty()) trail.add(new Point(netX, netY, netZ));
             return Result.REFERENCE;
         }
-        double dt = (timestampNs - previousPoseNs) / 1_000_000_000.0;
-        if (dt <= 0) return Result.NO_CHANGE; // duplicate camera frame
-        if (dt > MAX_GAP_SECONDS) {
+        // Check gaps against the previous FRAME, not the previous accepted
+        // keyframe. Otherwise standing still for 0.7s would cause a fake gap.
+        double frameDt = (timestampNs - lastObservedNs) / 1_000_000_000.0;
+        if (frameDt <= 0) return Result.NO_CHANGE; // duplicate/out-of-order frame
+        double frameStep = p.distance(lastObserved);
+        lastObserved = p;
+        lastObservedNs = timestampNs;
+
+        if (frameDt > MAX_GAP_SECONDS) {
             reference = p;
-            previousPoseNs = timestampNs;
+            referencePoseNs = timestampNs;
             speedMps = 0;
             gaps++;
             segments++;
             return Result.GAP;
         }
-
-        double step = p.distance(reference);
-        if (step / dt > MAX_SPEED_MPS) {
-            // A jump or relocalization is not a physical displacement.
+        // Check instantaneous frame-to-frame motion for relocalization jumps,
+        // including jumps after standing still for a long time.
+        if (frameStep / frameDt > MAX_SPEED_MPS) {
             reference = p;
-            previousPoseNs = timestampNs;
+            referencePoseNs = timestampNs;
             speedMps = 0;
             outliers++;
             segments++;
             return Result.REJECTED;
         }
+
+        double dt = (timestampNs - referencePoseNs) / 1_000_000_000.0;
+        double step = p.distance(reference);
 
         if (step < MIN_STEP_METERS) {
             // Keep the reference point so slow genuine movements accumulate.
@@ -161,7 +176,7 @@ public final class Odometer {
         double instantaneousMps = step/dt;
         speedMps = speedMps == 0 ? instantaneousMps : 0.72*speedMps + 0.28*instantaneousMps;
         reference = p;
-        previousPoseNs = timestampNs;
+        referencePoseNs = timestampNs;
 
         Point last = trail.isEmpty() ? null : trail.get(trail.size()-1);
         Point current = new Point(netX, netY, netZ);
