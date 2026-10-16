@@ -56,4 +56,20 @@ public class MapArchiveTest {
         try(ZipOutputStream zip=new ZipOutputStream(bytes)){zip.putNextEntry(new ZipEntry("../../wrong"));zip.write(1);zip.closeEntry();}
         MapArchive.importZip(new ByteArrayInputStream(bytes.toByteArray()));
     }
+    @Test(expected=IOException.class)public void rejectsTrailingSnapshotData()throws Exception {
+        File file=File.createTempFile("vector-test", ".vmap");
+        try {
+            new MapArchive(Arrays.asList(frame(1,1))).write(file);
+            try(FileOutputStream out=new FileOutputStream(file,true)){out.write(7);}
+            MapArchive.read(file);
+        } finally {file.delete();}
+    }
+    @Test(expected=IOException.class)public void refusesToWriteSnapshotsItsReaderWouldReject()throws Exception {
+        byte[] image=new byte[MapArchive.MAX_IMAGE_BYTES];
+        Arrays.fill(image,(byte)1);
+        List<MapArchive.Keyframe> frames=new ArrayList<>();
+        for(int i=0;i<13;i++)frames.add(new MapArchive.Keyframe(1,i,new float[]{0,0,0,0,0,0,1},new float[0],image));
+        File file=File.createTempFile("vector-test", ".vmap");
+        try {new MapArchive(frames).write(file);} finally {file.delete();}
+    }
 }

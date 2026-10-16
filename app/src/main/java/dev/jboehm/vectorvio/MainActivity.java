@@ -258,7 +258,11 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     File directory=new File(getFilesDir(),"maps");
                     if(!directory.isDirectory()&&!directory.mkdirs())throw new java.io.IOException("Cannot create map folder");
                     File target=new File(directory,"map_"+System.currentTimeMillis()+".vmap");
-                    imported.write(target);
+                    File temporary=new File(directory,target.getName()+".tmp");
+                    try {
+                        imported.write(temporary);
+                        if(!temporary.renameTo(target))throw new java.io.IOException("Cannot finalize imported map");
+                    } finally {if(temporary.exists())temporary.delete();}
                     runOnUiThread(()->startActivity(new Intent(this,MapActivity.class).putExtra("map",target.getName())));
                 } catch(Exception e){runOnUiThread(()->Toast.makeText(this,"Import failed: "+e.getMessage(),Toast.LENGTH_LONG).show());}
             });

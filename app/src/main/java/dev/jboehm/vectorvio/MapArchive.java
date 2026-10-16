@@ -10,6 +10,7 @@ import java.util.zip.ZipInputStream;
 /** Versioned bounded map snapshots. Pure Java so persistence and malformed input are testable. */
 final class MapArchive {
     static final int MAX_FRAMES=128, MAX_POINTS=240, MAX_IMAGE_BYTES=2_000_000;
+    static final long MAX_ARCHIVE_BYTES=64L*1024*1024, MAX_IMAGE_TOTAL_BYTES=24L*1024*1024;
     static final int MAGIC=0x56564D32;
     static final class Keyframe {
         final int segment;
@@ -29,11 +30,26 @@ final class MapArchive {
     }
     private void writeTo(OutputStream stream) throws IOException {
         if(frames.size()>MAX_FRAMES)throw new IOException("Too many keyframes");
+        long total=9,imageBytes=0;
         DataOutputStream out=new DataOutputStream(stream);
         out.writeInt(MAGIC);out.writeBoolean(manualLoopConstraint);out.writeInt(frames.size());
         for(Keyframe k:frames) {
-            if(k.pose.length!=7 || k.points.length%4!=0 || k.points.length>MAX_POINTS*4 || k.image.length>MAX_IMAGE_BYTES)
+            if(k.segment<0 || k.timestamp<0 || k.pose.length!=7 || k.points.length%4!=0 || k.points.length>MAX_POINTS*4 || k.image.length>MAX_IMAGE_BYTES)
                 throw new IOException("Invalid keyframe size");
+            total+=12L+7L*4+4L*k.points.length+4L+k.image.length;
+            if(total>MAX_ARCHIVE_BYTES)throw new IOException("Map exceeds 64 MiB");
+            imageBytes+=k.image.length;
+            if(imageBytes>MAX_IMAGE_TOTAL_BYTES)throw new IOException("Photos exceed 24 MiB map limit");
+            double qnorm=0;
+            for(int i=0;i<k.pose.length;i++) {
+                if(!Float.isFinite(k.pose[i]))throw new IOException("Nonfinite map pose");
+                if(i>=3)qnorm+=k.pose[i]*k.pose[i];
+            }
+            if(qnorm<.25 || qnorm>2.25)throw new IOException("Invalid pose quaternion");
+            for(int i=0;i<k.points.length;i++) {
+                if(!Float.isFinite(k.points[i]))throw new IOException("Nonfinite map point");
+                if(i%4==3 && (k.points[i]<0 || k.points[i]>1))throw new IOException("Invalid point confidence");
+            }
             out.writeInt(k.segment);out.writeLong(k.timestamp);
             for(float p:k.pose)out.writeFloat(p);
             out.writeInt(k.points.length);for(float p:k.points)out.writeFloat(p);
@@ -47,7 +63,7 @@ final class MapArchive {
     private static MapArchive readFrom(InputStream source) throws IOException {
         // Bound total decoded bytes as well as every individual allocation.
         InputStream limited=new FilterInputStream(source) {
-            long remaining=64L*1024*1024;
+            long remaining=MAX_ARCHIVE_BYTES;
             @Override public int read()throws IOException {if(remaining--<=0)throw new IOException("Map exceeds 64 MiB");return super.read();}
             @Override public int read(byte[] bytes,int offset,int length)throws IOException {
                 if(remaining<=0)throw new IOException("Map exceeds 64 MiB");
@@ -58,15 +74,23 @@ final class MapArchive {
         if(in.readInt()!=MAGIC)throw new IOException("Unsupported map format");
         boolean manual=in.readBoolean();
         int count=bounded(in.readInt(),MAX_FRAMES);List<Keyframe> frames=new ArrayList<>();
+        long imageBytes=0;
         for(int i=0;i<count;i++) {
-            int segment=in.readInt();long timestamp=in.readLong();float[] pose=new float[7];
+            int segment=in.readInt();long timestamp=in.readLong();
+            if(segment<0 || timestamp<0)throw new IOException("Invalid segment or timestamp");
+            float[] pose=new float[7];
             for(int j=0;j<7;j++)pose[j]=finite(in.readFloat());
+            double qnorm=0;for(int j=3;j<7;j++)qnorm+=pose[j]*pose[j];
+            if(qnorm<.25 || qnorm>2.25)throw new IOException("Invalid pose quaternion");
             int length=bounded(in.readInt(),MAX_POINTS*4);
             if(length%4!=0)throw new IOException("Invalid point data");
             float[] points=new float[length];for(int j=0;j<length;j++)points[j]=finite(in.readFloat());
+            for(int j=3;j<length;j+=4)if(points[j]<0 || points[j]>1)throw new IOException("Invalid point confidence");
             byte[] image=new byte[bounded(in.readInt(),MAX_IMAGE_BYTES)];in.readFully(image);
+            imageBytes+=image.length;if(imageBytes>MAX_IMAGE_TOTAL_BYTES)throw new IOException("Photos exceed 24 MiB map limit");
             frames.add(new Keyframe(segment,timestamp,pose,points,image));
         }
+        if(in.read()!=-1)throw new IOException("Unexpected trailing map data");
         return new MapArchive(frames,manual);
     }
     static MapArchive importZip(InputStream source)throws IOException {

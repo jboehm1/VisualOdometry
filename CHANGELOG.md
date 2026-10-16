@@ -1,5 +1,7 @@
 # 0.3.0-alpha — Saved spatial maps
 
+- Cap optional map images at 24 MiB total and each map at 64 MiB; reject malformed or trailing snapshot data before opening it.
+- Run Android lint and compile both debug and release variants in CI.
 - Save/reopen bounded sparse map snapshots, with background-save attempt.
 - Native offline 3D orbit/zoom viewer, segment selection and camera-keyframe inspection.
 - Opt-in JPEG keyframes and segmented PLY/TUM/photo ZIP export.

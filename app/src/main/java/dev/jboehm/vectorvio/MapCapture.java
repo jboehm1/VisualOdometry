@@ -25,8 +25,9 @@ final class MapCapture {
     private Pose lastPose;
     private Anchor start;
     private long lastTimestamp;
+    private long imageBytes;
     float closureMeters=-1;
-    void reset(){finishSegment();frozen.clear();segment=0;lastCaptureNs=0;lastTimestamp=0;}
+    void reset(){finishSegment();frozen.clear();segment=0;lastCaptureNs=0;lastTimestamp=0;imageBytes=0;}
     void finishSegment() {
         frozen.addAll(resolve());
         for(Live k:live)k.anchor.detach();live.clear();
@@ -66,8 +67,13 @@ final class MapCapture {
             points=new float[local.size()];for(int i=0;i<points.length;i++)points[i]=local.get(i);
         } catch(Exception e){anchor.detach();return;}
         byte[] image=new byte[0];
-        if(images) {
-            try(Image cameraImage=frame.acquireCameraImage()){image=jpeg(cameraImage);}
+        if(images && imageBytes<MapArchive.MAX_IMAGE_TOTAL_BYTES) {
+            try(Image cameraImage=frame.acquireCameraImage()){
+                byte[] encoded=jpeg(cameraImage);
+                if(encoded.length<=MapArchive.MAX_IMAGE_BYTES && imageBytes+encoded.length<=MapArchive.MAX_IMAGE_TOTAL_BYTES) {
+                    image=encoded;imageBytes+=encoded.length;
+                }
+            }
             catch(Exception ignored){ /* Optional image unavailable; keep the measured keyframe. */ }
         }
         live.add(new Live(anchor,points,image,frame.getTimestamp(),segment));

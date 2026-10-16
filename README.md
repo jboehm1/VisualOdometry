@@ -2,9 +2,9 @@
 
 **Camera + IMU → metric 6-DoF motion → real-time augmented camera HUD → local CSV.**
 
-**Current maturity: engineering beta / unverified on physical hardware.** Not flight-control software. A successful source upload is not evidence that the app compiled, installed, or was field-tested. See the CI badge and the validation document before interpreting any measurements as reliable.
+**Current maturity: 0.3.0-alpha / not production-ready.** CI builds and tests the app, but this workspace has no supported ARCore phone for installation, camera, lifecycle, or accuracy validation. No measured-route performance is claimed. This is not flight-control software.
 
-This replaces the abandoned 2019 notebook *as an application direction*, without deleting it: the original [VO.ipynb](VO.ipynb) remains in history, with its exact original commit preserved at [backup/2019-original-colab](https://github.com/jboehm1/VisualOdometry/tree/backup/2019-original-colab). Android work lives on [feature/android-vio-odometer](https://github.com/jboehm1/VisualOdometry/tree/feature/android-vio-odometer) until verified and reviewed.
+This replaces the abandoned 2019 notebook *as an application direction*, without deleting it: the original [VO.ipynb](VO.ipynb) remains in history, with its exact original commit preserved at [backup/2019-original-colab](https://github.com/jboehm1/VisualOdometry/tree/backup/2019-original-colab). Android work is on [feature/slam-explorer](https://github.com/jboehm1/VisualOdometry/tree/feature/slam-explorer), pending field validation and review.
 
 ## Spatial Explorer 0.3
 
@@ -33,20 +33,20 @@ A Google-Play-enabled Samsung Galaxy S21 5G supports ARCore. Other supported And
 ### Install without a development computer
 
 1. Open **Actions → Android • Build, Test & APK** in this GitHub repository.
-2. Select a successful run for the `feature/android-vio-odometer` branch. If necessary, run the workflow manually.
+2. Select a successful run for the `feature/slam-explorer` branch. If necessary, run the workflow manually.
 3. Under **Artifacts**, download `vector-vio-debug-apk`.
 4. Unzip the artifact, transfer `app-debug.apk` to your Android phone, and install it. Android may ask permission to install applications from the file-manager/browser used to open the APK.
 5. Start **VECTOR · VIO**, grant Camera, and allow Google Play Services for AR to install/update if prompted.
 6. Move the phone gently while looking at **textured static scenery** until TRACKING appears, then press **START**.
 
-**If Actions has not succeeded, there is no verified installable APK yet.** Never install an APK from untrusted mirrors.
+The workflow also compiles an unsigned release variant for build coverage; it is not a distributable production release. The downloadable debug APK is for testing and may not upgrade across builds signed by different CI workers. Never install an APK from untrusted mirrors.
 
 ### Build yourself (Android Studio)
 
 - Install Android Studio with **JDK 17**, **Android SDK Platform 36**, Android SDK Build-Tools **35.0.0**.
 - Open the repository root. Use Gradle **8.13** and Android Gradle Plugin **8.13.2**.
 - Sync the project, then run the `app` configuration on a physical supported ARCore phone.
-- CLI with a locally installed Gradle 8.13: `gradle :app:testDebugUnitTest :app:assembleDebug`. A Gradle wrapper JAR is **not** checked in; CI provisions Gradle directly.
+- CLI with a locally installed Gradle 8.13: `gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease`. A Gradle wrapper JAR is **not** checked in; CI provisions Gradle directly.
 - Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`. Never distribute a debug-signed APK as a Play Store release.
 
 ## Instrument display
@@ -103,6 +103,7 @@ When the tracking signal becomes unreliable, the accumulator does **not** preten
 - Files remain in app-private `files/sessions`; EXPORT uses Android's native document picker. Reset retains previous sessions, and EXPORT lets you pick historical recordings.
 - No app account, telemetry service, advertising, network permission or GPS permission.
 - Uninstalling typically removes app-private files. Export important sessions first.
+- Saved snapshots are bounded to 128 keyframes, 240 sparse points per keyframe, 2 MB per image, 24 MiB total images, and 64 MiB per native map. When the optional photo budget is reached, later map poses continue without images.
 
 ## Reading and contribution guide
 
