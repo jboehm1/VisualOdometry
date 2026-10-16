@@ -2,6 +2,7 @@
 
 - Change the deterministic walk to a square corridor loop with softened corners and substantially reduced continuous phone shake.
 - Render a more structured corridor scene and process its camera pixels with an image-only corner detector and patch tracker.
+- Preserve feature-track identities so map landmarks stay stable instead of being re-added on every frame.
 - Add deterministic exposure levels and low-light read noise so dim and dark tracking behavior can be reproduced.
 - Draw tracked feature overlays and a relative visual path/landmark map built from image correspondences; the reconstruction receives no simulated pose or scene geometry.
 - Keep truth pose separate for comparison, and document that the lightweight relative odometer uses a scale prior and is not a validated SLAM benchmark.

@@ -11,10 +11,11 @@ public class SyntheticVisionTest {
             frame[y*w+x]=0xff000000|(v<<16)|(v<<8)|v;
         }
         SyntheticVision vision=new SyntheticVision();
-        SyntheticVision.Result first=vision.process(frame,w,h),second=vision.process(frame,w,h);
+        SyntheticVision.Result first=vision.process(frame,w,h),second=vision.process(frame,w,h),third=vision.process(frame,w,h);
         assertTrue("corners should be found in the camera pixels",first.detected>0);
         assertTrue("stationary frame correspondences should be tracked",second.trackedCount>0);
         assertTrue("map landmarks must come from tracked image observations",second.points.size()>0);
+        assertEquals("persistent feature tracks should not add duplicate map landmarks",second.points.size(),third.points.size());
     }
     @Test public void resetStartsANewImageDerivedMap(){
         SyntheticVision vision=new SyntheticVision();int[] frame=new int[SyntheticVision.WIDTH*SyntheticVision.HEIGHT];
