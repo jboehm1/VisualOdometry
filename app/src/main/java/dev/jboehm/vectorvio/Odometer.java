@@ -173,7 +173,10 @@ public final class Odometer {
         netY += dy;
         netZ += dz;
         if (dy > 0) ascentMeters += dy; else descentMeters += -dy;
-        double instantaneousMps = step/dt;
+        // Short keyframe windows provide a low-noise average velocity.
+        // After prolonged stationary time, use the latest frame motion instead
+        // of dividing the new movement by minutes spent standing still.
+        double instantaneousMps = dt <= MAX_GAP_SECONDS ? step/dt : frameStep/frameDt;
         speedMps = speedMps == 0 ? instantaneousMps : 0.72*speedMps + 0.28*instantaneousMps;
         reference = p;
         referencePoseNs = timestampNs;
