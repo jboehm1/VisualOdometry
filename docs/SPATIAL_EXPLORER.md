@@ -188,7 +188,8 @@ maps remain importable.
 ## Offline simulation and deterministic replay
 
 The **SIM** control opens a standalone simulation and never requests camera
-permission. It renders a changing indoor walk-through from a fixed synthetic
+permission. The app defers its live-camera permission request until **START**
+is selected. SIM renders a changing indoor walk-through from a fixed synthetic
 room and a scripted handheld camera path. A 40-second trajectory repeats every
 40 seconds. `SimulationModel` samples ground-truth position/orientation plus
 accelerometer and gyroscope values from the same time base, with fixed, smooth

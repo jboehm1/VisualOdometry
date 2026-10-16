@@ -26,7 +26,7 @@ S21 validation is still pending. SIM opens an offline procedural video/IMU repla
 - Place and export user-named door, hazard, landmark or note markers anchored to tracked planes.
 - Open **SIM** for a deterministic 40-second generated indoor walk, synchronized 60 Hz synthetic IMU, ground-truth path, speed/loop controls, and repeatable CSV export.
 - **START / PAUSE / RESUME / RESET / MARK** a recording and **EXPORT** past sessions as CSV.
-- Keep data **on the phone**; the app requests camera access only (not GPS or storage permission). Android document picker controls exported file destinations.
+- Keep data **on the phone**; camera permission is requested only after you choose live AR tracking, never for SIM. The app does not request GPS or storage permission; Android document picker controls exported file destinations.
 - Reject duplicate frames, tracking interruptions, frame gaps and physically implausible position jumps before they become odometer distance.
 - Run unit tests for the distance accumulator using Java/JUnit and build a debug-signed APK in GitHub Actions.
 

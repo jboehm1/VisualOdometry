@@ -73,10 +73,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile int width=0,height=0;
     private volatile boolean textureAssigned=false;
     private volatile boolean rendererRunning=false;
-    private volatile String message="Scan textured surfaces slowly to initialize tracking";
-    private volatile String trackingLabel="STARTING";
+    private volatile String message="Tap START for AR tracking, or SIM for offline replay";
+    private volatile String trackingLabel="SIM READY";
     private long lastHudUpdateMs=0,lastLoggedFrameNs=0;
-    private boolean installRequested=false,needsNewFile=true;
+    private boolean installRequested=false,needsNewFile=true,liveModeRequested=false;
     private int markerCount=0;
     private File exportFile;
     private static final class PoiRequest {final String type,label;PoiRequest(String type,String label){this.type=type;this.label=label;}}
@@ -177,7 +177,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
 
     private void toggleRecording() {
         if (arSession==null || !rendererRunning) {
-            Toast.makeText(this,"ARCore is not ready",Toast.LENGTH_SHORT).show();
+            liveModeRequested=true;
+            startAr();
             return;
         }
         long now=SystemClock.elapsedRealtime();
@@ -396,9 +397,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     @Override protected void onResume() {
         super.onResume();
         imu.start();
-        startAr();
+        if(liveModeRequested)startAr();
     }
     private void startAr() {
+        if(rendererRunning)return;
         if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED) {
             trackingLabel="PERMISSION";
             message="Camera access required for visual-inertial tracking";
@@ -444,6 +446,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(request==CAMERA_REQUEST) {
             if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED) startAr();
             else {
+                liveModeRequested=false;
                 trackingLabel="NO CAMERA";
                 message="Enable camera permission in Android Settings";
                 refreshHud();
