@@ -1,0 +1,12 @@
+# Android and local machine
+.gradle/
+build/
+**/build/
+local.properties
+.idea/
+*.iml
+.cxx/
+captures/
+*.apk
+*.aab
+.DS_Store
