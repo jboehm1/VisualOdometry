@@ -139,7 +139,7 @@ public final class HudView extends View {
             return;
         }
         List<Odometer.Point> pts=s.trail;
-        double loX=0,hiX=0,loZ=0,hiZ=0;
+        double loX=pts.get(0).x,hiX=pts.get(0).x,loZ=pts.get(0).z,hiZ=pts.get(0).z;
         for(Odometer.Point v:pts) {
             loX=Math.min(loX,v.x);hiX=Math.max(hiX,v.x);
             loZ=Math.min(loZ,v.z);hiZ=Math.max(hiZ,v.z);
