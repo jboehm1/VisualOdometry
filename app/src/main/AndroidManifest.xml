@@ -5,6 +5,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <application
         android:label="VECTOR · VIO"
+        android:icon="@mipmap/ic_launcher"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="false"
         android:allowBackup="false"
