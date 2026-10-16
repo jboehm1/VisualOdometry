@@ -12,6 +12,12 @@ This milestone adds local mapping inspection to the ARCore visual–inertial odo
 5. MAP expands the current segment's top view; tap again to restore the compact view.
 6. MARK inserts a CSV event; PAUSE excludes motion; RESET starts a new recording.
 7. EXPORT retains the document picker and historical session selection.
+8. MAPS → Place a point of interest: type a short label, choose LANDMARK / DOOR /
+   HAZARD / NOTE, aim the reticle at a tracked plane and save. The label appears
+   in the camera overlay, live top-down scene map, saved 3D view and ZIP export.
+9. MAPS → Mapping & overlay settings changes capture interval, minimum distance,
+   minimum rotation and point-cloud confidence. The LAYERS button cycles the
+   camera overlay and persists its selection.
 
 ## What the visual elements mean
 
@@ -23,6 +29,7 @@ This milestone adds local mapping inspection to the ARCore visual–inertial odo
 | Cyan trail | Anchors created near accepted camera poses | Historical **camera-height** path, not a floor-snapped walking route |
 | Reticle | Screen-space graphics | A visual aid, never a measured feature |
 | Segment map | Accepted X/Z increments in latest independent segment | Local axes, not geographic north; old segments are not stitched |
+| Gold POI pin | User-created ARCore plane anchor | A manually named place; no automatic object or semantic recognition |
 | IMU graph | SensorManager acceleration magnitude | Approximately 4.5 seconds at 20 HUD updates/s, centered at 9.81 m/s² |
 
 Plane labels show ARCore bounding extents, not polygon area or verified dimensions.
@@ -35,7 +42,8 @@ Plane detection is horizontal + vertical. Depth mode remains disabled.
 ARCore manages its own local map and relocalization. Anchors can adjust with its
 model; that does not make the recorded path ground truth. This app does not expose
 pose covariance, an explicit loop-closure graph, dense reconstruction, object
-recognition, persistent maps, or map reload between launches.
+recognition, or map reload between launches. The saved snapshot is a sparse scene
+record, not ARCore's private tracking map.
 
 The trail is bounded to 96 anchors, separated by approximately 0.4 m. Old anchors
 are detached. Plane drawing is capped at 24 visible polygons and projection runs
@@ -113,6 +121,31 @@ map and camera trajectory, not a dense textured reconstruction or mesh.
 The viewer draws at most 10,000 point samples for responsiveness; export retains
 all captured samples, including repeated observations of the same scene point.
 
+The live expanded map is a bounded X/Z scene view. It combines a decimated
+current-segment point cloud, tracked plane footprints, anchored camera path and
+placed POIs. Pan/zoom is not supported in this live HUD yet; the saved 3D view
+supports orbit and zoom. Points are display samples, not a fused/meshed cloud.
+
+### User-marked points of interest
+
+MAPS → Place a point of interest stores a user-supplied label and one of four
+types at the center reticle. Placement requires a tracked ARCore plane. The
+marker is anchored and follows ARCore's local map updates while the session is
+active; it is frozen in the saved snapshot at a segment boundary. Up to 64
+markers are kept per snapshot. Type and label appear in the live camera overlay,
+the live map and saved 3D viewer, and export to one `points_of_interest.csv` per
+segment. Version 3 map snapshots store markers; the viewer and importer continue
+to read version 2 snapshots. Markers identify places the user named. The app
+does not infer “door”, “hazard” or other object classes from pixels.
+
+### Easy mapping settings
+
+MAPS → Mapping & overlay settings controls capture interval (0.25–2.0 s), minimum
+translation (0.25–2.0 m), minimum rotation (5–45°), and ARCore point confidence
+(0.00–0.80). Values persist on the phone and affect new capture. LAYERS cycles
+the live camera overlay and remembers the selected mode. Photo capture remains
+separately opt-in and OFF by default.
+
 ### Limits
 
 - Up to 128 keyframes per in-memory mapping session, 64 anchored keyframes in the
@@ -141,7 +174,7 @@ S21 performance profiling; reduce/disable photos if it causes frame gaps.
 
 Open a saved map → EXPORT ZIP → choose destination. Each independent segment
 gets `cloud.ply` (ASCII XYZ + confidence), `trajectory.tum` (timestamp + position
-+ quaternion x/y/z/w) and optional `images/keyframe_N.jpg`. Poses are sparse
++ quaternion x/y/z/w), `points_of_interest.csv` and optional `images/keyframe_N.jpg`. Poses are sparse
 keyframes, not the full odometer sample stream. N is the global snapshot keyframe
 index. ZIP includes a README recording whether a manual constraint was applied and
 `snapshot.vmap` as its first entry. MAPS → Import saved map ZIP restores this
@@ -149,7 +182,8 @@ portable snapshot, including photos, for offline 3D inspection. Import accepts
 only this format, bounds decoded data to 64 MiB and extracts no archive paths.
 PLY can be opened in CloudCompare, MeshLab or another compatible 3D viewer.
 Images use diagnostic camera capture; no calibrated synchronized VIO dataset is
-claimed. CSV recording/export remains separate.
+claimed. CSV recording/export remains separate. New maps use snapshot v3; old v2
+maps remain importable.
 
 ## Closing a loop
 

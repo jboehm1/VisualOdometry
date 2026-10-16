@@ -1,3 +1,12 @@
+# 0.4.0-alpha — Live scene map and named POIs
+
+- Replace the expanded path-only view with a bounded live X/Z scene map of point samples, tracked plane footprints, camera path and placed POIs.
+- Add user-named, ARCore plane-anchored POIs with categories, camera overlay, saved 3D labels and per-segment CSV export.
+- Add persistent controls for keyframe interval, translation/rotation capture thresholds, point confidence and overlay layers.
+- Upgrade map snapshots to v3 while retaining v2 import; apply manual loop corrections to POI anchors too.
+- Add POI round-trip/export, v2 compatibility and marker-correction tests.
+- Still requires measured physical-device testing; no automatic semantic object detection or pose-graph SLAM is claimed.
+
 # 0.3.0-alpha — Saved spatial maps
 
 - Cap optional map images at 24 MiB total and each map at 64 MiB; reject malformed or trailing snapshot data before opening it.

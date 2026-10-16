@@ -31,10 +31,12 @@ public final class HudView extends View {
     private String trackingText = "INITIALIZING";
     private String notice = "Move slowly and scan a textured environment";
     private int markers = 0;
-    private int keyframes=0,photos=0;
+    private int keyframes=0,photos=0,poiCount=0;
     private boolean mapFull=false;
-    public void updateCapture(int frames,int images,boolean full){mapFull=full;updateCapture(frames,images);}
-    public void updateCapture(int keyframes,int photos){this.keyframes=keyframes;this.photos=photos;invalidate();}
+    public void updateCapture(int frames,int images,boolean full){mapFull=full;updateCapture(frames,images,poiCount);}
+    public void updateCapture(int frames,int images,int markers,boolean full){mapFull=full;updateCapture(frames,images,markers);}
+    public void updateCapture(int keyframes,int photos){updateCapture(keyframes,photos,poiCount);}
+    public void updateCapture(int frames,int images,int markers){this.keyframes=frames;this.photos=images;poiCount=markers;invalidate();}
     private SceneMapper.Snapshot scene;
     private float[] imu=new float[8];
     private float cameraHz;
@@ -43,6 +45,8 @@ public final class HudView extends View {
     private final float[] accelerationHistory=new float[90];
     private int historyIndex=0;
     public void cycleLayers(){ layers=(layers+1)%4;invalidate(); }
+    public void setLayers(int value){layers=Math.max(0,Math.min(3,value));invalidate();}
+    public int layers(){return layers;}
     public void toggleSensors(){sensors=!sensors;invalidate();}
     public void toggleMap(){expandedMap=!expandedMap;invalidate();}
     public void updateScene(SceneMapper.Snapshot value,float[] sensorValues,float hz) {
@@ -118,7 +122,7 @@ public final class HudView extends View {
         drawReticle(c,w,h);
 
         label(c,"VECTOR",d(20),d(52),d(25)/dp,INK,true);
-        label(c,"/ SPATIAL EXPLORER  ·  0.3",d(20),d(72),10,MUTED,false);
+        label(c,"/ SPATIAL EXPLORER  ·  0.4",d(20),d(72),10,MUTED,false);
         box(c,w-d(132),d(32),w-d(16),d(63),10,0xCF0B2630,0x5539F4D2);
         disc(c,w-d(118),d(47),d(4),s!=null&&s.tracking?CYAN:AMBER,false);
         String tiny=trackingText.length()>14?trackingText.substring(0,14):trackingText;
@@ -131,8 +135,8 @@ public final class HudView extends View {
         if(scene!=null) {
             label(c,String.format(Locale.US,"%d H / %d V PLANES   ·   %d POINTS   ·   %.0f FPS",scene.horizontal,scene.vertical,scene.points,cameraHz),d(20),d(226),9,INK,true);
         }
-        if(scene!=null) label(c,String.format(Locale.US,"MAP %d KF%s · %d IMG · GAPS %d · REJECT %d",keyframes,mapFull?" FULL":"",photos,s==null?0:s.gaps,s==null?0:s.outliers),d(20),d(242),9,MUTED,false);
-        if(expandedMap) drawMiniMap(c,d(14),d(253),w-d(28),Math.max(d(80),h-d(564)),s);
+        if(scene!=null) label(c,String.format(Locale.US,"MAP %d KF%s · %d IMG · %d POI · GAPS %d · REJECT %d",keyframes,mapFull?" FULL":"",photos,poiCount,s==null?0:s.gaps,s==null?0:s.outliers),d(20),d(242),9,MUTED,false);
+        if(expandedMap) drawLiveMap(c,d(14),d(253),w-d(28),Math.max(d(80),h-d(564)),s);
         else if(sensors) drawSensors(c,d(14),h-d(478),w-d(28),d(168));
         else drawMiniMap(c,w-d(157),h-d(454),d(137),d(145),s);
         drawDataPanel(c,w,h,s);
@@ -150,6 +154,12 @@ public final class HudView extends View {
             if(shape.kind==3){
                 line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0x4044E8FD,9);
                 line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xFF7AF2FF,2.5f);continue;
+            }
+            if(shape.kind==4) {
+                float x=xy[0]*w,y=xy[1]*h;disc(c,x,y,d(7),0xFFFFC976,false);disc(c,x,y,d(2),Color.WHITE,false);
+                float labelX=Math.max(d(92),Math.min(w-d(92),x));float labelY=Math.max(d(267),Math.min(h-d(324),y-d(14)));
+                box(c,labelX-d(86),labelY-d(15),labelX+d(86),labelY+d(8),7,0xE7071925,0xAAFFC976);
+                label(c,shape.label.length()>26?shape.label.substring(0,25)+"…":shape.label,labelX-d(80),labelY,9,AMBER,true);continue;
             }
             Path path=new Path();float cx=0,cy=0;
             for(int i=0;i<xy.length;i+=2) {
@@ -244,6 +254,45 @@ public final class HudView extends View {
         disc(c,endX,endY,d(4.5f),CYAN,false);
         if(scene!=null)line(c,endX,endY,endX+(float)Math.sin(scene.heading)*d(14),endY+(float)Math.cos(scene.heading)*d(14),CYAN,2);
         label(c,String.format(Locale.US,"%.0f m window",side),l+d(10),top+height-d(8),9,MUTED,false);
+    }
+
+    /** Dense but bounded X/Z view of the current ARCore tracking segment. */
+    private void drawLiveMap(Canvas c,float l,float top,float width,float height,Odometer.Snapshot s) {
+        box(c,l,top,l+width,top+height,14,0xE9071825,0x8063A9B5);
+        label(c,"LIVE SCENE MAP · X / Z · CURRENT SEGMENT",l+d(11),top+d(19),9,CYAN,true);
+        if(scene==null){label(c,"Waiting for tracked geometry…",l+d(15),top+d(48),11,MUTED,false);return;}
+        double minX=scene.cameraX,maxX=minX,minZ=scene.cameraZ,maxZ=minZ;
+        for(SceneMapper.MapPoint point:scene.mapPoints){minX=Math.min(minX,point.x);maxX=Math.max(maxX,point.x);minZ=Math.min(minZ,point.z);maxZ=Math.max(maxZ,point.z);}
+        for(float[] path:scene.path){minX=Math.min(minX,path[0]);maxX=Math.max(maxX,path[0]);minZ=Math.min(minZ,path[2]);maxZ=Math.max(maxZ,path[2]);}
+        for(MapArchive.Poi poi:scene.pois){minX=Math.min(minX,poi.pose[0]);maxX=Math.max(maxX,poi.pose[0]);minZ=Math.min(minZ,poi.pose[2]);maxZ=Math.max(maxZ,poi.pose[2]);}
+        double side=Math.max(1.5,Math.max(maxX-minX,maxZ-minZ)*1.18),midX=(maxX+minX)/2,midZ=(maxZ+minZ)/2;
+        float mapTop=top+d(30),mapBottom=top+height-d(15),mapLeft=l+d(15),mapRight=l+width-d(15);
+        float scale=(float)(Math.min(mapRight-mapLeft,mapBottom-mapTop)/side);
+        float cx=(mapLeft+mapRight)/2,cy=(mapTop+mapBottom)/2;
+        c.save();c.clipRect(mapLeft,mapTop,mapRight,mapBottom);
+        for(int i=-4;i<=4;i++){
+            float offset=i*(float)(side/8)*scale;
+            line(c,cx+offset,mapTop,cx+offset,mapBottom,0x293B8793,.65f);
+            line(c,mapLeft,cy+offset,mapRight,cy+offset,0x293B8793,.65f);
+        }
+        for(SceneMapper.MapSurface surface:scene.surfaces) {
+            if(surface.xz.length<6)continue;Path boundary=new Path();
+            for(int i=0;i<surface.xz.length;i+=2){float x=(float)(cx+(surface.xz[i]-midX)*scale),y=(float)(cy+(surface.xz[i+1]-midZ)*scale);if(i==0)boundary.moveTo(x,y);else boundary.lineTo(x,y);}
+            boundary.close();resetPaint();p.setColor(surface.vertical?0xAAB5A0FF:0xAA74FCE1);p.setStrokeWidth(d(1.5f));p.setStyle(Paint.Style.STROKE);c.drawPath(boundary,p);p.setStyle(Paint.Style.FILL);
+        }
+        for(SceneMapper.MapPoint point:scene.mapPoints){
+            float x=(float)(cx+(point.x-midX)*scale),y=(float)(cy+(point.z-midZ)*scale);
+            int tint=point.y>1.5f?0xFFAB95FF:0xFFFFD080;disc(c,x,y,d(2f),tint,false);
+        }
+        float[] prior=null;
+        for(float[] pose:scene.path){float x=(float)(cx+(pose[0]-midX)*scale),y=(float)(cy+(pose[2]-midZ)*scale);
+            if(prior!=null)line(c,prior[0],prior[1],x,y,0xFF74FCE1,2.3f);prior=new float[]{x,y};}
+        for(MapArchive.Poi poi:scene.pois){float x=(float)(cx+(poi.pose[0]-midX)*scale),y=(float)(cy+(poi.pose[2]-midZ)*scale);disc(c,x,y,d(5),AMBER,false);}
+        float px=(float)(cx+(scene.cameraX-midX)*scale),py=(float)(cy+(scene.cameraZ-midZ)*scale);
+        disc(c,px,py,d(4),Color.WHITE,false);
+        line(c,px,py,px+(float)Math.sin(scene.heading)*d(15),py+(float)Math.cos(scene.heading)*d(15),Color.WHITE,2);
+        c.restore();
+        label(c,String.format(Locale.US,"%d scene points · %d planes · %d markers · %.1f m view",scene.mapPoints.size(),scene.horizontal+scene.vertical,scene.pois.size(),side),l+d(11),top+height-d(4),9,MUTED,false);
     }
 
     private void drawDataPanel(Canvas c,int w,int h,Odometer.Snapshot s) {

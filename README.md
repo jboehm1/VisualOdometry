@@ -2,25 +2,28 @@
 
 **Camera + IMU → metric 6-DoF motion → real-time augmented camera HUD → local CSV.**
 
-**Current maturity: 0.3.0-alpha / not production-ready.** CI builds and tests the app, but this workspace has no supported ARCore phone for installation, camera, lifecycle, or accuracy validation. No measured-route performance is claimed. This is not flight-control software.
+**Current maturity: 0.4.0-alpha / not production-ready.** CI builds and tests the app, but this workspace has no supported ARCore phone for installation, camera, lifecycle, or accuracy validation. No measured-route performance is claimed. This is not flight-control software.
 
 This replaces the abandoned 2019 notebook *as an application direction*, without deleting it: the original [VO.ipynb](VO.ipynb) remains in history, with its exact original commit preserved at [backup/2019-original-colab](https://github.com/jboehm1/VisualOdometry/tree/backup/2019-original-colab). Android work is on [feature/slam-explorer](https://github.com/jboehm1/VisualOdometry/tree/feature/slam-explorer), pending field validation and review.
 
-## Spatial Explorer 0.3
+## Spatial Explorer 0.4
 
 See [SPATIAL_EXPLORER.md](docs/SPATIAL_EXPLORER.md) for controls, mapping semantics,
 CSV v2 and validation. New: real horizontal/vertical plane boundaries, measured
-point-cloud overlays, anchored camera-height trail, expandable segment map and
+point-cloud overlays, anchored camera-height trail, an expanded live scene map and
 live raw accelerometer/gyro diagnostics with timestamped CSV samples. ARCore
 provides the local tracking/map engine; saved point-cloud/image snapshots reopen in an offline 3D viewer. Optional manual
 endpoint constraints create a corrected copy; automatic loop optimization and
-persistent tracking-map reload are not implemented. Physical S21 validation is still pending.
+persistent tracking-map reload are not implemented. User-marked points of interest
+are anchored and exported; no automatic object recognition is claimed. Physical
+S21 validation is still pending.
 
 ## What you can do
 
 - Open a live camera preview with a custom high-contrast, semi-transparent **VIO HUD**.
 - Read metric **accumulated path**, **current-segment displacement**, **smoothed speed**, **relative height**, **elapsed time**, and tracking status.
-- Inspect a small local **top-down X/Z trajectory map**, using ARCore's Y-up world frame.
+- Inspect a live top-down **scene map** of decimated ARCore points, plane footprints, camera path and named POIs, plus saved 3D snapshots.
+- Place and export user-named door, hazard, landmark or note markers anchored to tracked planes.
 - **START / PAUSE / RESUME / RESET / MARK** a recording and **EXPORT** past sessions as CSV.
 - Keep data **on the phone**; the app requests camera access only (not GPS or storage permission). Android document picker controls exported file destinations.
 - Reject duplicate frames, tracking interruptions, frame gaps and physically implausible position jumps before they become odometer distance.

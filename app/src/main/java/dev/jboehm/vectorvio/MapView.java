@@ -81,6 +81,12 @@ final class MapView extends View {
             if(previous!=null){line(c,previous,p,0x405BF3FF,7);line(c,previous,p,0xFF85EDFF,2);}
             previous=p;paint.setColor(0xFFFFCE86);c.drawCircle(p[0],p[1],2.3f*dp,paint);
         }
+        for(MapArchive.Poi poi:archive.pois)if(poi.segment==segment()) {
+            float[] marker=project(poi.pose[0],poi.pose[1],poi.pose[2]);
+            paint.setColor(0xFFFFC976);c.drawCircle(marker[0],marker[1],5*dp,paint);
+            paint.setColor(Color.WHITE);paint.setTextSize(10*dp);
+            c.drawText(poi.type+" · "+poi.label,marker[0]+7*dp,marker[1]-7*dp,paint);
+        }
         if(!selected.isEmpty()) {
             MapArchive.Keyframe k=selected.get(keyframe);float[] p=project(k.pose[0],k.pose[1],k.pose[2]);
             paint.setColor(Color.WHITE);c.drawCircle(p[0],p[1],5*dp,paint);
@@ -89,7 +95,8 @@ final class MapView extends View {
             float[] tip=project(k.pose[0]-2*(qx*qz+qw*qy)*length,k.pose[1]-2*(qy*qz-qw*qx)*length,k.pose[2]-(1-2*(qx*qx+qy*qy))*length);
             line(c,p,tip,0xFFFFFFFF,2);
         }
-        text(c,"SEGMENT "+segment()+"  /  "+selected.size()+" KEYFRAMES  /  "+total+" SAMPLES",28*dp,0xFF78F4DC);
+        int markCount=0;for(MapArchive.Poi poi:archive.pois)if(poi.segment==segment())markCount++;
+        text(c,"SEGMENT "+segment()+"  /  "+selected.size()+" KEYFRAMES  /  "+total+" SAMPLES  /  "+markCount+" MARKERS",28*dp,0xFF78F4DC);
         text(c,"Drag to orbit · pinch to zoom · independent local world",48*dp,0xFF9FB7C8);
         if(archive.manualLoopConstraint)text(c,"MANUAL LOOP CONSTRAINT · assumed endpoints",68*dp,0xFFFFCB88);
         if(!selected.isEmpty()) {

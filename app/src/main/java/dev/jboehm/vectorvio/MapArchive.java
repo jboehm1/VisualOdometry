@@ -9,9 +9,9 @@ import java.util.zip.ZipInputStream;
 
 /** Versioned bounded map snapshots. Pure Java so persistence and malformed input are testable. */
 final class MapArchive {
-    static final int MAX_FRAMES=128, MAX_POINTS=240, MAX_IMAGE_BYTES=2_000_000;
+    static final int MAX_FRAMES=128, MAX_POINTS=240, MAX_IMAGE_BYTES=2_000_000, MAX_POIS=64, MAX_POI_LABEL_CHARS=48;
     static final long MAX_ARCHIVE_BYTES=64L*1024*1024, MAX_IMAGE_TOTAL_BYTES=24L*1024*1024;
-    static final int MAGIC=0x56564D32;
+    static final int MAGIC=0x56564D33, LEGACY_MAGIC=0x56564D32;
     static final class Keyframe {
         final int segment;
         final long timestamp;
@@ -21,16 +21,31 @@ final class MapArchive {
             this.segment=segment;this.timestamp=timestamp;this.pose=pose;this.points=points;this.image=image;
         }
     }
+    static final class Poi {
+        final int segment;
+        final long timestamp;
+        final String type,label;
+        final float[] pose;
+        Poi(int segment,long timestamp,String type,String label,float[] pose) {
+            this.segment=segment;this.timestamp=timestamp;this.type=type;this.label=label;this.pose=pose;
+        }
+    }
     final List<Keyframe> frames;
+    final List<Poi> pois;
     final boolean manualLoopConstraint;
-    MapArchive(List<Keyframe> frames){this(frames,false);}
-    MapArchive(List<Keyframe> frames,boolean manual){this.frames=Collections.unmodifiableList(new ArrayList<>(frames));manualLoopConstraint=manual;}
+    MapArchive(List<Keyframe> frames){this(frames,Collections.emptyList(),false);}
+    MapArchive(List<Keyframe> frames,boolean manual){this(frames,Collections.emptyList(),manual);}
+    MapArchive(List<Keyframe> frames,List<Poi> pois,boolean manual){
+        this.frames=Collections.unmodifiableList(new ArrayList<>(frames));
+        this.pois=Collections.unmodifiableList(new ArrayList<>(pois));manualLoopConstraint=manual;
+    }
     void write(File target) throws IOException {
         try(OutputStream stream=new BufferedOutputStream(new FileOutputStream(target))){writeTo(stream);}
     }
     private void writeTo(OutputStream stream) throws IOException {
         if(frames.size()>MAX_FRAMES)throw new IOException("Too many keyframes");
-        long total=9,imageBytes=0;
+        if(pois.size()>MAX_POIS)throw new IOException("Too many points of interest");
+        long total=13,imageBytes=0;
         DataOutputStream out=new DataOutputStream(stream);
         out.writeInt(MAGIC);out.writeBoolean(manualLoopConstraint);out.writeInt(frames.size());
         for(Keyframe k:frames) {
@@ -55,6 +70,18 @@ final class MapArchive {
             out.writeInt(k.points.length);for(float p:k.points)out.writeFloat(p);
             out.writeInt(k.image.length);out.write(k.image);
         }
+        out.writeInt(pois.size());
+        for(Poi poi:pois) {
+            if(poi.segment<0||poi.timestamp<0||poi.pose.length!=7||!validPoiType(poi.type)||poi.label==null||poi.label.trim().isEmpty()||poi.label.length()>MAX_POI_LABEL_CHARS||poi.label.indexOf('\n')>=0||poi.label.indexOf('\r')>=0)
+                throw new IOException("Invalid point of interest");
+            byte[] type=poi.type.getBytes(StandardCharsets.UTF_8),label=poi.label.getBytes(StandardCharsets.UTF_8);
+            if(type.length>24||label.length>MAX_POI_LABEL_CHARS*4)throw new IOException("Point of interest text is too long");
+            double qnorm=0;for(int i=0;i<7;i++){if(!Float.isFinite(poi.pose[i]))throw new IOException("Nonfinite point of interest pose");if(i>=3)qnorm+=poi.pose[i]*poi.pose[i];}
+            if(qnorm<.25||qnorm>2.25)throw new IOException("Invalid point of interest orientation");
+            total+=12+4+type.length+4+label.length+28;if(total>MAX_ARCHIVE_BYTES)throw new IOException("Map exceeds 64 MiB");
+            out.writeInt(poi.segment);out.writeLong(poi.timestamp);out.writeUTF(poi.type);out.writeUTF(poi.label);
+            for(float v:poi.pose)out.writeFloat(v);
+        }
         out.flush();
     }
     static MapArchive read(File source) throws IOException {
@@ -64,14 +91,20 @@ final class MapArchive {
         // Bound total decoded bytes as well as every individual allocation.
         InputStream limited=new FilterInputStream(source) {
             long remaining=MAX_ARCHIVE_BYTES;
-            @Override public int read()throws IOException {if(remaining--<=0)throw new IOException("Map exceeds 64 MiB");return super.read();}
+            @Override public int read()throws IOException {
+                if(remaining<0)throw new IOException("Map exceeds 64 MiB");
+                if(remaining==0){int extra=super.read();if(extra<0)return -1;throw new IOException("Map exceeds 64 MiB");}
+                int value=super.read();if(value>=0)remaining--;return value;
+            }
             @Override public int read(byte[] bytes,int offset,int length)throws IOException {
-                if(remaining<=0)throw new IOException("Map exceeds 64 MiB");
+                if(length==0)return 0;
+                if(remaining==0)return read();
+                if(remaining<0)throw new IOException("Map exceeds 64 MiB");
                 int count=in.read(bytes,offset,(int)Math.min(length,remaining));if(count>0)remaining-=count;return count;
             }
         };
         DataInputStream in=new DataInputStream(limited);
-        if(in.readInt()!=MAGIC)throw new IOException("Unsupported map format");
+        int magic=in.readInt();if(magic!=MAGIC&&magic!=LEGACY_MAGIC)throw new IOException("Unsupported map format");
         boolean manual=in.readBoolean();
         int count=bounded(in.readInt(),MAX_FRAMES);List<Keyframe> frames=new ArrayList<>();
         long imageBytes=0;
@@ -90,8 +123,19 @@ final class MapArchive {
             imageBytes+=image.length;if(imageBytes>MAX_IMAGE_TOTAL_BYTES)throw new IOException("Photos exceed 24 MiB map limit");
             frames.add(new Keyframe(segment,timestamp,pose,points,image));
         }
+        List<Poi> pois=new ArrayList<>();
+        if(magic==MAGIC) {
+            int poiCount=bounded(in.readInt(),MAX_POIS);
+            for(int i=0;i<poiCount;i++) {
+                int segment=in.readInt();long timestamp=in.readLong();String type=in.readUTF(),label=in.readUTF();float[] pose=new float[7];
+                if(segment<0||timestamp<0||!validPoiType(type)||label.trim().isEmpty()||label.length()>MAX_POI_LABEL_CHARS||label.indexOf('\n')>=0||label.indexOf('\r')>=0)throw new IOException("Invalid point of interest");
+                double qnorm=0;for(int j=0;j<7;j++){pose[j]=finite(in.readFloat());if(j>=3)qnorm+=pose[j]*pose[j];}
+                if(qnorm<.25||qnorm>2.25)throw new IOException("Invalid point of interest orientation");
+                pois.add(new Poi(segment,timestamp,type,label,pose));
+            }
+        }
         if(in.read()!=-1)throw new IOException("Unexpected trailing map data");
-        return new MapArchive(frames,manual);
+        return new MapArchive(frames,pois,manual);
     }
     static MapArchive importZip(InputStream source)throws IOException {
         // Only our own format is accepted. No filesystem extraction or unbounded entry scanning.
@@ -109,8 +153,10 @@ final class MapArchive {
         try(ZipOutputStream zip=new ZipOutputStream(destination)) {
             zip.putNextEntry(new ZipEntry("snapshot.vmap"));writeTo(zip);zip.closeEntry();
             Set<Integer> segments=new TreeSet<>();for(Keyframe k:frames)segments.add(k.segment);
-            put(zip,"README.txt",("VECTOR map snapshot v2\nUnits: metres; ARCore Y up; pose quaternion x y z w.\n"+
+            for(Poi poi:pois)segments.add(poi.segment);
+            put(zip,"README.txt",("VECTOR map snapshot v3 (v2 snapshots remain readable)\nUnits: metres; ARCore Y up; pose quaternion x y z w.\n"+
                 "Each segment is independent. Sparse overlapping point samples are not a dense mesh.\n"+
+                "points_of_interest.csv contains user-entered anchored labels; these are not automatically recognized objects.\n"+
                 "Anchors were resolved at save time. This cannot restore ARCore tracking or its private map.\n"+
                 "trajectory.tum is sparse keyframe trajectory, not every odometer sample.\n"+
                 "Images are optional unrotated camera keyframes, not a synchronized VIO dataset.\n"+
@@ -136,6 +182,9 @@ final class MapArchive {
                 put(zip,prefix+"keyframes.csv",index.toString().getBytes(StandardCharsets.UTF_8));
                 put(zip,prefix+"cloud.ply",ply.toString().getBytes(StandardCharsets.UTF_8));
                 put(zip,prefix+"trajectory.tum",tum.toString().getBytes(StandardCharsets.UTF_8));
+                StringBuilder marks=new StringBuilder("type,label,timestamp_ns,x_m,y_m,z_m\n");
+                for(Poi poi:pois)if(poi.segment==segment)marks.append(csv(poi.type)).append(',').append(csv(poi.label)).append(',').append(poi.timestamp).append(',').append(poi.pose[0]).append(',').append(poi.pose[1]).append(',').append(poi.pose[2]).append('\n');
+                put(zip,prefix+"points_of_interest.csv",marks.toString().getBytes(StandardCharsets.UTF_8));
             }
             for(int i=0;i<frames.size();i++)if(frames.get(i).image.length>0)
                 put(zip,"segment_"+frames.get(i).segment+"/images/keyframe_"+i+".jpg",frames.get(i).image);
@@ -144,4 +193,6 @@ final class MapArchive {
     private static void put(ZipOutputStream zip,String name,byte[] bytes)throws IOException {
         zip.putNextEntry(new ZipEntry(name));zip.write(bytes);zip.closeEntry();
     }
+    private static String csv(String value){return "\""+value.replace("\"","\"\"")+"\"";}
+    private static boolean validPoiType(String type){return "LANDMARK".equals(type)||"DOOR".equals(type)||"HAZARD".equals(type)||"NOTE".equals(type);}
 }

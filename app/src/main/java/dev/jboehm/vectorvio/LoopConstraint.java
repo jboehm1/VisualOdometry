@@ -21,9 +21,7 @@ final class LoopConstraint {
         for(MapArchive.Keyframe k:source.frames) {
             if(k.segment!=segment){output.add(k);continue;}
             float t=(float)index++/(group.size()-1);
-            double theta=Math.acos(Math.max(-1,Math.min(1,correction[3])));
-            float factor=theta<1e-6?t:(float)(Math.sin(t*theta)/Math.sin(theta));
-            float[] q=normalize(new float[]{correction[0]*factor,correction[1]*factor,correction[2]*factor,(float)Math.cos(t*theta)});
+            float[] q=interpolate(correction,t);
             float[] p=rotate(q,new float[]{k.pose[0],k.pose[1],k.pose[2]});
             float[] orientation=multiply(q,new float[]{k.pose[3],k.pose[4],k.pose[5],k.pose[6]});
             float[] pose=new float[7];for(int i=0;i<3;i++)pose[i]=p[i]+t*translation[i];
@@ -35,7 +33,23 @@ final class LoopConstraint {
             }
             output.add(new MapArchive.Keyframe(segment,k.timestamp,pose,points,k.image));
         }
-        return new MapArchive(output,true);
+        long firstTime=group.get(0).timestamp,lastTime=group.get(group.size()-1).timestamp;
+        List<MapArchive.Poi> marks=new ArrayList<>();
+        for(MapArchive.Poi poi:source.pois) {
+            if(poi.segment!=segment){marks.add(poi);continue;}
+            float t=lastTime>firstTime?Math.max(0,Math.min(1,(float)(poi.timestamp-firstTime)/(lastTime-firstTime))):0;
+            float[] q=interpolate(correction,t),p=rotate(q,new float[]{poi.pose[0],poi.pose[1],poi.pose[2]});
+            float[] pose=new float[7];for(int j=0;j<3;j++)pose[j]=p[j]+t*translation[j];
+            float[] orientation=multiply(q,new float[]{poi.pose[3],poi.pose[4],poi.pose[5],poi.pose[6]});
+            System.arraycopy(normalize(orientation),0,pose,3,4);
+            marks.add(new MapArchive.Poi(poi.segment,poi.timestamp,poi.type,poi.label,pose));
+        }
+        return new MapArchive(output,marks,true);
+    }
+    private static float[] interpolate(float[] correction,float t) {
+        double theta=Math.acos(Math.max(-1,Math.min(1,correction[3])));
+        float factor=theta<1e-6?t:(float)(Math.sin(t*theta)/Math.sin(theta));
+        return normalize(new float[]{correction[0]*factor,correction[1]*factor,correction[2]*factor,(float)Math.cos(t*theta)});
     }
     private static float[] normalize(float[] q) {
         double n=0;for(float p:q)n+=p*p;

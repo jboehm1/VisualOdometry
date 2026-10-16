@@ -34,11 +34,19 @@ public class VisualRenderTest {
         List<SceneMapper.Shape> shapes=new ArrayList<>();
         shapes.add(new SceneMapper.Shape(new float[]{.05f,.47f,.7f,.38f,.95f,.58f,.3f,.67f},0,"HORIZONTAL  3.2 × 2.5 m"));
         shapes.add(new SceneMapper.Shape(new float[]{.08f,.34f,.3f,.31f,.3f,.6f,.08f,.55f},1,"VERTICAL  2.4 × 1.8 m"));
+        shapes.add(new SceneMapper.Shape(new float[]{.62f,.44f},4,"LANDMARK · doorway"));
         for(int i=0;i<35;i++)shapes.add(new SceneMapper.Shape(new float[]{.1f+(i%7)*.12f,.35f+(i/7)*.045f},2,""));
-        hud.updateScene(new SceneMapper.Snapshot(shapes,1,1,350,10,.7f),new float[]{.02f,-.1f,9.8f,.01f,0,-.02f,50,50},30);
-        for(int i=0;i<90;i++)hud.updateScene(new SceneMapper.Snapshot(shapes,1,1,350,10,.7f),new float[]{.02f,-.1f,9.8f+(float)Math.sin(i*.25)*2,.01f,0,-.02f,50,50},30);
+        List<SceneMapper.MapPoint> cloud=new ArrayList<>();for(int i=0;i<100;i++)cloud.add(new SceneMapper.MapPoint(i*.05f,0,(i%11)*.2f,.8f));
+        List<SceneMapper.MapSurface> surfaces=Collections.singletonList(new SceneMapper.MapSurface(new float[]{0,0,4,0,4,3,0,3},false));
+        List<float[]> path=Arrays.asList(new float[]{0,0,0},new float[]{1,0,1},new float[]{2,0,1.5f});
+        MapArchive.Poi poi=new MapArchive.Poi(1,1,"LANDMARK","doorway",new float[]{1,0,1,0,0,0,1});
+        SceneMapper.Snapshot scene=new SceneMapper.Snapshot(shapes,1,1,350,10,.7f,cloud,surfaces,path,Collections.singletonList(poi),1);
+        hud.updateScene(scene,new float[]{.02f,-.1f,9.8f,.01f,0,-.02f,50,50},30);
+        for(int i=0;i<90;i++)hud.updateScene(scene,new float[]{.02f,-.1f,9.8f+(float)Math.sin(i*.25)*2,.01f,0,-.02f,50,50},30);
+        hud.toggleMap();
         hud.updateCapture(17,5);
         render(hud,"hud_synthetic",393,852);
+        hud.toggleMap();
         hud.toggleSensors();render(hud,"imu_synthetic",393,852);
         render(hud,"hud_small_synthetic",360,720);
     }

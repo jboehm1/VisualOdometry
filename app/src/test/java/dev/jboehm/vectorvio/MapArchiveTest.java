@@ -72,4 +72,26 @@ public class MapArchiveTest {
         File file=File.createTempFile("vector-test", ".vmap");
         try {new MapArchive(frames).write(file);} finally {file.delete();}
     }
+    @Test public void roundTripsPointsOfInterestAndExportsTheirCoordinates()throws Exception {
+        MapArchive.Poi poi=new MapArchive.Poi(4,456,"LANDMARK","front door",new float[]{3,1,2,0,0,0,1});
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+        new MapArchive(Arrays.asList(frame(4,1)),Arrays.asList(poi),false).exportZip(bytes);
+        MapArchive imported=MapArchive.importZip(new ByteArrayInputStream(bytes.toByteArray()));
+        assertEquals(1,imported.pois.size());assertEquals("front door",imported.pois.get(0).label);
+        assertEquals(3,imported.pois.get(0).pose[0],0);
+        try(ZipInputStream zip=new ZipInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            ZipEntry entry;boolean found=false;while((entry=zip.getNextEntry())!=null)if(entry.getName().equals("segment_4/points_of_interest.csv")) {
+                found=new String(zip.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8).contains("front door");
+            }
+            assertTrue(found);
+        }
+    }
+    @Test public void importsLegacyVersionTwoMaps()throws Exception {
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+        try(DataOutputStream out=new DataOutputStream(bytes)){out.writeInt(MapArchive.LEGACY_MAGIC);out.writeBoolean(false);out.writeInt(0);}
+        File file=File.createTempFile("vector-v2", ".vmap");
+        try(FileOutputStream out=new FileOutputStream(file)){out.write(bytes.toByteArray());}
+        try {MapArchive legacy=MapArchive.read(file);assertTrue(legacy.frames.isEmpty());assertTrue(legacy.pois.isEmpty());}
+        finally {file.delete();}
+    }
 }
