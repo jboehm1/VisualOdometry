@@ -43,7 +43,7 @@ import javax.microedition.khronos.opengles.GL10;
  * Tracking is deliberately suspended across app backgrounding / relocalization.
  */
 public final class MainActivity extends Activity implements GLSurfaceView.Renderer {
-    private static final int CAMERA_REQUEST=140, EXPORT_REQUEST=141;
+    private static final int CAMERA_REQUEST=140, EXPORT_REQUEST=141, IMPORT_MAP_REQUEST=142;
     private final Odometer odometer = new Odometer();
     private GLSurfaceView surface;
     private HudView hud;
@@ -139,7 +139,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         hud.update(odometer.snapshot(SystemClock.elapsedRealtime()),trackingLabel,message,markerCount);
     }
     private LinearLayout.LayoutParams weighted() {
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(47),1);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(48),1);
         p.setMargins(dp(4),0,dp(4),0);
         return p;
     }
@@ -248,6 +248,21 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if(request==IMPORT_MAP_REQUEST && result==RESULT_OK && data!=null && data.getData()!=null) {
+            Uri source=data.getData();
+            mapIo.execute(()->{
+                try(java.io.InputStream input=getContentResolver().openInputStream(source)) {
+                    if(input==null)throw new java.io.IOException("Cannot open map ZIP");
+                    MapArchive imported=MapArchive.importZip(input);
+                    File directory=new File(getFilesDir(),"maps");
+                    if(!directory.isDirectory()&&!directory.mkdirs())throw new java.io.IOException("Cannot create map folder");
+                    File target=new File(directory,"map_"+System.currentTimeMillis()+".vmap");
+                    imported.write(target);
+                    runOnUiThread(()->startActivity(new Intent(this,MapActivity.class).putExtra("map",target.getName())));
+                } catch(Exception e){runOnUiThread(()->Toast.makeText(this,"Import failed: "+e.getMessage(),Toast.LENGTH_LONG).show());}
+            });
+            return;
+        }
         if(request!=EXPORT_REQUEST || result!=RESULT_OK || data==null||data.getData()==null||exportFile==null) return;
         Uri uri=data.getData();
         recorder.export(this,exportFile,uri,status->Toast.makeText(this,status,Toast.LENGTH_LONG).show());
@@ -255,7 +270,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
 
     private void mapMenu() {
         String[] choices={"Expand / collapse live map","Save mapping snapshot ("+savedKeyframes+" keyframes)",
-            "Open saved 3D maps / export", "Return-to-start loop check", "Photo keyframes: "+(photoKeyframes?"ON":"OFF")};
+            "Open saved 3D maps / export", "Return-to-start loop check", "Photo keyframes: "+(photoKeyframes?"ON":"OFF"), "Import saved map ZIP"};
         new AlertDialog.Builder(this).setTitle("MAPS · local spatial snapshots")
             .setItems(choices,(dialog,index)->{
                 if(index==0)hud.toggleMap();
@@ -265,6 +280,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     String result=mapCapture.loopCheck();
                     runOnUiThread(()->new AlertDialog.Builder(this).setTitle("Physical loop verification").setMessage(result).setPositiveButton("OK",null).show());
                 });
+                if(index==5) {
+                    Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/zip");
+                    try{startActivityForResult(picker,IMPORT_MAP_REQUEST);}catch(Exception e){Toast.makeText(this,"No document provider",Toast.LENGTH_LONG).show();}
+                }
                 if(index==4) {
                     if(photoKeyframes){photoKeyframes=false;Toast.makeText(this,"Future photo capture disabled; existing photos retained",Toast.LENGTH_LONG).show();}
                     else new AlertDialog.Builder(this).setTitle("Save real camera keyframes?")

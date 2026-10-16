@@ -47,7 +47,7 @@ final class MapView extends View {
         float yy=(float)(Math.cos(pitch)*y-Math.sin(pitch)*zz);
         float depth=(float)(Math.sin(pitch)*y+Math.cos(pitch)*zz);
         float factor=3*extent/(3*extent+depth);
-        float scale=Math.min(getWidth(),getHeight())*.7f/extent*zoom;
+        float scale=Math.min(getWidth(),getHeight())*.48f/extent*zoom;
         return new float[]{getWidth()*.5f+xx*scale*factor,getHeight()*.5f-yy*scale*factor};
     }
     private void line(Canvas c,float[] a,float[] b,int color,float width) {
@@ -92,6 +92,10 @@ final class MapView extends View {
         text(c,"SEGMENT "+segment()+"  /  "+selected.size()+" KEYFRAMES  /  "+total+" SAMPLES",28*dp,0xFF78F4DC);
         text(c,"Drag to orbit · pinch to zoom · independent local world",48*dp,0xFF9FB7C8);
         if(archive.manualLoopConstraint)text(c,"MANUAL LOOP CONSTRAINT · assumed endpoints",68*dp,0xFFFFCB88);
+        if(!selected.isEmpty()) {
+            MapArchive.Keyframe k=selected.get(keyframe);
+            text(c,String.format(Locale.US,"CAMERA XYZ  %+.2f  %+.2f  %+.2f m",k.pose[0],k.pose[1],k.pose[2]),(archive.manualLoopConstraint?88:68)*dp,0xFFD5E7EF);
+        }
         text(c,String.format(Locale.US,"Grid %.2g m  ·  sparse snapshot, no surface mesh",gridStep),getHeight()-18*dp,0xFF9FB7C8);
     }
     @Override public boolean onTouchEvent(MotionEvent e) {

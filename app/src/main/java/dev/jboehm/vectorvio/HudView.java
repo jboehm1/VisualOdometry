@@ -157,6 +157,8 @@ public final class HudView extends View {
             path.close();resetPaint();p.setColor((color&0xFFFFFF)|0x20000000);c.drawPath(path,p);
             p.setColor(color);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(d(1.2f));c.drawPath(path,p);
             cx/=xy.length/2f;cy/=xy.length/2f;
+            cx=Math.max(d(88),Math.min(w-d(88),cx));
+            cy=Math.max(d(266),Math.min(h-d(322),cy));
             box(c,cx-d(84),cy-d(16),cx+d(84),cy+d(7),6,0xD5091C2B,0);
             label(c,shape.label,cx-d(78),cy,9,color,true);
         }
@@ -171,11 +173,12 @@ public final class HudView extends View {
         label(c,String.format(Locale.US,"%.0f / %.0f Hz · acceleration includes gravity",imu[6],imu[7]),l+d(13),t+d(82),9,MUTED,false);
         float baseline=t+d(126);
         line(c,l+d(13),baseline,l+width-d(13),baseline,0x48668491,1);
-        for(int i=1;i<90;i++) {
-            int a=(historyIndex+i-1)%90,b=(historyIndex+i)%90;
+        int stored=Math.min(historyIndex,90);
+        for(int i=1;i<stored;i++) {
+            int a=(historyIndex-stored+i-1)%90,b=(historyIndex-stored+i)%90;
             float ya=baseline-Math.max(-15,Math.min(15,accelerationHistory[a]-9.81f))*d(2);
             float yb=baseline-Math.max(-15,Math.min(15,accelerationHistory[b]-9.81f))*d(2);
-            line(c,l+d(13)+(width-d(26))*(i-1)/89,ya,l+d(13)+(width-d(26))*i/89,yb,CYAN,1.3f);
+            line(c,l+d(13)+(width-d(26))*(90-stored+i-1)/89,ya,l+d(13)+(width-d(26))*(90-stored+i)/89,yb,CYAN,1.3f);
         }
         label(c,scene==null?"|a| around 9.81 m/s² · diagnostic only":String.format(Locale.US,"YAW %+.0f°  PITCH %+.0f° · local axes, not north",Math.toDegrees(scene.heading),Math.toDegrees(scene.pitch)),l+d(13),t+height-d(10),9,MUTED,false);
     }

@@ -36,6 +36,7 @@ public class VisualRenderTest {
         shapes.add(new SceneMapper.Shape(new float[]{.08f,.34f,.3f,.31f,.3f,.6f,.08f,.55f},1,"VERTICAL  2.4 × 1.8 m"));
         for(int i=0;i<35;i++)shapes.add(new SceneMapper.Shape(new float[]{.1f+(i%7)*.12f,.35f+(i/7)*.045f},2,""));
         hud.updateScene(new SceneMapper.Snapshot(shapes,1,1,350,10,.7f),new float[]{.02f,-.1f,9.8f,.01f,0,-.02f,50,50},30);
+        for(int i=0;i<90;i++)hud.updateScene(new SceneMapper.Snapshot(shapes,1,1,350,10,.7f),new float[]{.02f,-.1f,9.8f+(float)Math.sin(i*.25)*2,.01f,0,-.02f,50,50},30);
         hud.updateCapture(17,5);
         render(hud,"hud_synthetic",393,852);
         hud.toggleSensors();render(hud,"imu_synthetic",393,852);

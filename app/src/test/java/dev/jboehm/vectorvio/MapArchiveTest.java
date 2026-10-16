@@ -43,4 +43,17 @@ public class MapArchiveTest {
         try {new MapArchive(Arrays.asList(frame(1,1))).write(file);try(RandomAccessFile out=new RandomAccessFile(file,"rw")){out.setLength(file.length()-1);}MapArchive.read(file);}
         finally{file.delete();}
     }
+
+    @Test public void exportedZipCanBeImportedBackWithPhotos()throws Exception {
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+        new MapArchive(Arrays.asList(frame(4,2)),true).exportZip(bytes);
+        MapArchive imported=MapArchive.importZip(new ByteArrayInputStream(bytes.toByteArray()));
+        assertTrue(imported.manualLoopConstraint);assertEquals(4,imported.frames.get(0).segment);
+        assertArrayEquals(new byte[]{1,2,3},imported.frames.get(0).image);
+    }
+    @Test(expected=IOException.class)public void rejectsUnrelatedZipWithoutExtractingPaths()throws Exception {
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+        try(ZipOutputStream zip=new ZipOutputStream(bytes)){zip.putNextEntry(new ZipEntry("../../wrong"));zip.write(1);zip.closeEntry();}
+        MapArchive.importZip(new ByteArrayInputStream(bytes.toByteArray()));
+    }
 }

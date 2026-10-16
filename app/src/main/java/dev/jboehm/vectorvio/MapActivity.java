@@ -22,6 +22,7 @@ public final class MapActivity extends Activity {
     private Bitmap bitmap;
     @Override public void onCreate(Bundle bundle) {
         super.onCreate(bundle);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         TextView loading=new TextView(this);loading.setText("Opening saved map…");setContentView(loading);
         String name=getIntent().getStringExtra("map");
         if(name==null || !name.matches("map_[0-9_]+\\.vmap")){finish();return;}
@@ -66,7 +67,7 @@ public final class MapActivity extends Activity {
                         archive=LoopConstraint.apply(archive,segment);build();
                         MapArchive corrected=archive;
                         File destination=new File(new File(getFilesDir(),"maps"),"map_"+System.currentTimeMillis()+".vmap");
-                        io.execute(()->{try{corrected.write(destination);runOnUiThread(()->Toast.makeText(this,"Saved manually constrained copy. Original retained.",Toast.LENGTH_LONG).show());}catch(Exception e){runOnUiThread(()->Toast.makeText(this,"Could not save corrected copy",Toast.LENGTH_LONG).show());}});
+                        io.execute(()->{try{File temporary=new File(destination.getPath()+".tmp");corrected.write(temporary);if(!temporary.renameTo(destination))throw new java.io.IOException("Cannot finalize map");runOnUiThread(()->Toast.makeText(this,"Saved manually constrained copy. Original retained.",Toast.LENGTH_LONG).show());}catch(Exception e){runOnUiThread(()->Toast.makeText(this,"Could not save corrected copy",Toast.LENGTH_LONG).show());}});
                     }catch(Exception e){Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show();}
                 }).show();
         });

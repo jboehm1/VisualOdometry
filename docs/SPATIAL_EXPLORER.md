@@ -143,7 +143,10 @@ Open a saved map → EXPORT ZIP → choose destination. Each independent segment
 gets `cloud.ply` (ASCII XYZ + confidence), `trajectory.tum` (timestamp + position
 + quaternion x/y/z/w) and optional `images/keyframe_N.jpg`. Poses are sparse
 keyframes, not the full odometer sample stream. N is the global snapshot keyframe
-index. ZIP includes a README recording whether a manual constraint was applied.
+index. ZIP includes a README recording whether a manual constraint was applied and
+`snapshot.vmap` as its first entry. MAPS → Import saved map ZIP restores this
+portable snapshot, including photos, for offline 3D inspection. Import accepts
+only this format, bounds decoded data to 64 MiB and extracts no archive paths.
 PLY can be opened in CloudCompare, MeshLab or another compatible 3D viewer.
 Images use diagnostic camera capture; no calibrated synchronized VIO dataset is
 claimed. CSV recording/export remains separate.
