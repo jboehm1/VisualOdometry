@@ -325,6 +325,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             if(frame.getTimestamp()!=0) background.draw(frame);
             Camera camera=frame.getCamera();
             if(camera.getTrackingState()==TrackingState.TRACKING && frame.getTimestamp()>0) {
+                if (!"TRACKING".equals(trackingLabel))
+                    message="Tracking active — slow, textured motion is best";
                 trackingLabel="TRACKING";
                 Pose pose=camera.getPose();
                 float[] xyz=pose.getTranslation();
@@ -347,6 +349,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             long now=SystemClock.elapsedRealtime();
             if(now-lastHudUpdateMs>110) {
                 lastHudUpdateMs=now;
+                if(recorder.problem()!=null) message="CSV ERROR: check Android logcat";
                 Odometer.Snapshot snap=odometer.snapshot(now);
                 String currentTracking=trackingLabel,currentMessage=message;
                 int marks=markerCount;
