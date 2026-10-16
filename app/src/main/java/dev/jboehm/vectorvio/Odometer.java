@@ -201,6 +201,8 @@ public final class Odometer {
         trail.add(new Point(0,0,0,segments));
     }
 
+    public synchronized int currentSegment(){return segments;}
+
     public synchronized boolean isRecording(){return recording;}
 
     public synchronized Snapshot snapshot(long nowMs) { return new Snapshot(this, nowMs); }

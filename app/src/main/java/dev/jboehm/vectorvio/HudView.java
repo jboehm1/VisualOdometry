@@ -31,6 +31,8 @@ public final class HudView extends View {
     private String trackingText = "INITIALIZING";
     private String notice = "Move slowly and scan a textured environment";
     private int markers = 0;
+    private int keyframes=0,photos=0;
+    public void updateCapture(int keyframes,int photos){this.keyframes=keyframes;this.photos=photos;invalidate();}
     private SceneMapper.Snapshot scene;
     private float[] imu=new float[8];
     private float cameraHz;
@@ -114,7 +116,7 @@ public final class HudView extends View {
         drawReticle(c,w,h);
 
         label(c,"VECTOR",d(20),d(52),d(25)/dp,INK,true);
-        label(c,"/ SPATIAL EXPLORER  ·  0.2",d(20),d(72),10,MUTED,false);
+        label(c,"/ SPATIAL EXPLORER  ·  0.3",d(20),d(72),10,MUTED,false);
         box(c,w-d(132),d(32),w-d(16),d(63),10,0xCF0B2630,0x5539F4D2);
         disc(c,w-d(118),d(47),d(4),s!=null&&s.tracking?CYAN:AMBER,false);
         String tiny=trackingText.length()>14?trackingText.substring(0,14):trackingText;
@@ -127,7 +129,8 @@ public final class HudView extends View {
         if(scene!=null) {
             label(c,String.format(Locale.US,"%d H / %d V PLANES   ·   %d POINTS   ·   %.0f FPS",scene.horizontal,scene.vertical,scene.points,cameraHz),d(20),d(226),9,INK,true);
         }
-        if(expandedMap) drawMiniMap(c,d(14),d(245),w-d(28),Math.max(d(100),h-d(556)),s);
+        if(scene!=null) label(c,String.format(Locale.US,"MAP %d/128 KF · %d PHOTOS · GAPS %d · REJECT %d",keyframes,photos,s==null?0:s.gaps,s==null?0:s.outliers),d(20),d(242),9,MUTED,false);
+        if(expandedMap) drawMiniMap(c,d(14),d(253),w-d(28),Math.max(d(80),h-d(564)),s);
         else if(sensors) drawSensors(c,d(14),h-d(478),w-d(28),d(168));
         else drawMiniMap(c,w-d(157),h-d(454),d(137),d(145),s);
         drawDataPanel(c,w,h,s);
@@ -135,7 +138,7 @@ public final class HudView extends View {
 
     private void drawScene(Canvas c,int w,int h) {
         if(scene==null)return;
-        c.save();c.clipRect(0,d(235),w,h-d(305));
+        c.save();c.clipRect(0,d(247),w,h-d(305));
         for(SceneMapper.Shape shape:scene.shapes) {
             if(shape.kind<2 && (layers==2 || layers==3))continue;
             if(shape.kind==2 && (layers==1 || layers==3))continue;
@@ -174,7 +177,7 @@ public final class HudView extends View {
             float yb=baseline-Math.max(-15,Math.min(15,accelerationHistory[b]-9.81f))*d(2);
             line(c,l+d(13)+(width-d(26))*(i-1)/89,ya,l+d(13)+(width-d(26))*i/89,yb,CYAN,1.3f);
         }
-        label(c,"|a| around 9.81 m/s² · diagnostic only",l+d(13),t+height-d(10),9,MUTED,false);
+        label(c,scene==null?"|a| around 9.81 m/s² · diagnostic only":String.format(Locale.US,"YAW %+.0f°  PITCH %+.0f° · local axes, not north",Math.toDegrees(scene.heading),Math.toDegrees(scene.pitch)),l+d(13),t+height-d(10),9,MUTED,false);
     }
 
     private void drawReticle(Canvas c, int width, int height) {
@@ -182,6 +185,10 @@ public final class HudView extends View {
         disc(c,cx,cy,d(38),0x6674FCE1,true);
         disc(c,cx,cy,d(60),0x2874FCE1,true);
         disc(c,cx,cy,d(2.5f),CYAN,false);
+        if(scene!=null && scene.targetMeters>=0) {
+            box(c,cx-d(58),cy+d(74),cx+d(58),cy+d(99),8,0xDD071925,0);
+            label(c,String.format(Locale.US,"SURFACE %.2f m",scene.targetMeters),cx-d(51),cy+d(91),10,CYAN,true);
+        }
         line(c,cx-d(74),cy,cx-d(48),cy,0xAA74FCE1,1.1f);
         line(c,cx+d(48),cy,cx+d(74),cy,0xAA74FCE1,1.1f);
         line(c,cx,cy-d(74),cx,cy-d(48),0xAA74FCE1,1.1f);
@@ -228,7 +235,9 @@ public final class HudView extends View {
         Odometer.Point last=pts.get(pts.size()-1);
         float endX=(float)(centerX+(last.x-midX)*scale);
         float endY=(float)(centerY+(last.z-midZ)*scale);
+        disc(c,(float)(centerX-midX*scale),(float)(centerY-midZ*scale),d(4),AMBER,true);
         disc(c,endX,endY,d(4.5f),CYAN,false);
+        if(scene!=null)line(c,endX,endY,endX+(float)Math.sin(scene.heading)*d(14),endY+(float)Math.cos(scene.heading)*d(14),CYAN,2);
         label(c,String.format(Locale.US,"%.0f m window",side),l+d(10),top+height-d(8),9,MUTED,false);
     }
 

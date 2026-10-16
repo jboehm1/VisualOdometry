@@ -1,3 +1,12 @@
+# 0.3.0-alpha — Saved spatial maps
+
+- Save/reopen bounded sparse map snapshots, with background-save attempt.
+- Native offline 3D orbit/zoom viewer, segment selection and camera-keyframe inspection.
+- Opt-in JPEG keyframes and segmented PLY/TUM/photo ZIP export.
+- Live return-to-start pose comparison and explicit manual endpoint constraint saved to a copy.
+- Archive corruption/limit, round-trip, segmented export and constraint regression tests.
+- Still no automatic pose-graph optimizer, tracking-map reload or physical accuracy evidence.
+
 # 0.2.0-alpha — Spatial Explorer
 
 - Add actual ARCore plane polygons, sparse scene points and anchored camera-height trail.

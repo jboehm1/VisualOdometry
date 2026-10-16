@@ -49,6 +49,11 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private HudView hud;
     private ImuMonitor imu;
     private final SceneMapper mapper=new SceneMapper();
+    private final MapCapture mapCapture=new MapCapture();
+    private final java.util.concurrent.ExecutorService mapIo=java.util.concurrent.Executors.newSingleThreadExecutor();
+    private volatile boolean photoKeyframes=false,resetCapture=false;
+    private volatile int savedKeyframes=0,capturedImages=0;
+    private volatile String autoMapName="map_"+System.currentTimeMillis()+"_0.vmap";
     private volatile boolean clearMap=false;
     private long lastSceneNs=0;
     private long previousFrameNs=0;
@@ -112,7 +117,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         LinearLayout modes=new LinearLayout(this);
         TextView layers=action("LAYERS",0xCC102D39,Color.WHITE);
         TextView sensors=action("IMU",0xCC102D39,Color.WHITE);
-        TextView map=action("MAP",0xCC102D39,Color.WHITE);
+        TextView map=action("MAPS",0xCC102D39,Color.WHITE);
         modes.addView(layers,weighted());modes.addView(sensors,weighted());modes.addView(map,weighted());
         FrameLayout.LayoutParams modeLayout=new FrameLayout.LayoutParams(-1,dp(48),Gravity.TOP);
         modeLayout.topMargin=dp(142);modeLayout.leftMargin=dp(12);modeLayout.rightMargin=dp(12);
@@ -120,11 +125,11 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         layers.setOnClickListener(v->hud.cycleLayers());
         layers.setOnLongClickListener(v->{
             new AlertDialog.Builder(this).setTitle("Explore your local map")
-                .setMessage("LAYERS cycles planes, point cloud and trail. Cyan = horizontal planes, violet = vertical planes, gold = measured scene points. These are geometric surfaces, not recognized objects.\n\nThe cyan trail follows the camera at phone height. Turn around to see where you walked. It is a see-through overlay, with no real-world occlusion.\n\nMAP expands the current independent segment. Unknown motion across tracking gaps is excluded. IMU shows device-axis acceleration (including gravity) and angular velocity.\n\nAccuracy is unmeasured. ARCore manages a local map; this app does not save or reload a persistent SLAM map. CSV includes diagnostic IMU samples, not calibrated camera–IMU research data.")
+                .setMessage("LAYERS cycles planes, point cloud and trail. Cyan = horizontal planes, violet = vertical planes, gold = measured scene points. These are geometric surfaces, not recognized objects.\n\nThe cyan trail follows the camera at phone height. Turn around to see where you walked. It is a see-through overlay, with no real-world occlusion.\n\nMAPS opens save, 3D inspection, export, live-map expansion and loop checks for the current independent segment. Unknown motion across tracking gaps is excluded. IMU shows device-axis acceleration (including gravity) and angular velocity.\n\nAccuracy is unmeasured. ARCore manages a local map; saved snapshots can be reopened in 3D, but do not restore the private ARCore tracking map. CSV includes diagnostic IMU samples, not calibrated camera–IMU research data.")
                 .setPositiveButton("GOT IT",null).show();return true;
         });
         sensors.setOnClickListener(v->hud.toggleSensors());
-        map.setOnClickListener(v->hud.toggleMap());
+        map.setOnClickListener(v->mapMenu());
         setContentView(root);
 
         recordButton.setOnClickListener(v->toggleRecording());
@@ -201,6 +206,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     recorder.event("RESET",System.currentTimeMillis());
                 odometer.reset();
                 clearMap=true;
+                resetCapture=true;
+                autoMapName="map_"+System.currentTimeMillis()+"_0.vmap";
                 needsNewFile=true;
                 markerCount=0;
                 recordButton.setText("START");
@@ -242,6 +249,60 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(request!=EXPORT_REQUEST || result!=RESULT_OK || data==null||data.getData()==null||exportFile==null) return;
         Uri uri=data.getData();
         recorder.export(this,exportFile,uri,status->Toast.makeText(this,status,Toast.LENGTH_LONG).show());
+    }
+
+    private void mapMenu() {
+        String[] choices={"Expand / collapse live map","Save mapping snapshot ("+savedKeyframes+" keyframes)",
+            "Open saved 3D maps / export", "Return-to-start loop check", "Photo keyframes: "+(photoKeyframes?"ON":"OFF")};
+        new AlertDialog.Builder(this).setTitle("MAPS · local spatial snapshots")
+            .setItems(choices,(dialog,index)->{
+                if(index==0)hud.toggleMap();
+                if(index==1)saveMap();
+                if(index==2)openMaps();
+                if(index==3 && rendererRunning)surface.queueEvent(()->{
+                    String result=mapCapture.loopCheck();
+                    runOnUiThread(()->new AlertDialog.Builder(this).setTitle("Physical loop verification").setMessage(result).setPositiveButton("OK",null).show());
+                });
+                if(index==4) {
+                    if(photoKeyframes){photoKeyframes=false;Toast.makeText(this,"Future photo capture disabled; existing photos retained",Toast.LENGTH_LONG).show();}
+                    else new AlertDialog.Builder(this).setTitle("Save real camera keyframes?")
+                        .setMessage("Optional JPEG photos are saved with map snapshots on this phone and included when exporting a map ZIP. They may contain people or private surroundings. No upload occurs. Up to 128 sparse camera keyframes; no video recording.")
+                        .setNegativeButton("CANCEL",null).setPositiveButton("ENABLE PHOTOS",(d,w)->photoKeyframes=true).show();
+                }
+            }).show();
+    }
+    private void saveMap() {
+        if(!rendererRunning){Toast.makeText(this,"Open tracking first",Toast.LENGTH_SHORT).show();return;}
+        surface.queueEvent(()->{
+            MapArchive archive=mapCapture.snapshot();
+            if(archive.frames.isEmpty()){runOnUiThread(()->Toast.makeText(this,"Start recording and scan a scene first",Toast.LENGTH_LONG).show());return;}
+            persistMap(archive,"map_"+System.currentTimeMillis()+".vmap",true);
+        });
+    }
+    private void persistMap(MapArchive archive,String name,boolean notify) {
+        if(mapIo.isShutdown())return;
+        mapIo.execute(()->{
+            File directory=new File(getFilesDir(),"maps");
+            File target=new File(directory,name),temporary=new File(directory,name+".tmp");
+            String result;
+            try {
+                if(!directory.isDirectory()&&!directory.mkdirs())throw new java.io.IOException("Cannot create map folder");
+                archive.write(temporary);
+                if(!temporary.renameTo(target))throw new java.io.IOException("Cannot finalize map");
+                result="Saved "+archive.frames.size()+" keyframes. Open MAPS to inspect in 3D.";
+            }catch(Exception e){temporary.delete();result="Map save failed: "+e.getMessage();}
+            String message=result;
+            if(notify || message.startsWith("Map save failed"))runOnUiThread(()->Toast.makeText(this,message,Toast.LENGTH_LONG).show());
+        });
+    }
+    private void openMaps() {
+        File[] files=new File(getFilesDir(),"maps").listFiles((dir,name)->name.matches("map_[0-9_]+\\.vmap"));
+        if(files==null||files.length==0){Toast.makeText(this,"No saved maps yet",Toast.LENGTH_LONG).show();return;}
+        java.util.Arrays.sort(files,(a,b)->Long.compare(b.lastModified(),a.lastModified()));
+        String[] names=new String[files.length];
+        for(int i=0;i<files.length;i++) names[i]=new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss",Locale.getDefault()).format(new java.util.Date(files[i].lastModified()))+" · "+(files[i].length()/1024)+" KB";
+        new AlertDialog.Builder(this).setTitle("Saved 3D maps · stored on phone")
+            .setItems(names,(d,i)->startActivity(new Intent(this,MapActivity.class).putExtra("map",files[i].getName()))).show();
     }
 
     private void refreshHud() {
@@ -314,7 +375,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if(rendererRunning) {
-            surface.queueEvent(()->mapper.clear());
+            String autoName=autoMapName;
+            surface.queueEvent(()->{
+                mapper.clear();mapCapture.finishSegment();
+                MapArchive archive=mapCapture.snapshot();
+                if(!archive.frames.isEmpty())persistMap(archive,autoName,false);
+            });
             surface.onPause();
             rendererRunning=false;
         }
@@ -328,6 +394,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             arSession=null;
         }
         recorder.shutdown();
+        mapIo.shutdown();
         super.onDestroy();
     }
 
@@ -354,6 +421,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             s.setDisplayGeometry(getWindowManager().getDefaultDisplay().getRotation(),width,height);
             Frame frame=s.update();
             if(clearMap){mapper.clear();clearMap=false;}
+            if(resetCapture){mapCapture.reset();resetCapture=false;}
             Odometer.Result poseResult=Odometer.Result.INACTIVE;
             if(frame.getTimestamp()!=0) background.draw(frame);
             Camera camera=frame.getCamera();
@@ -384,14 +452,17 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 cameraHz=.9f*cameraHz+.1f*hz;
             }
             if(frame.getTimestamp()>0) previousFrameNs=frame.getTimestamp();
+            mapCapture.update(s,frame,poseResult,odometer.currentSegment(),photoKeyframes);
+            savedKeyframes=mapCapture.count();capturedImages=mapCapture.imageCount();
             // Anchor updates follow every pose result. Publish bounded geometry at ~20 Hz.
             if(poseResult==Odometer.Result.REFERENCE || poseResult==Odometer.Result.GAP || poseResult==Odometer.Result.REJECTED) mapper.clear();
             long now=SystemClock.elapsedRealtime();
             if(now-lastSceneNs>=50) {
                 lastSceneNs=now;
-                SceneMapper.Snapshot scene=mapper.update(s,frame,poseResult);
+                SceneMapper.Snapshot scene=mapper.update(s,frame,poseResult,width,height);
                 float[] sensors=imu.snapshot();float hz=cameraHz;
-                runOnUiThread(()->hud.updateScene(scene,sensors,hz));
+                int keyframes=savedKeyframes,images=capturedImages;
+                runOnUiThread(()->{hud.updateScene(scene,sensors,hz);hud.updateCapture(keyframes,images);});
             }
             if(now-lastHudUpdateMs>110) {
                 lastHudUpdateMs=now;

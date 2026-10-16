@@ -11,6 +11,7 @@
         android:allowBackup="false"
         android:supportsRtl="true">
         <meta-data android:name="com.google.ar.core" android:value="required" />
+        <activity android:name=".MapActivity" android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:screenOrientation="portrait"

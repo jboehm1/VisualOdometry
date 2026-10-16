@@ -94,3 +94,94 @@ Next SLAM milestone: replayable calibrated camera/IMU capture, benchmark an open
 backend (for example OpenVINS/ORB-SLAM3) against independent ground truth, then
 map persistence and explicit loop-closure evaluation. This release is an ARCore
 local spatial explorer; it does not promise a full persistent SLAM system.
+
+# 0.3 — Saved maps, 3D inspection, photos and loop constraints
+
+## Save and reopen
+
+START captures sparse mapping keyframes. MAPS → Save mapping snapshot stores a
+versioned `.vmap` file in app-private storage. MAPS → Open saved 3D maps reopens
+snapshots without an AR session. Going to the background also queues a snapshot
+save for the current session. Manual saves make separate copies. Uninstalling
+removes private maps: export important results first. A sudden process kill
+before a manual/background save can still lose unsaved work.
+
+The offline viewer supports drag to orbit, pinch to zoom, point/path toggles,
+independent segment selection and a keyframe slider. The white camera arrow
+shows the selected keyframe's saved optical direction. This is a sparse point
+map and camera trajectory, not a dense textured reconstruction or mesh.
+The viewer draws at most 10,000 point samples for responsiveness; export retains
+all captured samples, including repeated observations of the same scene point.
+
+### Limits
+
+- Up to 128 keyframes per in-memory mapping session, 64 anchored keyframes in the
+  current segment; limits are shown/disclosed, not unlimited mapping.
+- Capture at most once per second when translation ≥0.75 m or rotation ≥20°.
+- Up to 240 confidence-filtered sparse points per keyframe.
+- A final pose-only endpoint is included on save/segment finalization when space
+  remains, to retain the latest loop endpoint even without another full keyframe.
+- Anchored point samples follow their capture-anchor pose while active. On a
+  segment interruption those estimates freeze; separate segments are never fused.
+- Large/open scenes, moving objects and long routes remain difficult. The sparse
+  exported cloud can contain duplicate points, drift, noise and inconsistent
+  overlapping samples. It is not a metric survey or a globally optimized cloud.
+
+## Optional real images
+
+MAPS → Photo keyframes → ENABLE PHOTOS explicitly enables local JPEG capture.
+Default is OFF. Photos are optional and may be unavailable for some frames.
+YUV_420_888 planes are sampled respecting crop/row/pixel strides, then encoded to
+JPEG at ≤640 pixels width. Images are stored in sensor orientation and shown
+alongside their matching camera pose. They are not painted onto a reconstructed
+mesh. Photo capture/encoding runs on the GL thread at sparse intervals and needs
+S21 performance profiling; reduce/disable photos if it causes frame gaps.
+
+## Export
+
+Open a saved map → EXPORT ZIP → choose destination. Each independent segment
+gets `cloud.ply` (ASCII XYZ + confidence), `trajectory.tum` (timestamp + position
++ quaternion x/y/z/w) and optional `images/keyframe_N.jpg`. Poses are sparse
+keyframes, not the full odometer sample stream. N is the global snapshot keyframe
+index. ZIP includes a README recording whether a manual constraint was applied.
+PLY can be opened in CloudCompare, MeshLab or another compatible 3D viewer.
+Images use diagnostic camera capture; no calibrated synchronized VIO dataset is
+claimed. CSV recording/export remains separate.
+
+## Closing a loop
+
+1. Begin at a clearly marked CAMERA position/orientation, walk a route and
+   return to exactly that camera pose without a tracking interruption.
+2. MAPS → Return-to-start loop check reports separation and orientation from
+   the live starting anchor. It combines drift and physical placement error.
+   ARCore can update anchors; this value is not an independent accuracy reference.
+3. Save the map. Inspect first/last keyframes in the 3D viewer.
+4. If these correspond to the SAME real pose, LOOP CONSTRAINT → APPLY TO COPY
+   creates a **manually constrained** map. Original file and odometer CSV remain
+   unchanged. Do not apply to an open route or different camera orientations.
+
+The manual constraint distributes `C = T_first × inverse(T_last)` over keyframes,
+using quaternion interpolation from identity and linear correction translation.
+Each keyframe's points receive the same transform as its camera. This forces
+endpoint agreement but **does not prove improved intermediate accuracy**. It is
+an assumed endpoint correction, not feature matching, bundle adjustment,
+probabilistic pose-graph optimization or automatic SLAM loop detection. The
+manual flag persists in the map and ZIP README. Only one manual correction per
+copy is permitted; reopen the original to compare.
+
+A true automatic persistent SLAM system still needs a backend that exposes its
+keyframes, landmarks, descriptors, loop constraints, relocalization and graph
+optimization, plus replay data and ground-truth evaluation. ARCore's internal
+map cannot be reconstructed/restored from this snapshot format.
+
+## Additional acceptance checks (pending phone access)
+
+- Save, background, kill and reopen: map survives and viewer works offline.
+- Photo OFF saves no images; opt-in photos match selected camera keyframes.
+- Export ZIP: independent PLY/TUM files and images open correctly on a desktop.
+- Return-to-start check is unavailable after tracking interruption; never bridge
+  incompatible worlds. Raw map and CSV remain unchanged after manual correction.
+- Compare constrained vs raw endpoints AND intermediate surveyed checkpoints;
+  endpoint agreement alone cannot establish reduced drift.
+- Test 128-keyframe limit, image-unavailable frames, low storage, large map view,
+  repeated viewer opening and 15-minute memory/thermal behavior.

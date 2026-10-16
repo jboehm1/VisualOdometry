@@ -1,3 +1,5 @@
+> Updated behavior: see [SPATIAL_EXPLORER.md](SPATIAL_EXPLORER.md). Since 0.2 displacement/height restart per independent segment, and diagnostic raw IMU is logged. Since 0.3 map snapshots can be saved/reopened, with optional image keyframes and a manual endpoint constraint. The older baseline explanations below describe 0.1 where inconsistent.
+
 # Architecture, mathematical model and assumptions
 
 ## 1. The pipeline

@@ -6,14 +6,15 @@
 
 This replaces the abandoned 2019 notebook *as an application direction*, without deleting it: the original [VO.ipynb](VO.ipynb) remains in history, with its exact original commit preserved at [backup/2019-original-colab](https://github.com/jboehm1/VisualOdometry/tree/backup/2019-original-colab). Android work lives on [feature/android-vio-odometer](https://github.com/jboehm1/VisualOdometry/tree/feature/android-vio-odometer) until verified and reviewed.
 
-## Spatial Explorer 0.2
+## Spatial Explorer 0.3
 
 See [SPATIAL_EXPLORER.md](docs/SPATIAL_EXPLORER.md) for controls, mapping semantics,
 CSV v2 and validation. New: real horizontal/vertical plane boundaries, measured
 point-cloud overlays, anchored camera-height trail, expandable segment map and
 live raw accelerometer/gyro diagnostics with timestamped CSV samples. ARCore
-provides the local tracking/map engine; persistent maps and explicit loop closure
-are not implemented. Physical S21 validation is still pending.
+provides the local tracking/map engine; saved point-cloud/image snapshots reopen in an offline 3D viewer. Optional manual
+endpoint constraints create a corrected copy; automatic loop optimization and
+persistent tracking-map reload are not implemented. Physical S21 validation is still pending.
 
 ## What you can do
 

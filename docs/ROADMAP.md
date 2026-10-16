@@ -16,9 +16,10 @@
 - No compiled/released APK is bundled in source control; successful CI creates a downloadable debug APK artifact.
 - Not tested on a Galaxy S21 or any physical Android device.
 - No quantified localization / drift error or certified position-accuracy estimate.
-- No direct observation of the raw phone IMU; ARCore does the sensor fusion internally.
+- Raw diagnostic IMU observation added in 0.2; calibrated synchronized replay still missing.
 - No camera pose covariance or calibrated motion uncertainty UI.
-- No live 3D point cloud, tracked feature visualization, occlusion/depth overlays or real 3D path overlay.
+- Sparse cloud/plane and anchored path visualization added in 0.2; depth occlusion still missing.
+- 0.3 adds saved snapshots, 3D orbit viewer, photos, PLY/TUM export and a manual endpoint constraint. No automatic feature-graph loop optimizer or persistent ARCore tracking-map reload.
 - No background/screen-off tracking, no foreground service.
 - No GPS, barometer, wheel odometry, LiDAR, offline image-depth inference or drone telemetry integration.
 - No crash reporting, automated UI/instrumentation tests, long-duration stress tests or thermal characterization.

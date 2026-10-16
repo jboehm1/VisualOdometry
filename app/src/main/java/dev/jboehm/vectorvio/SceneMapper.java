@@ -16,6 +16,7 @@ final class SceneMapper {
         final List<Shape> shapes;
         final int horizontal,vertical,points,anchors;
         final float confidence;
+        float heading,pitch,targetMeters=-1;
         Snapshot(List<Shape> shapes,int h,int v,int p,int a,float q) {
             this.shapes=shapes;horizontal=h;vertical=v;points=p;anchors=a;confidence=q;
         }
@@ -23,7 +24,7 @@ final class SceneMapper {
     private final ArrayList<Anchor> trail=new ArrayList<>();
     private final float[] view=new float[16],projection=new float[16],vp=new float[16];
     void clear() { for(Anchor a:trail) a.detach(); trail.clear(); }
-    Snapshot update(Session session,Frame frame,Odometer.Result result) {
+    Snapshot update(Session session,Frame frame,Odometer.Result result,int width,int height) {
         Camera camera=frame.getCamera();
         if(camera.getTrackingState()!=TrackingState.TRACKING) {
             clear();return new Snapshot(new ArrayList<>(),0,0,0,0,0);
@@ -82,7 +83,16 @@ final class SceneMapper {
             }
             previous=xyz;
         }
-        return new Snapshot(shapes,h,v,points,trail.size(),points==0?0:confidence/points);
+        Snapshot snapshot=new Snapshot(shapes,h,v,points,trail.size(),points==0?0:confidence/points);
+        float[] axis=camera.getDisplayOrientedPose().getZAxis();
+        snapshot.heading=(float)Math.atan2(-axis[0],-axis[2]);
+        snapshot.pitch=(float)Math.asin(Math.max(-1,Math.min(1,-axis[1])));
+        for(HitResult hit:frame.hitTest(width*.5f,height*.41f)) {
+            if(hit.getTrackable() instanceof Plane && ((Plane)hit.getTrackable()).isPoseInPolygon(hit.getHitPose())) {
+                snapshot.targetMeters=hit.getDistance();break;
+            }
+        }
+        return snapshot;
     }
     private float distance(Pose a,Pose b) {
         float x=a.tx()-b.tx(),y=a.ty()-b.ty(),z=a.tz()-b.tz();return (float)Math.sqrt(x*x+y*y+z*z);
