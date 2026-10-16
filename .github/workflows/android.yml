@@ -41,6 +41,8 @@ jobs:
         run: |
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --install 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Python telemetry-analysis unit tests
+        run: python3 -m unittest discover -s tools/tests -v
       - name: Unit tests and installable APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
       - name: Upload APK (debug-signed, for sideloading only)
