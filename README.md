@@ -98,6 +98,8 @@ When the tracking signal becomes unreliable, the accumulator does **not** preten
 
 1. [Architecture and mathematics](docs/ARCHITECTURE.md): monocular scale, SE(3), ARCore, metric accumulation and limitations.
 2. [Field validation protocol](docs/VALIDATION.md): repeatable 1 / 5 / 10 / 50-m experiments and failure tests.
-3. [Roadmap and known limitations](docs/ROADMAP.md): what is missing before calling this production-ready.
+3. [Visual-odometry learning guide](docs/LEARNING_GUIDE.md): pixels, (u,v,1), scale, IMU, quaternions and SE(3).
+4. [Roadmap and known limitations](docs/ROADMAP.md): what is missing before calling this production-ready.
+5. [Plot and audit your session](tools/plot_session.py): export CSV and run `python tools/plot_session.py run.csv --out plots --known-distance 10` after `pip install matplotlib`. This writes separate trajectory, speed, height and distance graphs plus a JSON report. The known distance must be independently measured.
 
 **Safety:** Not suitable for autonomous drone navigation, collision avoidance, geofencing, or safety-critical positioning. Phone camera/IMU quality does not make a certified flight controller. Do not fly with or rely on these measurements until evaluated independently in a controlled test environment.
