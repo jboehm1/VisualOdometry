@@ -51,7 +51,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private final SceneMapper mapper=new SceneMapper();
     private final MapCapture mapCapture=new MapCapture();
     private final java.util.concurrent.ExecutorService mapIo=java.util.concurrent.Executors.newSingleThreadExecutor();
-    private volatile boolean photoKeyframes=false,resetCapture=false;
+    private volatile boolean photoKeyframes=false;
     private volatile int savedKeyframes=0,capturedImages=0;
     private volatile String autoMapName="map_"+System.currentTimeMillis()+"_0.vmap";
     private volatile boolean clearMap=false;
@@ -170,6 +170,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             recordButton.setText("RESUME");
             message="Paused — movement during pause is excluded";
             clearMap=true;
+            surface.queueEvent(()->mapCapture.finishSegment());
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         } else {
             if(needsNewFile) {
@@ -206,7 +207,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     recorder.event("RESET",System.currentTimeMillis());
                 odometer.reset();
                 clearMap=true;
-                resetCapture=true;
+                String previousAutoName=autoMapName;
+                surface.queueEvent(()->{MapArchive previous=mapCapture.snapshot();if(!previous.frames.isEmpty())persistMap(previous,previousAutoName,false);mapCapture.reset();});
                 autoMapName="map_"+System.currentTimeMillis()+"_0.vmap";
                 needsNewFile=true;
                 markerCount=0;
@@ -421,7 +423,6 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             s.setDisplayGeometry(getWindowManager().getDefaultDisplay().getRotation(),width,height);
             Frame frame=s.update();
             if(clearMap){mapper.clear();clearMap=false;}
-            if(resetCapture){mapCapture.reset();resetCapture=false;}
             Odometer.Result poseResult=Odometer.Result.INACTIVE;
             if(frame.getTimestamp()!=0) background.draw(frame);
             Camera camera=frame.getCamera();
@@ -477,7 +478,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             message=ex.getClass().getSimpleName()+": check camera / AR service";
             odometer.lostTracking();
             mapper.clear();
-            runOnUiThread(this::refreshHud);
+            mapCapture.finishSegment();
+            runOnUiThread(()->{hud.updateScene(new SceneMapper.Snapshot(new java.util.ArrayList<>(),0,0,0,0,0),imu.snapshot(),0);refreshHud();});
         }
     }
 }

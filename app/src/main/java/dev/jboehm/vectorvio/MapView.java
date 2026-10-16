@@ -91,6 +91,7 @@ final class MapView extends View {
         }
         text(c,"SEGMENT "+segment()+"  /  "+selected.size()+" KEYFRAMES  /  "+total+" SAMPLES",28*dp,0xFF78F4DC);
         text(c,"Drag to orbit · pinch to zoom · independent local world",48*dp,0xFF9FB7C8);
+        if(archive.manualLoopConstraint)text(c,"MANUAL LOOP CONSTRAINT · assumed endpoints",68*dp,0xFFFFCB88);
         text(c,String.format(Locale.US,"Grid %.2g m  ·  sparse snapshot, no surface mesh",gridStep),getHeight()-18*dp,0xFF9FB7C8);
     }
     @Override public boolean onTouchEvent(MotionEvent e) {

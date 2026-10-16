@@ -185,3 +185,10 @@ map cannot be reconstructed/restored from this snapshot format.
   endpoint agreement alone cannot establish reduced drift.
 - Test 128-keyframe limit, image-unavailable frames, low storage, large map view,
   repeated viewer opening and 15-minute memory/thermal behavior.
+
+## Automated visual fixtures
+
+`VisualRenderTest` uses Robolectric native Android Canvas to render HUD, sensor
+and 3D-map fixtures at phone dimensions into CI test reports. These use clearly
+labeled **synthetic** data, not a live camera or measured reconstructed room.
+They check renderability/layout; they do not establish AR alignment or tracking.

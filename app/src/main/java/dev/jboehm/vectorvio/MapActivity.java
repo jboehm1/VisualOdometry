@@ -38,7 +38,7 @@ public final class MapActivity extends Activity {
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,size,1);p.setMargins(2,2,2,2);row.addView(v,p);v.setOnClickListener(w->action.run());return v;
     }
     private void build() {
-        if(bitmap!=null){photo.setImageDrawable(null);bitmap.recycle();bitmap=null;}
+        if(bitmap!=null){photo.setImageDrawable(null);bitmap=null;}
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xFF06121F);
         map=new MapView(this,archive);root.addView(map,new LinearLayout.LayoutParams(-1,0,1));
         photoLabel=new TextView(this);photoLabel.setTextColor(0xFFAAC9D5);photoLabel.setTextSize(12);root.addView(photoLabel);
@@ -81,7 +81,7 @@ public final class MapActivity extends Activity {
         photo.setVisibility(photos?View.VISIBLE:View.GONE);
         photoLabel.setText("Keyframe "+(slider.getProgress()+1)+" / "+map.count()+" · "+(photos?"sensor image orientation":"drag slider to inspect camera poses"));
         if(!photos)return;
-        if(bitmap!=null){photo.setImageDrawable(null);bitmap.recycle();bitmap=null;}
+        if(bitmap!=null){photo.setImageDrawable(null);bitmap=null;}
         byte[] bytes=map.image();
         if(bytes.length>0){bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.length);photo.setImageBitmap(bitmap);}
         else photoLabel.setText("No photo for this keyframe. Enable photo keyframes before capture.");
@@ -99,5 +99,5 @@ public final class MapActivity extends Activity {
             String status=message;runOnUiThread(()->Toast.makeText(this,status,Toast.LENGTH_LONG).show());
         });
     }
-    @Override protected void onDestroy(){io.shutdown();if(bitmap!=null)bitmap.recycle();super.onDestroy();}
+    @Override protected void onDestroy(){io.shutdown();super.onDestroy();}
 }
