@@ -61,7 +61,7 @@ No object recognizer or explicit ground plane is necessary to read ARCore metric
 - PAUSE/RESUME discards unknown motion between segments.
 - Camera tracking PAUSED/STOPPED triggers a gap; it never interpolates the missing path.
 - Duplicate or out-of-order frame timestamps are ignored.
-- A camera-pose gap > 0.70 seconds or an implausible step speed > 25 m/s resets the segment anchor.
+- A gap > 0.70 seconds **between successive valid camera frames** or an implausible **frame-to-frame** speed > 25 m/s resets the segment anchor. Holding the phone still for minutes does not count as a missing-frame gap.
 - Motion below 0.035 m relative to the most recently accepted pose is deferred to avoid per-frame jitter; slow motion can accumulate into a larger accepted step.
 - 2D mini-map uses XZ displacement; Y is height. It is **not a global north-up map**, geographic route or ground-truth trajectory.
 - Displacement is formed from accepted translations only. If ARCore's world origin or orientation changes between segments, displacement and the map may be **inconsistent even if path length remains plausible**.
