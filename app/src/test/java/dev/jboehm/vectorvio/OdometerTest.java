@@ -9,7 +9,7 @@ public class OdometerTest {
         o.start(1000);
         assertEquals(Odometer.Result.REFERENCE, o.onPose(0,0,0,1_000_000_000L));
         assertEquals(Odometer.Result.NO_CHANGE, o.onPose(0.001,0,0,1_100_000_000L));
-        assertEquals(Odometer.Result.ACCEPTED, o.onPose(0.3,0.4,0,2_000_000_000L));
+        assertEquals(Odometer.Result.ACCEPTED, o.onPose(0.3,0.4,0,1_200_000_000L));
         Odometer.Snapshot s = o.snapshot(2000);
         assertEquals(0.5,s.totalMeters,1e-8);
         assertEquals(0.3,s.horizontalMeters,1e-8);
