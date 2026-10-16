@@ -52,6 +52,41 @@ public class OdometerTest {
         assertEquals(1,o.snapshot(1).outliers);
     }
 
+
+    @Test public void stationaryFramesDoNotTriggerFakeGap() {
+        Odometer o = new Odometer();
+        o.start(0);
+        o.onPose(0,0,0,1_000_000_000L);
+        for(int i=1;i<=30;i++)
+            o.onPose(0,0,0,1_000_000_000L+i*100_000_000L);
+        assertEquals(Odometer.Result.ACCEPTED,
+            o.onPose(.2,0,0,4_100_000_000L));
+        assertEquals(.2,o.snapshot(5000).totalMeters,1e-8);
+        assertEquals(0,o.snapshot(5000).gaps);
+    }
+
+    @Test public void singleFrameJumpAfterLongRestIsOutlier() {
+        Odometer o = new Odometer();
+        o.start(0);
+        o.onPose(0,0,0,1_000_000_000L);
+        for(int i=1;i<=30;i++)
+            o.onPose(0,0,0,1_000_000_000L+i*100_000_000L);
+        assertEquals(Odometer.Result.REJECTED,
+            o.onPose(50,0,0,4_100_000_000L));
+        assertEquals(0,o.snapshot(5000).totalMeters,0);
+        assertEquals(1,o.snapshot(5000).outliers);
+    }
+
+    @Test public void trueMissingFramesStillCountAsGap() {
+        Odometer o = new Odometer();
+        o.start(0);
+        o.onPose(0,0,0,1_000_000_000L);
+        assertEquals(Odometer.Result.GAP,
+            o.onPose(.2,0,0,2_000_000_000L));
+        assertEquals(0,o.snapshot(5000).totalMeters,0);
+        assertEquals(1,o.snapshot(5000).gaps);
+    }
+
     @Test public void resetClearsState() {
         Odometer o = new Odometer();
         o.start(0);
