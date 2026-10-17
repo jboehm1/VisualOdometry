@@ -42,7 +42,7 @@ Use real synchronized visual-inertial datasets as the main accuracy evidence. Ke
 
 ## Status
 
-The two procedural scenes have been executed headlessly using the exact Java renderer/estimator classes used by Android. The APK UI itself has not been exercised in an Android emulator here. No EuRoC, TUM VI, ADVIO or ORB-SLAM3 accuracy run is claimed yet. The real-data adapter and ARCore recording/replay controls are not implemented by this change.
+The two procedural scenes have been executed headlessly using the exact Java renderer/estimator classes used by Android. The APK UI itself has not been exercised in an Android emulator here. No EuRoC, TUM VI, ADVIO or ORB-SLAM3 accuracy run is claimed yet. ARCore MP4 recording and session ZIP export are implemented (see CAPTURE_FORMAT.md); physical-device MP4 capture has not yet been verified here. ARCore playback controls and EuRoC/TUM VI adapters are still not implemented.
 
 ## Primary sources (checked 2026-10-17)
 

@@ -1,0 +1,58 @@
+# Current module boundaries and dataset migration
+
+Updated 2026-10-17. Application baseline: `8a3c4a1`, branch `feature/slam-explorer`, PR #2. CI run 39030133244 passed Android tests/lint/build and both three-lap procedural regressions. This is not a physical-device accuracy certification.
+
+## Implemented reusable blocks
+
+Sources live in `app/src/main/java/dev/jboehm/vectorvio/`.
+
+| Block | Responsibility | Dependencies / reuse limits |
+|---|---|---|
+| Odometer, RouteHistory | Gate metric positions, integrate distance/speed, preserve segment breaks and bounded world route | Pure Java; reusable with another metric pose source. Odometer currently consumes position/timestamp, not a full generic engine output. |
+| MapArchive, SessionBundle | Versioned sparse snapshots, validation, ZIP packaging | Pure Java file/data logic; no ARCore dependency. MapArchive is a bounded snapshot, not a reloadable tracking map. |
+| Projection, GroundTrail | Homogeneous graphics clipping, display-only floor selection | Pure Java. Floor matching uses detected horizontal footprints plus height limits, not semantic floor recognition. Unknown floor uses a separately indicated display assumption. |
+| CsvRecorder | Pose/IMU and sidecar persistence, export | Android Context/URI/Handler dependencies; format is reusable, service is not platform-neutral. |
+| HudView / MapView | Live HUD and saved-map rendering | Android Canvas. HudView consumes Odometer and SceneMapper models; not yet engine-independent. |
+| SceneMapper / MapCapture | Live projected surfaces/points, anchors, POIs and saved keyframes | Direct ARCore Frame/Session/Pose/Anchor dependencies. Must be adapted for another engine. |
+| TrainingCapture / GpsMonitor / ImuMonitor | Phone recording and sensor acquisition | Android; TrainingCapture specifically uses ARCore recording. Not a generic video recorder or dataset player. |
+| SimulationModel / CorridorRenderer / SyntheticVision / ReplayCamera | Generated truth, RGB rendering, limited estimator, camera calibration | Headless Java runner exists in tools/simulation. SyntheticVision assumes forward planar motion and takes a per-frame synthetic sensor sample; not a general real-data VIO engine. |
+| MainActivity / SimulationActivity | Lifecycle, controls and pipeline orchestration | Two separate pipelines. MainActivity still coordinates ARCore directly; there is no runtime-selectable engine interface. |
+
+## What is not implemented
+
+- No common Engine/InputSource interface; no ORB-SLAM3/OpenVINS Android adapter.
+- No EuRoC/TUM VI/ADVIO loader or executed benchmark with our estimator.
+- No ARCore MP4 playback screen. Recording/export exist, but actual MP4 capture on the user's S21 remains unverified here.
+- No independent real-route ground truth, camera–IMU extrinsic/time calibration, global map optimizer or persistent ARCore-map reload.
+- CI synthetic replay validates the Java simulation estimator, not live ARCore accuracy.
+- APK signatures can vary between CI workers; a stable signing configuration remains necessary for reliable in-place updates.
+
+## Required replacement boundary (design, not existing API)
+
+Separate the following responsibilities before adding a second engine:
+
+1. **InputSource:** ordered camera frames plus all intervening timestamped accelerometer/gyro samples. Include calibration, distortion, axes, units, camera–IMU transform/time offset and explicit reset/end events. Define buffer ownership and backpressure. Native ARCore camera/sensor acquisition stays inside its adapter: ARCore cannot consume arbitrary EuRoC frames.
+2. **TrackingEngine:** lifecycle start/pause/reset/close, tracking state and metric camera-to-world poses with timestamp and segment/frame identity. Mapping is an optional capability; do not invent planes/anchors when an odometry engine does not provide them. Surface units, scale initialization and tracking failures explicitly.
+3. **App state/output:** adapt poses into the existing Odometer; publish immutable render/sparse-map snapshots. Replace HudView's SceneMapper-specific model with neutral display data. Keep ground display separate from measured camera trajectory.
+4. **Evaluator:** consume separate ground truth after inference; calculate ATE/RPE, coverage, initialization/failures, distance/speed and map errors. Never pass truth poses, scale, route dimensions or surveyed map into the engine.
+
+Do not introduce empty interfaces and describe the app as pluggable. Extract the ARCore adapter and run it through the same boundary before claiming the abstraction works. Keep lifecycle/session calls on their required thread; bound pending frames and disk queues rather than retaining unlimited images.
+
+## Real-data rollout
+
+| Stage | Actual work needed | Evidence produced |
+|---|---|---|
+| Real phone, same engine | Verify TrainingCapture produces nonempty playable MP4 plus matching sidecars; implement official ARCore playback | Repeatable ARCore runs and render/tracking diagnostics; no independent accuracy claim |
+| Established research baseline | Cache one EuRoC sequence and calibration; run a pinned ORB-SLAM3 or OpenVINS mono-inertial runner in a reproducible environment | External engine results, clearly separate from our APK |
+| Shared app engine | Extract adapter boundary, add native research-engine adapter and exact timestamp/calibration conversion | Same selected engine runs in benchmark and application |
+| Held-out validation | Freeze commit/config, run other EuRoC sequences and TUM VI with their supported camera models | Metric evaluation without post-hoc scale fitting; disclose partial ground-truth coverage |
+
+Keep procedural scenarios for fast deterministic regression; add real datasets as another source, not as hidden truth inside the estimator. See REAL_DATA_VALIDATION.md for sources and evaluation constraints.
+
+## Low-token automated workflow
+
+Cache datasets once outside git. A deterministic command should pin engine/config/data checksum, run estimation, then emit summary JSON, trajectory files, plots and a failure log. CI compares declared thresholds and uploads artifacts. Send only changed metrics and short error excerpts to an AI; do not repeatedly inspect all frames. The existing procedural script follows this execution/report pattern. The real-data version remains to be implemented.
+
+## Field evidence and UI status
+
+The supplied phone ZIP contained pose/IMU CSV only, no MP4 or VIDEO_START event. It showed tracking/pose publication interruptions; CSV logging at roughly 100 ms cannot identify every rendered-frame freeze. SLOW_RENDER_MS events now flag render calls over 100 ms, rate-limited to one per five seconds; they are diagnostics, not a full profiler. Mapping snapshot allocation was reduced. Floor display, compact HUD and borderless fills are implemented, but floor registration/occlusion and sustained device performance still require phone tests.

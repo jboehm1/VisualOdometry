@@ -1,3 +1,5 @@
+> Current handoff: [MODULES_AND_DATASETS.md](MODULES_AND_DATASETS.md), [CAPTURE_FORMAT.md](CAPTURE_FORMAT.md) and branch `feature/slam-explorer` / PR #2. The commit/artifact inventory below is historical, not current HEAD.
+
 > **0.3 update:** Spatial Explorer work is on `feature/slam-explorer`.
 > Read [SPATIAL_EXPLORER.md](SPATIAL_EXPLORER.md) first. It supersedes the 0.1
 > inventory below: planes/points/anchored trail and diagnostic IMU CSV are added;

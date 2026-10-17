@@ -1,3 +1,5 @@
+> Current UI: compact HUD, borderless translucent surface fills, orange floor-projected route. Known floor footprints are used where available; otherwise FLOOR EST. means a 1.5 m phone-height assumption. This affects display only, not recorded camera poses. See [MODULES_AND_DATASETS.md](MODULES_AND_DATASETS.md).
+
 # VECTOR Spatial Explorer 0.5
 
 This milestone adds local mapping inspection to the ARCore visual–inertial odometer.
@@ -26,7 +28,7 @@ This milestone adds local mapping inspection to the ARCore visual–inertial odo
 | Cyan plane polygon | ARCore tracked, non-subsumed horizontal Plane | A geometric horizontal surface, potentially floor, table or ceiling |
 | Violet plane polygon | ARCore vertical Plane | A geometric vertical surface; not semantic wall recognition |
 | Gold dots | ARCore current PointCloud, confidence ≥0.2 | Sparse measured scene points, capped at 240 visible candidates |
-| Cyan trail | Anchors created near accepted camera poses | Historical **camera-height** path, not a floor-snapped walking route |
+| Orange trail | Recorded world trajectory, projected onto detected floor footprints or estimated 1.5 m below the camera | Display-only route; no occlusion or guaranteed floor classification |
 | Reticle | Screen-space graphics | A visual aid, never a measured feature |
 | Segment map | Accepted X/Z increments in latest independent segment | Local axes, not geographic north; old segments are not stitched |
 | Gold POI pin | User-created ARCore plane anchor | A manually named place; no automatic object or semantic recognition |

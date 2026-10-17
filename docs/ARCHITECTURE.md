@@ -1,3 +1,5 @@
+> Current implementation inventory: [MODULES_AND_DATASETS.md](MODULES_AND_DATASETS.md). This document retains historical mathematical explanations; use that inventory and CAPTURE_FORMAT.md for implemented features.
+
 > Updated behavior: see [SPATIAL_EXPLORER.md](SPATIAL_EXPLORER.md). Since 0.2 displacement/height restart per independent segment, and diagnostic raw IMU is logged. Since 0.3 map snapshots can be saved/reopened, with optional image keyframes and a manual endpoint constraint. The older baseline explanations below describe 0.1 where inconsistent.
 
 # Architecture, mathematical model and assumptions
@@ -80,8 +82,8 @@ Thresholds are heuristics, not calibrated confidence bounds. For a real validati
 | Metric scale | ARCore's fused internal state | Not independently verified |
 | Travel distance | Our gated pose differences | No formal uncertainty bound |
 | Relative height | +Y pose integration | No barometric constraint |
-| GPS coordinates | Not requested or read | Unavailable |
-| Raw IMU samples | Not requested or stored | Unavailable |
+| GPS coordinates | Optional foreground GPS/network fixes | Provider-reported accuracy; separate from VIO |
+| Raw IMU samples | SensorManager CSV, requested at 200 Hz | Actual delivery rate varies; camera timing/extrinsics not calibrated |
 | Ground truth | External tape / surveyed track | Not available inside app |
 
 **Do not confuse a 2-decimal display with 1-cm accuracy.** The UI formatting is a display choice, not a precision claim.

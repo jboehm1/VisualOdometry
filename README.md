@@ -2,21 +2,23 @@
 
 **Camera + IMU → metric 6-DoF motion → real-time augmented camera HUD → local CSV.**
 
-**Current maturity: 0.6.0-alpha / not production-ready.** CI builds and tests the app, but this workspace has no supported ARCore phone for installation, camera, lifecycle, or accuracy validation. No measured-route performance is claimed. This is not flight-control software.
+**Current maturity: 0.7.0-alpha / not production-ready.** CI builds and tests the app, but this workspace has no supported ARCore phone for installation, camera, lifecycle, or accuracy validation. No measured-route performance is claimed. This is not flight-control software.
 
 This replaces the abandoned 2019 notebook *as an application direction*, without deleting it: the original [VO.ipynb](VO.ipynb) remains in history, with its exact original commit preserved at [backup/2019-original-colab](https://github.com/jboehm1/VisualOdometry/tree/backup/2019-original-colab). Android work is on [feature/slam-explorer](https://github.com/jboehm1/VisualOdometry/tree/feature/slam-explorer), pending field validation and review.
 
-## Spatial Explorer 0.6
+## Spatial Explorer 0.7
 
 See [SPATIAL_EXPLORER.md](docs/SPATIAL_EXPLORER.md) for controls, mapping semantics,
-CSV v2 and validation. New: real horizontal/vertical plane boundaries, measured
-point-cloud overlays, anchored camera-height trail, an expanded live scene map and
+CSV v2 and validation. Current: subtle horizontal/vertical surface fills, measured
+point-cloud overlays, an orange display-only floor trail, an expanded live scene map and
 live raw accelerometer/gyro diagnostics with timestamped CSV samples. ARCore
 provides the local tracking/map engine; saved point-cloud/image snapshots reopen in an offline 3D viewer. Optional manual
 endpoint constraints create a corrected copy; automatic loop optimization and
 persistent tracking-map reload are not implemented. User-marked points of interest
 are anchored and exported; no automatic object recognition is claimed. Physical
 S21 validation is still pending. SIM opens an offline procedural video/IMU replay with a deterministic ground-truth trajectory and CSV export; it runs without camera permission or ARCore.
+
+See [current module boundaries and replacement plan](docs/MODULES_AND_DATASETS.md) for reusable code, ARCore dependencies, real-dataset contracts and implemented versus planned functionality.
 
 ## What you can do
 
