@@ -3,7 +3,9 @@ import java.util.*;
 /** Bounded world-frame display history. Segment breaks are retained, never stitched. */
 final class RouteHistory {
     private final ArrayList<Odometer.Point> points=new ArrayList<>();
+    private List<Odometer.Point> cached;
     void add(Odometer.Point p){
+        cached=null;
         if(points.size()>=8192){
             ArrayList<Odometer.Point> reduced=new ArrayList<>();
             for(int i=0;i<points.size();i++)if(i==0||i==points.size()-1||i%2==0||points.get(i-1).segment!=points.get(i).segment||points.get(i+1).segment!=points.get(i).segment)reduced.add(points.get(i));
@@ -12,9 +14,9 @@ final class RouteHistory {
         }
         points.add(p);
     }
-    List<Odometer.Point> snapshot(){return Collections.unmodifiableList(new ArrayList<>(points));}
+    List<Odometer.Point> snapshot(){if(cached==null)cached=Collections.unmodifiableList(new ArrayList<>(points));return cached;}
     Odometer.Point last(){return points.isEmpty()?null:points.get(points.size()-1);}
-    void clear(){points.clear();}
+    void clear(){points.clear();cached=null;}
     static double[] bounds(List<Odometer.Point> p){
         if(p.isEmpty())return new double[]{0,0,2};
         double lx=p.get(0).x,hx=lx,lz=p.get(0).z,hz=lz;

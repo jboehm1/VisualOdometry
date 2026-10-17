@@ -123,8 +123,7 @@ final class MapCapture {
             System.arraycopy(p.getTranslation(),0,xyzq,0,3);System.arraycopy(p.getRotationQuaternion(),0,xyzq,3,4);
             float[] world=new float[k.points.length];
             for(int i=0;i<world.length;i+=4) {
-                float[] xyz=p.transformPoint(new float[]{k.points[i],k.points[i+1],k.points[i+2]});
-                System.arraycopy(xyz,0,world,i,3);world[i+3]=k.points[i+3];
+                p.transformPoint(k.points,i,world,i);world[i+3]=k.points[i+3];
             }
             if(MapArchive.validPose(xyzq))result.add(new MapArchive.Keyframe(k.segment,k.timestamp,xyzq,MapArchive.cleanPoints(world),k.image));
         }

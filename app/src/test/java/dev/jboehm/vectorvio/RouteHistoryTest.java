@@ -8,4 +8,10 @@ public class RouteHistoryTest {
         double[] box=RouteHistory.bounds(s.worldTrail);for(Odometer.Point p:s.worldTrail){assertTrue(Math.abs(p.x-box[0])<=box[2]/2);assertTrue(Math.abs(p.z-box[1])<=box[2]/2);}
     }
     @Test public void longRouteIsDecimatedWithoutDiscardingItsBeginning(){RouteHistory history=new RouteHistory();for(int i=0;i<20000;i++)history.add(new Odometer.Point(i,0,0,1));assertEquals(0,history.snapshot().get(0).x,0);assertEquals(19999,history.last().x,0);assertTrue(history.snapshot().size()<8192);}
+    @Test public void cachedSnapshotRemainsImmutableAcrossUpdatesAndReset(){
+        RouteHistory h=new RouteHistory();h.add(new Odometer.Point(1,2,3,1));
+        java.util.List<Odometer.Point> first=h.snapshot();assertSame(first,h.snapshot());
+        h.add(new Odometer.Point(4,5,6,1));assertEquals(1,first.size());assertEquals(2,h.snapshot().size());
+        h.clear();assertEquals(0,h.snapshot().size());assertEquals(1,first.size());
+    }
 }

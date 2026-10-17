@@ -85,6 +85,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile int autoSavedKeyframes=0,autoSavedPois=0;
     private volatile long mapRetryAfterMs;
     private volatile int mapSaveFailures;
+    private long lastSlowFrameLogMs;
     private long lastAutoSaveAttemptMs=0;
     private volatile String message="Tap START for AR tracking, or SIM for offline replay";
     private volatile String trackingLabel="SIM READY";
@@ -657,6 +658,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
         Session s=arSession;
         if(s==null||background==null||!rendererRunning) return;
+        long renderStartNs=SystemClock.elapsedRealtimeNanos();
         try {
             if(!textureAssigned){
                 s.setCameraTextureName(background.textureId());
@@ -680,7 +682,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 poseResult=odometer.onPose(xyz[0],xyz[1],xyz[2],frame.getTimestamp());
                 long wallMs=System.currentTimeMillis();
                 if(frame.getTimestamp()-lastLoggedFrameNs>=100_000_000L
-                       && odometer.snapshot(SystemClock.elapsedRealtime()).recording
+                       && odometer.isRecording()
                        && recorder.currentFile()!=null) {
                     Odometer.Snapshot data=odometer.snapshot(SystemClock.elapsedRealtime());
                     recorder.pose(wallMs,frame.getTimestamp(),xyz,quaternion,data);
@@ -727,7 +729,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             long now=SystemClock.elapsedRealtime();
             if(now-lastSceneNs>=50) {
                 lastSceneNs=now;
-                SceneMapper.Snapshot scene=mapper.update(s,frame,poseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold);
+                SceneMapper.Snapshot scene=mapper.update(s,frame,poseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,odometer.snapshot(now).worldTrail);
                 float[] sensors=imu.snapshot();float hz=cameraHz;
                 int keyframes=savedKeyframes,images=capturedImages,pois=savedPois;boolean full=mapFull;
                 runOnUiThread(()->{hud.updateScene(scene,sensors,hz);hud.updateCapture(keyframes,images,pois,full);});
@@ -747,6 +749,13 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             mapper.clear();
             mapCapture.finishSegment();
             runOnUiThread(()->{hud.updateScene(new SceneMapper.Snapshot(new java.util.ArrayList<>(),0,0,0,0,0),imu.snapshot(),0);refreshHud();});
+        } finally {
+            long durationMs=(SystemClock.elapsedRealtimeNanos()-renderStartNs)/1_000_000L;
+            long nowMs=SystemClock.elapsedRealtime();
+            if(durationMs>=100 && nowMs-lastSlowFrameLogMs>=5_000 && odometer.isRecording()) {
+                lastSlowFrameLogMs=nowMs;
+                recorder.event("SLOW_RENDER_MS_"+durationMs,System.currentTimeMillis());
+            }
         }
     }
 }

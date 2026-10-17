@@ -36,22 +36,12 @@ final class SceneMapper {
     private final LinkedHashMap<Long,MapPoint> mapPoints=new LinkedHashMap<>();
     private final float[] view=new float[16],projection=new float[16],vp=new float[16];
     void clear() { for(Anchor a:trail) a.detach(); trail.clear();mapPoints.clear(); }
-    Snapshot update(Session session,Frame frame,Odometer.Result result,int width,int height,int segment,List<MapArchive.Poi> pois,float pointConfidence) {
+    Snapshot update(Session session,Frame frame,Odometer.Result result,int width,int height,int segment,List<MapArchive.Poi> pois,float pointConfidence,List<Odometer.Point> history) {
         Camera camera=frame.getCamera();
         if(camera.getTrackingState()!=TrackingState.TRACKING) {
             clear();return new Snapshot(new ArrayList<>(),0,0,0,0,0,new ArrayList<>(),new ArrayList<>(),new ArrayList<>(),new ArrayList<>(),segment);
         }
         if(result==Odometer.Result.REFERENCE || result==Odometer.Result.GAP || result==Odometer.Result.REJECTED) clear();
-        if(result==Odometer.Result.REFERENCE || result==Odometer.Result.ACCEPTED) {
-            Pose pose=camera.getPose();
-            Pose previous=trail.isEmpty()?null:trail.get(trail.size()-1).getPose();
-            float distance=previous==null?1:distance(previous,pose);
-            if(distance>=.4f) {
-                // Bound native resources; a trail is camera-height, never invented floor geometry.
-                if(trail.size()>=96) trail.remove(0).detach();
-                trail.add(session.createAnchor(pose));
-            }
-        }
         camera.getViewMatrix(view,0);camera.getProjectionMatrix(projection,0,.05f,100f);
         Matrix.multiplyMM(vp,0,projection,0,view,0);
         ArrayList<Shape> shapes=new ArrayList<>();ArrayList<MapSurface> surfaces=new ArrayList<>();
@@ -81,7 +71,7 @@ final class SceneMapper {
             int stride=Math.max(1,(points+239)/240);
             for(int i=0;i<points;i++) {
                 float x=data.get(),y=data.get(),z=data.get(),q=data.get();confidence+=q;
-                if(i%stride!=0 || q<pointConfidence)continue;
+                if(i%stride!=0 || !Float.isFinite(x)||!Float.isFinite(y)||!Float.isFinite(z)||!Float.isFinite(q)||q<pointConfidence)continue;
                 float grid=.14f;int gx=(int)Math.floor(x/grid),gz=(int)Math.floor(z/grid);
                 long cell=((long)gx<<32)^(gz&0xffffffffL);
                 if(!mapPoints.containsKey(cell)) {
@@ -92,19 +82,18 @@ final class SceneMapper {
                 if(xy!=null)shapes.add(new Shape(xy,2,""));
             }
         }
-        float[] previous=null;
-        for(Anchor anchor:trail) {
-            if(anchor.getTrackingState()!=TrackingState.TRACKING){previous=null;continue;}
-            Pose p=anchor.getPose();
-            float[] xyz=p.getTranslation();
-            if(previous!=null) {
-                float[] line=Projection.line(vp,previous,xyz);
+        // Project the recorded world path. No per-breadcrumb native anchors.
+        // Breaks remain explicit; no fabricated motion through tracking outages.
+        ArrayList<float[]> path=new ArrayList<>();
+        Odometer.Point previous=null;
+        for(Odometer.Point point:history) {
+            float[] xyz={(float)point.x,(float)point.y,(float)point.z};
+            if(previous!=null && previous.segment==point.segment) {
+                float[] line=Projection.line(vp,new float[]{(float)previous.x,(float)previous.y,(float)previous.z},xyz);
                 if(line!=null)shapes.add(new Shape(line,3,""));
             }
-            previous=xyz;
+            path.add(xyz);previous=point;
         }
-        ArrayList<float[]> path=new ArrayList<>();
-        for(Anchor anchor:trail)if(anchor.getTrackingState()==TrackingState.TRACKING)path.add(anchor.getPose().getTranslation());
         ArrayList<MapArchive.Poi> currentPois=new ArrayList<>();
         for(MapArchive.Poi poi:pois) {
             if(poi.segment!=segment)continue;
@@ -112,7 +101,7 @@ final class SceneMapper {
             float[] xyz={poi.pose[0],poi.pose[1],poi.pose[2]};float[] xy=Projection.point(vp,xyz[0],xyz[1],xyz[2]);
             if(xy!=null)shapes.add(new Shape(xy,4,poi.type+" · "+poi.label));
         }
-        Snapshot snapshot=new Snapshot(shapes,h,v,points,trail.size(),points==0?0:confidence/points,
+        Snapshot snapshot=new Snapshot(shapes,h,v,points,history.size(),points==0?0:confidence/points,
             new ArrayList<>(mapPoints.values()),surfaces,path,currentPois,segment);
         snapshot.cameraX=camera.getPose().tx();snapshot.cameraZ=camera.getPose().tz();
         float[] axis=camera.getDisplayOrientedPose().getZAxis();
