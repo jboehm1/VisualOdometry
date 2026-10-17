@@ -14,6 +14,8 @@ import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.content.SharedPreferences;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraManager;
 import android.view.Gravity;
 import android.view.SurfaceHolder;
 import android.view.View;
@@ -67,12 +69,14 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private long previousFrameNs=0;
     private float cameraHz=0;
     private TextView recordButton;
+    private TextView torchButton;
     private CameraBackground background;
     private CsvRecorder recorder;
     private volatile Session arSession;
     private volatile int width=0,height=0;
     private volatile boolean textureAssigned=false;
     private volatile boolean rendererRunning=false;
+    private volatile boolean torchEnabled=false;
     private volatile String message="Tap START for AR tracking, or SIM for offline replay";
     private volatile String trackingLabel="SIM READY";
     private long lastHudUpdateMs=0,lastLoggedFrameNs=0;
@@ -134,7 +138,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         TextView sensors=action("IMU",0xCC102D39,Color.WHITE);
         TextView map=action("MAPS",0xCC102D39,Color.WHITE);
         TextView simulation=action("SIM",0xCC102D39,Color.WHITE);
-        modes.addView(layers,weighted());modes.addView(sensors,weighted());modes.addView(map,weighted());modes.addView(simulation,weighted());
+        torchButton=action("FLASH OFF",0xCC102D39,Color.WHITE);
+        modes.addView(layers,weighted());modes.addView(sensors,weighted());modes.addView(map,weighted());modes.addView(simulation,weighted());modes.addView(torchButton,weighted());
         FrameLayout.LayoutParams modeLayout=new FrameLayout.LayoutParams(-1,dp(48),Gravity.TOP);
         modeLayout.topMargin=dp(142);modeLayout.leftMargin=dp(12);modeLayout.rightMargin=dp(12);
         root.addView(modes,modeLayout);
@@ -147,6 +152,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         sensors.setOnClickListener(v->hud.toggleSensors());
         map.setOnClickListener(v->mapMenu());
         simulation.setOnClickListener(v->startActivity(new Intent(this,SimulationActivity.class)));
+        torchButton.setOnClickListener(v->toggleTorch());
+        torchButton.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle("Camera torch")
+            .setMessage("The torch is available during live AR tracking when the active ARCore camera configuration supports a flash. It can improve visibility in dim rooms, but may cause glare on reflective surfaces and can increase heat and battery use. SIM uses generated images and does not activate the phone LED.")
+            .setPositiveButton("OK",null).show();return true;});
         setContentView(root);
 
         recordButton.setOnClickListener(v->toggleRecording());
@@ -202,6 +211,41 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
         refreshHud();
+    }
+
+    private void toggleTorch() {
+        Session session=arSession;
+        if(session==null||!rendererRunning){
+            Toast.makeText(this,"Start live AR tracking before enabling the flash",Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final boolean enable=!torchEnabled;
+        surface.queueEvent(()->{
+            Session current=arSession;
+            if(current==null||!rendererRunning)return;
+            try {
+                if(enable){
+                    CameraManager manager=(CameraManager)getSystemService(CAMERA_SERVICE);
+                    CameraCharacteristics characteristics=manager.getCameraCharacteristics(current.getCameraConfig().getCameraId());
+                    Boolean supported=characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
+                    if(!Boolean.TRUE.equals(supported)){
+                        runOnUiThread(()->Toast.makeText(this,"Flash is not available for this AR camera",Toast.LENGTH_LONG).show());
+                        return;
+                    }
+                }
+                Config config=current.getConfig();
+                config.setFlashMode(enable?Config.FlashMode.TORCH:Config.FlashMode.OFF);
+                current.configure(config);
+                torchEnabled=enable;
+                runOnUiThread(()->{
+                    torchButton.setText(enable?"FLASH ON":"FLASH OFF");
+                    torchButton.setTextColor(enable?0xFF70FADE:Color.WHITE);
+                    Toast.makeText(this,enable?"Camera flash on":"Camera flash off",Toast.LENGTH_SHORT).show();
+                });
+            } catch(Exception e) {
+                runOnUiThread(()->Toast.makeText(this,"Could not change flash: "+e.getClass().getSimpleName(),Toast.LENGTH_LONG).show());
+            }
+        });
     }
 
     private void mark() {
@@ -465,6 +509,18 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(rendererRunning) {
             String autoName=autoMapName;
             surface.queueEvent(()->{
+                if(torchEnabled&&arSession!=null){
+                    try {
+                        Config config=arSession.getConfig();
+                        config.setFlashMode(Config.FlashMode.OFF);
+                        arSession.configure(config);
+                    } catch(Exception ignored) { }
+                    torchEnabled=false;
+                    runOnUiThread(()->{
+                        torchButton.setText("FLASH OFF");
+                        torchButton.setTextColor(Color.WHITE);
+                    });
+                }
                 mapper.clear();mapCapture.finishSegment();
                 MapArchive archive=mapCapture.snapshot();
                 if(!archive.frames.isEmpty()||!archive.pois.isEmpty())persistMap(archive,autoName,false);

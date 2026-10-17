@@ -194,8 +194,12 @@ room and a scripted handheld camera path. A 40-second trajectory repeats every
 40 seconds. `SimulationModel` samples ground-truth position/orientation plus
 accelerometer and gyroscope values from the same time base, with fixed, smooth
 hand tremor, walking cadence and deterministic sensor noise. Playback supports
-pause, reset, looping and 0.5×/1×/1.5× speed; CSV export writes exactly 60
-samples per second with pose, acceleration, angular velocity, units and seed.
+an explicit START/PAUSE control, reset, looping and 0.5×/1×/1.5× speed. It
+opens paused at time zero with an empty estimated map. PAUSE stops estimator
+updates while leaving the current frame and map visible; RESET clears the path
+and landmarks and returns to the empty time-zero state. CSV export writes
+exactly 60 samples per second with pose, acceleration, angular velocity, units
+and seed.
 
 The reconstruction is empty on reset. `SyntheticVision` receives only the
 rendered frame pixels and the synchronized synthetic IMU sample. It integrates
@@ -217,6 +221,11 @@ not inject frames into ARCore or exercise ARCore tracking, relocalization or
 live-device VIO accuracy. The synthetic pipeline has deterministic unit tests;
 the live pipeline still needs recorded datasets and phone-based acceptance
 tests.
+
+On the live AR screen, **FLASH OFF/ON** toggles the active ARCore camera torch
+when that camera configuration reports flash support. The torch is switched off
+when the activity pauses; the SIM exposure control changes generated pixels and
+does not use the phone flash.
 
 ## Closing a loop
 

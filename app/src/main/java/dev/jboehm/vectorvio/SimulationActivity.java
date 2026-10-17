@@ -32,7 +32,7 @@ public final class SimulationActivity extends Activity {
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final long[] speeds={500_000_000L,1_000_000_000L,1_500_000_000L};
     private int speedIndex=1;
-    private boolean playing=true,loop=true;
+    private boolean playing=false,loop=true;
     private long baseSimNs=0,baseClockNs;
     private SimulationView simulationView;
     private TextView playButton,speedButton,loopButton,lightButton;
@@ -43,7 +43,7 @@ public final class SimulationActivity extends Activity {
         long time=currentTime();
         if(!loop&&time>=SimulationModel.DURATION_NS){time=SimulationModel.DURATION_NS-1;baseSimNs=time;playing=false;}
         simulationView.setReplay(SimulationModel.sample(time),time,playing,speeds[speedIndex]/1e9);
-        if(playButton!=null)playButton.setText(playing?"PAUSE":"PLAY");
+        if(playButton!=null)playButton.setText(playing?"PAUSE":"START");
         handler.postDelayed(this,33);
     }};
 
@@ -64,12 +64,12 @@ public final class SimulationActivity extends Activity {
         simulationView=new SimulationView();root.addView(simulationView,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout controls=new LinearLayout(this);controls.setGravity(Gravity.CENTER);controls.setPadding(dp(6),dp(7),dp(6),dp(7));
         controls.setBackgroundColor(0xE9081924);
-        playButton=button("PAUSE");speedButton=button("1.0×");TextView reset=button("RESET");loopButton=button("LOOP ON");lightButton=button("LIGHT 100%");TextView export=button("CSV");
+        playButton=button("START");speedButton=button("1.0×");TextView reset=button("RESET");loopButton=button("LOOP ON");lightButton=button("LIGHT 100%");TextView export=button("CSV");
         controls.addView(playButton,weighted());controls.addView(speedButton,weighted());controls.addView(reset,weighted());controls.addView(loopButton,weighted());controls.addView(lightButton,weighted());controls.addView(export,weighted());
         FrameLayout.LayoutParams cp=new FrameLayout.LayoutParams(-1,dp(60),Gravity.BOTTOM);root.addView(controls,cp);
         playButton.setOnClickListener(v->{if(playing){baseSimNs=currentTime();playing=false;}else{baseClockNs=SystemClock.elapsedRealtimeNanos();playing=true;}tickNow();});
         speedButton.setOnClickListener(v->{baseSimNs=currentTime();baseClockNs=SystemClock.elapsedRealtimeNanos();speedIndex=(speedIndex+1)%speeds.length;speedButton.setText(String.format(Locale.US,"%.1f×",speeds[speedIndex]/1e9));tickNow();});
-        reset.setOnClickListener(v->{baseSimNs=0;baseClockNs=SystemClock.elapsedRealtimeNanos();playing=true;tickNow();});
+        reset.setOnClickListener(v->{baseSimNs=0;baseClockNs=SystemClock.elapsedRealtimeNanos();playing=false;simulationView.resetMapping();tickNow();});
         loopButton.setOnClickListener(v->{loop=!loop;loopButton.setText(loop?"LOOP ON":"LOOP OFF");if(loop)baseClockNs=SystemClock.elapsedRealtimeNanos();});
         lightButton.setTextSize(8);lightButton.setOnClickListener(v->{lightIndex=(lightIndex+1)%EXPOSURES.length;lightButton.setText(new String[]{"LIGHT 100%","LIGHT 38%","LIGHT 14%","DARK 4%"}[lightIndex]);simulationView.invalidate();});
         export.setOnClickListener(v->exportCsv());
@@ -119,10 +119,11 @@ public final class SimulationActivity extends Activity {
         private SyntheticVision.Result visionResult;
         private int processedFrames;
         private SimulationModel.Sample sample=SimulationModel.sample(0);
-        private long timeNs=0;private boolean active=true;private double speed=1;
+        private long timeNs=0;private boolean active=false;private double speed=1;
         private final float density=getResources().getDisplayMetrics().density;
         SimulationView(){super(SimulationActivity.this);setClickable(true);}
         void setReplay(SimulationModel.Sample s,long t,boolean play,double rate){if(t+100_000_000L<timeNs){vision.reset();visionResult=null;processedFrames=0;}sample=s;timeNs=t;active=play;speed=rate;invalidate();}
+        void resetMapping(){vision.reset();visionResult=null;processedFrames=0;cameraFrame=null;invalidate();}
         private float d(float n){return n*density;}
         private void text(Canvas c,String value,float x,float y,float size,int color,boolean bold){paint.reset();paint.setAntiAlias(true);paint.setColor(color);paint.setTextSize(d(size));paint.setTypeface(Typeface.create(bold?"sans-serif-medium":"sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));c.drawText(value,x,y,paint);}
         private void panel(Canvas c,float l,float t,float r,float b){paint.reset();paint.setAntiAlias(true);paint.setColor(0xE90A1B27);c.drawRoundRect(l,t,r,b,d(14),d(14),paint);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d(1));paint.setColor(0x6656B8BE);c.drawRoundRect(l,t,r,b,d(14),d(14),paint);paint.setStyle(Paint.Style.FILL);}
@@ -130,7 +131,7 @@ public final class SimulationActivity extends Activity {
         @Override protected void onDraw(Canvas c){
             super.onDraw(c);int w=getWidth(),h=getHeight();if(w<=0||h<=0)return;
             if(cameraFrame==null)cameraFrame=Bitmap.createBitmap(SyntheticVision.WIDTH,SyntheticVision.HEIGHT,Bitmap.Config.ARGB_8888);
-            if(processedFrames%2==0){Canvas fc=new Canvas(cameraFrame);fc.drawColor(Color.BLACK);fc.save();fc.scale(SyntheticVision.WIDTH/(float)w,SyntheticVision.HEIGHT/(float)h);drawVideo(fc,w,h);fc.restore();int[] pixels=new int[SyntheticVision.WIDTH*SyntheticVision.HEIGHT];cameraFrame.getPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);applyExposure(pixels);cameraFrame.setPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);SyntheticVision.SensorSample sensors=new SyntheticVision.SensorSample(sample.timeNs,sample.ax,sample.ay,sample.az,sample.gx,sample.gy,sample.gz);visionResult=vision.process(pixels,SyntheticVision.WIDTH,SyntheticVision.HEIGHT,sensors);}
+            if(processedFrames%2==0){Canvas fc=new Canvas(cameraFrame);fc.drawColor(Color.BLACK);fc.save();fc.scale(SyntheticVision.WIDTH/(float)w,SyntheticVision.HEIGHT/(float)h);drawVideo(fc,w,h);fc.restore();int[] pixels=new int[SyntheticVision.WIDTH*SyntheticVision.HEIGHT];cameraFrame.getPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);applyExposure(pixels);cameraFrame.setPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);if(active){SyntheticVision.SensorSample sensors=new SyntheticVision.SensorSample(sample.timeNs,sample.ax,sample.ay,sample.az,sample.gx,sample.gy,sample.gz);visionResult=vision.process(pixels,SyntheticVision.WIDTH,SyntheticVision.HEIGHT,sensors);}}
             processedFrames++;c.drawColor(0xFF101E27);c.drawBitmap(cameraFrame,null,new RectF(0,0,w,h),null);drawTrackingOverlay(c,w,h);drawTop(c,w);drawMap(c,w,h);drawTelemetry(c,w,h);
         }
         private void applyExposure(int[] pixels){float exposure=EXPOSURES[lightIndex];if(exposure>=.999f)return;int frame=processedFrames;for(int i=0;i<pixels.length;i++){int p=pixels[i];int noise=exposure<.2f?(((i*1103515245+frame*12345)>>>28)&15):0;int r=Math.min(255,Math.round(((p>>16)&255)*exposure)+noise),g=Math.min(255,Math.round(((p>>8)&255)*exposure)+noise),b=Math.min(255,Math.round((p&255)*exposure)+noise);pixels[i]=(p&0xff000000)|(r<<16)|(g<<8)|b;}}
@@ -156,8 +157,8 @@ public final class SimulationActivity extends Activity {
         private void drawTop(Canvas c,int w){
             paint.reset();paint.setShader(new android.graphics.LinearGradient(0,0,0,d(147),0xF0081722,0x00081722,android.graphics.Shader.TileMode.CLAMP));c.drawRect(0,0,w,d(147),paint);paint.setShader(null);
             text(c,"VECTOR  /  SIMULATION",d(18),d(40),17,0xFFF1FAFF,true);
-            text(c,"SQUARE LOOP · IMAGE-ONLY MAPPING · DETERMINISTIC",d(18),d(61),9,0xFF74FCE1,true);
-            float progress=(float)(timeNs/(double)SimulationModel.DURATION_NS);String state=active?"PLAYING":"PAUSED";
+            text(c,"SQUARE LOOP · VIDEO + IMU · EMPTY-START 3D MAPPING",d(18),d(61),9,0xFF74FCE1,true);
+            float progress=(float)(timeNs/(double)SimulationModel.DURATION_NS);String state=active?"PLAYING · ESTIMATING":"PAUSED · ESTIMATOR STOPPED";
             text(c,state+"  ·  "+String.format(Locale.US,"%.1f×   ·   %02d:%02d / 00:40",speed,(int)(timeNs/1e9)/60,(int)(timeNs/1e9)%60),d(18),d(84),10,0xFFF1FAFF,true);
             box.set(d(18),d(96),getWidth()-d(18),d(99));paint.reset();paint.setColor(0x553D7280);c.drawRoundRect(box,d(3),d(3),paint);box.right=box.left+(getWidth()-d(36))*progress;paint.setColor(0xFF74FCE1);c.drawRoundRect(box,d(3),d(3),paint);
         }

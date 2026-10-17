@@ -13,6 +13,8 @@
 - Start with an empty estimated map and keep the renderer's ground-truth pose and corridor geometry outside the mapping estimator.
 - Feed the estimator rendered camera pixels plus synchronized synthetic IMU samples; integrate gyro rotation and use accelerometer velocity only as a weak prior to image-derived translation.
 - Triangulate persistent 3D landmarks from repeated feature observations after estimated camera parallax; show an XYZ camera path and estimated 3D cloud in the live inset.
+- Start simulation at time zero with an empty map; START/PAUSE explicitly control estimation, and RESET clears the reconstruction and returns to the empty state.
+- Add a live AR camera flash toggle, with camera support detection and automatic shutoff when the activity pauses.
 - Expand deterministic tests to check empty startup, map growth from pixel motion, 3D landmarks, path coordinates, and reset behavior.
 - Mark the simulation as a non-metric demo with a depth prior and unvalidated drift/accuracy.
 

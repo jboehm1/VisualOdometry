@@ -117,9 +117,13 @@ final class SyntheticVision {
             Observation old=observations.get(p.id);
             if(old==null)continue;
             Observation now=new Observation(mapX,mapY,mapZ,yaw,p.x,p.y);
+            float bx=now.x-old.x,by=now.y-old.y,bz=now.z-old.z;
+            // Keep the first key observation until the estimated baseline is
+            // large enough. Replacing it every frame would prevent small but
+            // steady camera motion from ever reaching triangulation parallax.
+            if(bx*bx+by*by+bz*bz<.01f)continue;
             MapPoint triangulated=triangulate(p.id,old,now);
             if(triangulated!=null){mappedIds.add(p.id);map.add(triangulated);}
-            else observations.put(p.id,now);
         }
         for(Point p:currentTracks)if(!observations.containsKey(p.id))observations.put(p.id,new Observation(mapX,mapY,mapZ,yaw,p.x,p.y));
         while(map.size()>MAX_MAP){mappedIds.remove(map.remove(0).id);}
