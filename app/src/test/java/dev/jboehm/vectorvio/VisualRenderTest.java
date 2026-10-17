@@ -41,12 +41,14 @@ public class VisualRenderTest {
         List<float[]> path=Arrays.asList(new float[]{0,0,0},new float[]{1,0,1},new float[]{2,0,1.5f});
         MapArchive.Poi poi=new MapArchive.Poi(1,1,"LANDMARK","doorway",new float[]{1,0,1,0,0,0,1});
         SceneMapper.Snapshot scene=new SceneMapper.Snapshot(shapes,1,1,350,10,.7f,cloud,surfaces,path,Collections.singletonList(poi),1);
+        scene.cameraPoseValid=true;scene.cameraX=9.9f;scene.cameraZ=-.97f;scene.heading=(float)(Math.PI/3);
         hud.updateScene(scene,new float[]{.02f,-.1f,9.8f,.01f,0,-.02f,50,50},30);
         for(int i=0;i<90;i++)hud.updateScene(scene,new float[]{.02f,-.1f,9.8f+(float)Math.sin(i*.25)*2,.01f,0,-.02f,50,50},30);
         hud.toggleMap();
         hud.updateCapture(17,5);
         render(hud,"hud_synthetic",393,852);
         hud.toggleMap();
+        render(hud,"map_position_cone",393,852);
         hud.toggleSensors();render(hud,"imu_synthetic",393,852);
         render(hud,"hud_small_synthetic",360,720);
     }

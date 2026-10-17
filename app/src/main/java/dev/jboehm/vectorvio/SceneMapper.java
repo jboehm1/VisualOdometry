@@ -25,7 +25,7 @@ final class SceneMapper {
         final float confidence;
         float heading,pitch,targetMeters=-1;
         float cameraX,cameraZ;
-        boolean groundEstimated;
+        boolean groundEstimated,cameraPoseValid;
         Snapshot(List<Shape> shapes,int h,int v,int p,int a,float q){this(shapes,h,v,p,a,q,new ArrayList<>(),new ArrayList<>(),new ArrayList<>(),new ArrayList<>(),0);}
         Snapshot(List<Shape> shapes,int h,int v,int p,int a,float q,List<MapPoint> mapPoints,List<MapSurface> surfaces,List<float[]> path,List<MapArchive.Poi> pois){this(shapes,h,v,p,a,q,mapPoints,surfaces,path,pois,0);}
         Snapshot(List<Shape> shapes,int h,int v,int p,int a,float q,List<MapPoint> mapPoints,List<MapSurface> surfaces,List<float[]> path,List<MapArchive.Poi> pois,int segment) {
@@ -112,6 +112,7 @@ final class SceneMapper {
         Snapshot snapshot=new Snapshot(shapes,h,v,points,history.size(),points==0?0:confidence/points,
             new ArrayList<>(mapPoints.values()),surfaces,path,currentPois,segment);
         snapshot.groundEstimated=groundEstimated;
+        snapshot.cameraPoseValid=true;
         snapshot.cameraX=camera.getPose().tx();snapshot.cameraZ=camera.getPose().tz();
         float[] axis=camera.getDisplayOrientedPose().getZAxis();
         snapshot.heading=(float)Math.atan2(-axis[0],-axis[2]);

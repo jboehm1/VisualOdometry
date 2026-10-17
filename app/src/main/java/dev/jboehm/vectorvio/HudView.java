@@ -188,6 +188,22 @@ public final class HudView extends View {
 
     }
 
+    /** Camera bearing in local X/Z, not geographic north or a calibrated camera FOV. */
+    private void drawPositionMarker(Canvas c,float x,float y,boolean oriented) {
+        int tint=oriented?0xFF4DA8FF:0xFF96AAB8;
+        if(oriented&&Float.isFinite(scene.heading)) {
+            float heading=scene.heading,reach=d(18),spread=.42f;
+            Path cone=new Path();cone.moveTo(x,y);
+            cone.lineTo(x+(float)Math.sin(heading-spread)*reach,y+(float)Math.cos(heading-spread)*reach);
+            cone.lineTo(x+(float)Math.sin(heading+spread)*reach,y+(float)Math.cos(heading+spread)*reach);cone.close();
+            resetPaint();p.setColor(0x604DA8FF);c.drawPath(cone,p);
+            line(c,x,y,x+(float)Math.sin(heading)*d(15),y+(float)Math.cos(heading)*d(15),0xCCBADDFF,1.5f);
+        }
+        disc(c,x,y,d(7),0xE6071825,false);
+        disc(c,x,y,d(5),Color.WHITE,false);
+        disc(c,x,y,d(3.6f),tint,false);
+    }
+
     private void drawMiniMap(Canvas c,float l,float top,float width,float height,Odometer.Snapshot s) {
         box(c,l,top,l+width,top+height,10,0x90071825,0);
         label(c,"ROUTE · X/Z",l+d(10),top+d(20),9,MUTED,true);
@@ -202,7 +218,9 @@ public final class HudView extends View {
             return;
         }
         List<Odometer.Point> pts=s.worldTrail;
+        boolean current=scene!=null&&scene.cameraPoseValid;
         double[] bounds=RouteHistory.bounds(pts);double midX=bounds[0],midZ=bounds[1],side=bounds[2];
+        if(current)side=Math.max(side,2.5*Math.max(Math.abs(scene.cameraX-midX),Math.abs(scene.cameraZ-midZ)));
         double scale=(Math.min(width-d(28),height-d(49)))/side;
         Path path=new Path();
         for(int i=0;i<pts.size();i++) {
@@ -215,11 +233,11 @@ public final class HudView extends View {
         p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(d(2));p.setColor(CYAN);
         c.drawPath(path,p);p.setStyle(Paint.Style.FILL);
         Odometer.Point last=pts.get(pts.size()-1);
-        float endX=(float)(centerX+(last.x-midX)*scale);
-        float endY=(float)(centerY+(last.z-midZ)*scale);
+        float endX=(float)(centerX+((current?scene.cameraX:last.x)-midX)*scale);
+        float endY=(float)(centerY+((current?scene.cameraZ:last.z)-midZ)*scale);
         Odometer.Point first=pts.get(0);disc(c,(float)(centerX+(first.x-midX)*scale),(float)(centerY+(first.z-midZ)*scale),d(4),AMBER,true);
-        disc(c,endX,endY,d(4.5f),CYAN,false);
-        if(scene!=null)line(c,endX,endY,endX+(float)Math.sin(scene.heading)*d(14),endY+(float)Math.cos(scene.heading)*d(14),CYAN,2);
+        c.save();c.clipRect(l+d(4),top+d(25),l+width-d(4),top+height-d(19));
+        drawPositionMarker(c,endX,endY,current);c.restore();
         label(c,String.format(Locale.US,"%.0f m · route",side),l+d(10),top+height-d(8),9,MUTED,false);
     }
 
@@ -258,8 +276,11 @@ public final class HudView extends View {
         }
         for(MapArchive.Poi poi:scene.pois){float x=(float)(cx+(poi.pose[0]-midX)*scale),y=(float)(cy+(poi.pose[2]-midZ)*scale);disc(c,x,y,d(5),AMBER,false);}
         float px=(float)(cx+(scene.cameraX-midX)*scale),py=(float)(cy+(scene.cameraZ-midZ)*scale);
-        disc(c,px,py,d(4),Color.WHITE,false);
-        line(c,px,py,px+(float)Math.sin(scene.heading)*d(15),py+(float)Math.cos(scene.heading)*d(15),Color.WHITE,2);
+        if(scene.cameraPoseValid)drawPositionMarker(c,px,py,true);
+        else if(s!=null&&!s.worldTrail.isEmpty()){
+            Odometer.Point last=s.worldTrail.get(s.worldTrail.size()-1);
+            drawPositionMarker(c,(float)(cx+(last.x-midX)*scale),(float)(cy+(last.z-midZ)*scale),false);
+        }
         c.restore();
         label(c,String.format(Locale.US,"%d scene points · %d planes · %d markers · %.1f m view",scene.mapPoints.size(),scene.horizontal+scene.vertical,scene.pois.size(),side),l+d(11),top+height-d(4),9,MUTED,false);
     }
