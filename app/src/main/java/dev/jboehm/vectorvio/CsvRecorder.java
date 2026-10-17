@@ -136,8 +136,11 @@ public final class CsvRecorder {
     }
 
     public void sidecar(File session,String suffix,String header,String row){
+        sidecar(session,suffix,header,()->row);
+    }
+    public void sidecar(File session,String suffix,String header,java.util.function.Supplier<String> row){
         if(session==null)return;File target=new File(directory,SessionBundle.stem(session)+suffix);
-        io.execute(()->{try{BufferedWriter out=sidecars.get(target.getName());if(out==null){boolean exists=target.length()>0;out=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(target,true),StandardCharsets.UTF_8));sidecars.put(target.getName(),out);if(!exists)out.write(header+"\n");}out.write(row+"\n");}catch(Exception e){failure("Dataset write failed",e);}});
+        io.execute(()->{try{BufferedWriter out=sidecars.get(target.getName());if(out==null){boolean exists=target.length()>0;out=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(target,true),StandardCharsets.UTF_8));sidecars.put(target.getName(),out);if(!exists)out.write(header+"\n");}out.write(row.get()+"\n");}catch(Exception e){failure("Dataset write failed",e);}});
     }
     public void metadata(File session,String json){
         io.execute(()->{try(FileOutputStream out=new FileOutputStream(new File(directory,SessionBundle.stem(session)+"_metadata.json"))){out.write(json.getBytes(StandardCharsets.UTF_8));}catch(Exception e){failure("Metadata write failed",e);}});

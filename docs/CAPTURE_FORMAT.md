@@ -47,3 +47,9 @@ Automated tests verify history fitting/segment breaks, session asset selection a
 - [ARCore recording/playback](https://developers.google.com/ar/develop/java/recording-and-playback/developer-guide)
 - [RecordingConfig](https://developers.google.com/ar/reference/java/com/google/ar/core/RecordingConfig)
 - [Android LocationManager](https://developer.android.com/reference/android/location/LocationManager)
+
+## Export picker and performance diagnostics (2026-10-17)
+
+EXPORT offers current-session complete ZIP first, older sessions, and explicit CSV-only alternatives. The session list excludes `_frames.csv` and `_gps.csv`; those are technical sidecars included automatically with their parent session ZIP. Older sessions show UTC timestamps and nonempty MP4 part counts.
+
+A supplied S21 session has now produced a ZIP containing a 39.5 s H.264 640×480 camera stream near 30 Hz, frame metadata and IMU CSV. This verifies that device capture/export produced a real MP4; it does not establish timing calibration or pose accuracy. Four SLOW_RENDER events measured 470–679 ms in that capture. New diagnostics append ARCore update and metadata acquisition durations. Frame-row string formatting now runs on the serialized recording worker, with timestamps and values captured before enqueueing.

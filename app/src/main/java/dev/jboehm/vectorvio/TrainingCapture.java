@@ -42,6 +42,8 @@ final class TrainingCapture {
         lastFrame=frame.getTimestamp();long imageTime=-1;
         try(Image image=frame.acquireCameraImage()){imageTime=image.getTimestamp();}catch(Exception ignored){}
         Camera camera=frame.getCamera();CameraIntrinsics k=camera.getImageIntrinsics();float[] f=k.getFocalLength(),c=k.getPrincipalPoint();int[] size=k.getImageDimensions();Pose pose=camera.getPose();float[] t=pose.getTranslation(),q=pose.getRotationQuaternion();
-        recorder.sidecar(csv,"_frames.csv","part,frame_time_ns,image_time_ns,elapsed_realtime_ns,wall_time_ms,tracking,width,height,fx,fy,cx,cy,x_m,y_m,z_m,qx,qy,qz,qw",String.format(Locale.US,"%s,%d,%d,%d,%d,%s,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.7f,%.7f,%.7f,%.7f",part,lastFrame,imageTime,SystemClock.elapsedRealtimeNanos(),System.currentTimeMillis(),camera.getTrackingState(),size[0],size[1],f[0],f[1],c[0],c[1],t[0],t[1],t[2],q[0],q[1],q[2],q[3]));
+        final long frameNs=lastFrame,imageNs=imageTime,elapsedNs=SystemClock.elapsedRealtimeNanos(),wallMs=System.currentTimeMillis();
+        final String videoPart=part,tracking=camera.getTrackingState().toString();
+        recorder.sidecar(csv,"_frames.csv","part,frame_time_ns,image_time_ns,elapsed_realtime_ns,wall_time_ms,tracking,width,height,fx,fy,cx,cy,x_m,y_m,z_m,qx,qy,qz,qw",()->String.format(Locale.US,"%s,%d,%d,%d,%d,%s,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.7f,%.7f,%.7f,%.7f",videoPart,frameNs,imageNs,elapsedNs,wallMs,tracking,size[0],size[1],f[0],f[1],c[0],c[1],t[0],t[1],t[2],q[0],q[1],q[2],q[3]));
     }
 }

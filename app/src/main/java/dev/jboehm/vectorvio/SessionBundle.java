@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.zip.*;
 /** Self-contained session export; selects only exact session stem and known sidecars. */
 final class SessionBundle {
+    static boolean isSessionCsv(String name){return name.matches("vector_vio_[0-9]{8}_[0-9]{6}_[0-9]{3}\\.csv");}
     static String stem(File csv){return csv.getName().replaceFirst("\\.csv$", "");}
     static boolean belongs(String name,String stem){return name.equals(stem+".csv")||(name.startsWith(stem+"_")&&(name.endsWith(".mp4")||name.endsWith(".csv")||name.endsWith(".json")));}
     static int videoParts(File csv){

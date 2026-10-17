@@ -335,31 +335,35 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
 
     private void pickExport() {
         if(odometer.isRecording()){toggleRecording();Toast.makeText(this,"Paused to finalize recording before export",Toast.LENGTH_SHORT).show();}
-        new AlertDialog.Builder(this).setTitle("Export format").setItems(new String[]{"CSV only — poses and diagnostic IMU","Dataset ZIP — CSV, GPS, metadata and captured MP4 parts"},(d,i)->{exportDataset=i==1;pickSessionExport();}).show();
+        new AlertDialog.Builder(this).setTitle("Export recording").setItems(new String[]{
+            "Current session — complete ZIP (video if recorded + IMU)",
+            "Older session — complete ZIP", "Current session — CSV only", "Older session — CSV only"},(d,i)->{
+                exportDataset=i<2;
+                if(i==0||i==2){File current=recorder.currentFile();if(current==null){Toast.makeText(this,"No current recording; choose an older session",Toast.LENGTH_LONG).show();return;}launchSessionExport(current);}
+                else pickSessionExport();
+            }).show();
     }
     private void pickSessionExport() {
         File[] candidates=recorderSessions();
-        if(candidates.length==0) {
-            Toast.makeText(this,"No recorded CSV yet",Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if(candidates.length==0){Toast.makeText(this,"No recorded sessions yet",Toast.LENGTH_SHORT).show();return;}
         String[] names=new String[candidates.length];
-        for(int i=0;i<candidates.length;i++) names[i]=candidates[i].getName();
-        new AlertDialog.Builder(this)
-            .setTitle("Export a recording")
-            .setItems(names,(dialog,which)->{
-                exportFile=candidates[which];
-                Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType(exportDataset?"application/zip":"text/csv");
-                intent.putExtra(Intent.EXTRA_TITLE,exportDataset?SessionBundle.stem(exportFile)+"_dataset.zip":exportFile.getName());
-                try { startActivityForResult(intent,EXPORT_REQUEST); }
-                catch(Exception e){Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show();}
-            }).show();
+        for(int i=0;i<candidates.length;i++){
+            String stem=SessionBundle.stem(candidates[i]);
+            names[i]=stem.substring("vector_vio_".length()).replace('_',' ')+" UTC · "+SessionBundle.videoParts(candidates[i])+" video part(s)";
+        }
+        new AlertDialog.Builder(this).setTitle("Choose a session — date/time UTC")
+            .setItems(names,(dialog,which)->launchSessionExport(candidates[which])).show();
+    }
+    private void launchSessionExport(File session){
+        exportFile=session;
+        Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(exportDataset?"application/zip":"text/csv");
+        intent.putExtra(Intent.EXTRA_TITLE,exportDataset?SessionBundle.stem(exportFile)+"_dataset.zip":exportFile.getName());
+        try{startActivityForResult(intent,EXPORT_REQUEST);}catch(Exception e){Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show();}
     }
     private File[] recorderSessions() {
         File directory=new File(getFilesDir(),"sessions");
-        File[] files=directory.listFiles((dir,name)->name.startsWith("vector_vio_")&&name.endsWith(".csv"));
+        File[] files=directory.listFiles((dir,name)->SessionBundle.isSessionCsv(name));
         if(files==null) return new File[0];
         java.util.Arrays.sort(files,(a,b)->Long.compare(b.lastModified(),a.lastModified()));
         return files;
@@ -658,7 +662,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
         Session s=arSession;
         if(s==null||background==null||!rendererRunning) return;
-        long renderStartNs=SystemClock.elapsedRealtimeNanos();
+        long renderStartNs=SystemClock.elapsedRealtimeNanos(),arUpdateMs=0,metadataMs=0;
         try {
             if(!textureAssigned){
                 s.setCameraTextureName(background.textureId());
@@ -666,8 +670,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             }
             if(width<=0||height<=0) return;
             s.setDisplayGeometry(getWindowManager().getDefaultDisplay().getRotation(),width,height);
+            long phaseStartNs=SystemClock.elapsedRealtimeNanos();
             Frame frame=s.update();
+            arUpdateMs=(SystemClock.elapsedRealtimeNanos()-phaseStartNs)/1_000_000L;
+            phaseStartNs=SystemClock.elapsedRealtimeNanos();
             try{training.frame(s,frame);}catch(Exception e){training.status="VIDEO METADATA ERROR";}
+            metadataMs=(SystemClock.elapsedRealtimeNanos()-phaseStartNs)/1_000_000L;
             if(clearMap){mapper.clear();clearMap=false;}
             Odometer.Result poseResult=Odometer.Result.INACTIVE;
             if(frame.getTimestamp()!=0) background.draw(frame);
@@ -754,7 +762,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             long nowMs=SystemClock.elapsedRealtime();
             if(durationMs>=100 && nowMs-lastSlowFrameLogMs>=5_000 && odometer.isRecording()) {
                 lastSlowFrameLogMs=nowMs;
-                recorder.event("SLOW_RENDER_MS_"+durationMs,System.currentTimeMillis());
+                recorder.event("SLOW_RENDER_MS_"+durationMs+"_AR_"+arUpdateMs+"_META_"+metadataMs,System.currentTimeMillis());
             }
         }
     }

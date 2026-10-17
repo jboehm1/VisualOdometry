@@ -14,4 +14,10 @@ public class SessionBundleTest {
         assertEquals(6,names.size());assertTrue(names.contains("vector_vio_123_part001.mp4"));assertTrue(names.contains("README.txt"));assertFalse(names.contains("vector_vio_1234.csv"));assertFalse(names.contains("secret.txt"));
         try(java.util.stream.Stream<Path> paths=Files.walk(dir)){paths.sorted(Comparator.reverseOrder()).forEach(p->{try{Files.delete(p);}catch(IOException e){throw new RuntimeException(e);}});}
     }
+    @Test public void sessionPickerExcludesTechnicalSidecars(){
+        assertTrue(SessionBundle.isSessionCsv("vector_vio_20261017_121046_920.csv"));
+        assertFalse(SessionBundle.isSessionCsv("vector_vio_20261017_121046_920_frames.csv"));
+        assertFalse(SessionBundle.isSessionCsv("vector_vio_20261017_121046_920_gps.csv"));
+        assertFalse(SessionBundle.isSessionCsv("vector_vio_20261017_121046_920_part001.mp4"));
+    }
 }

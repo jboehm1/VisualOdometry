@@ -22,7 +22,7 @@ Sources live in `app/src/main/java/dev/jboehm/vectorvio/`.
 
 - No common Engine/InputSource interface; no ORB-SLAM3/OpenVINS Android adapter.
 - No EuRoC/TUM VI/ADVIO loader or executed benchmark with our estimator.
-- No ARCore MP4 playback screen. Recording/export exist, but actual MP4 capture on the user's S21 remains unverified here.
+- No ARCore MP4 playback screen. Recording/export exist, but a supplied S21 ZIP now confirms nonempty H.264 camera video plus metadata/IMU; playback in the app remains unimplemented.
 - No independent real-route ground truth, camera–IMU extrinsic/time calibration, global map optimizer or persistent ARCore-map reload.
 - CI synthetic replay validates the Java simulation estimator, not live ARCore accuracy.
 - APK signatures can vary between CI workers; a stable signing configuration remains necessary for reliable in-place updates.
@@ -56,3 +56,5 @@ Cache datasets once outside git. A deterministic command should pin engine/confi
 ## Field evidence and UI status
 
 The supplied phone ZIP contained pose/IMU CSV only, no MP4 or VIDEO_START event. It showed tracking/pose publication interruptions; CSV logging at roughly 100 ms cannot identify every rendered-frame freeze. SLOW_RENDER_MS events now flag render calls over 100 ms, rate-limited to one per five seconds; they are diagnostics, not a full profiler. Mapping snapshot allocation was reduced. Floor display, compact HUD and borderless fills are implemented, but floor registration/occlusion and sustained device performance still require phone tests.
+
+Subsequent field evidence: the session starting 2026-10-17 12:10:46 UTC contains one 39.5 s 640×480 H.264 camera stream, frame metadata, IMU and four 470–679 ms slow-render diagnostics. The previous CSV-only statement above refers to the earlier session. Export selection now excludes technical sidecars and offers the current session directly.
