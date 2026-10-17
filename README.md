@@ -25,7 +25,7 @@ S21 validation is still pending. SIM opens an offline procedural video/IMU repla
 - Inspect a live top-down **scene map** of decimated ARCore points, plane footprints, camera path and named POIs, plus saved 3D snapshots.
 - Place and export user-named door, hazard, landmark or note markers anchored to tracked planes.
 - Open **SIM** for a deterministic 40-second generated indoor walk, synchronized 60 Hz synthetic IMU, ground-truth path, speed/loop controls, and repeatable CSV export.
-- **START / PAUSE / RESUME / RESET / MARK** a recording and **EXPORT** past sessions as CSV.
+- **START / PAUSE / RESUME / RESET / MARK** a recording, auto-save the evolving map, and use **SAVE MAP** for an extra named snapshot.
 - Keep data **on the phone**; camera permission is requested only after you choose live AR tracking, never for SIM. The app does not request GPS or storage permission; Android document picker controls exported file destinations.
 - Reject duplicate frames, tracking interruptions, frame gaps and physically implausible position jumps before they become odometer distance.
 - Run unit tests for the distance accumulator using Java/JUnit and build a debug-signed APK in GitHub Actions.
@@ -41,7 +41,7 @@ A Google-Play-enabled Samsung Galaxy S21 5G supports ARCore. Other supported And
 3. Under **Artifacts**, download `vector-vio-debug-apk`.
 4. Unzip the artifact, transfer `app-debug.apk` to your Android phone, and install it. Android may ask permission to install applications from the file-manager/browser used to open the APK.
 5. Start **VECTOR · VIO**, grant Camera, and allow Google Play Services for AR to install/update if prompted.
-6. Move the phone gently while looking at **textured static scenery** until TRACKING appears, then press **START**.
+6. Press **START** once to launch camera tracking and measurement together. Move the phone gently while looking at **textured static scenery** until TRACKING appears; speed and distance begin updating when tracking is active.
 
 The workflow also compiles an unsigned release variant for build coverage; it is not a distributable production release. The downloadable debug APK is for testing and may not upgrade across builds signed by different CI workers. Never install an APK from untrusted mirrors.
 
@@ -55,7 +55,7 @@ The workflow also compiles an unsigned release variant for build coverage; it is
 
 ### Deterministic simulation
 
-The offline replay generates a 40-second square corridor walk with smoothly rounded corners and synchronized synthetic IMU values. At startup the estimated map is empty. The estimator receives only rendered camera pixels and synthetic accelerometer/gyroscope samples: it integrates gyro rotation, estimates translation primarily from tracked image motion with a low-weight accelerometer velocity prior, and triangulates 3D feature landmarks from repeated pixel observations after estimated camera motion. It receives no simulated pose or corridor geometry. The live inset displays its relative XYZ camera path and estimated 3D landmarks; ground-truth pose is shown separately as an evaluation reference. Cycle the light control to test deterministic exposure loss and dark read noise. Monocular scale uses a depth prior and this lightweight pipeline is not metrically validated SLAM. Reset and the fixed seed provide repeatable sessions; CSV export contains the deterministic pose and IMU ground truth.
+The offline replay generates a 40-second rounded-square corridor walk with reduced camera sway, continuous curved inner and outer walls, and a ceiling that closes the loop overhead. At startup the estimated map is empty. The estimator receives only rendered camera pixels and synchronized synthetic accelerometer/gyroscope samples: it integrates gyro rotation, estimates translation primarily from tracked image motion with a low-weight accelerometer velocity prior, and triangulates 3D feature landmarks from repeated pixel observations after estimated camera motion. It receives no simulated pose or corridor geometry. The live inset displays its relative XYZ camera path and estimated 3D landmarks; ground-truth pose is shown separately as an evaluation reference. Cycle the light control to test deterministic exposure loss and dark read noise. Monocular scale uses a depth prior and this lightweight pipeline is not metrically validated SLAM. Reset and the fixed seed provide repeatable sessions; CSV export contains the deterministic pose and IMU ground truth.
 
 ## Instrument display
 
@@ -78,7 +78,7 @@ The translucent overlay is drawn over a portrait camera feed:
     │ │ 11.91 m            +0.34 m        │ │
     │ │ TIME · SEGMENTS · MARKERS         │ │
     │ └────────────────────────────────────┘ │
-    │ [START/PAUSE] [MARK] [RESET] [EXPORT]  │
+    │ [START/PAUSE] [MARK] [SAVE MAP] [RESET] [EXPORT] │
     └────────────────────────────────────────┘
 
 *This is a conceptual layout, not a screenshot. Reticle/grid are screen-space decorations, not reconstructed features or tracked 3D anchors.*

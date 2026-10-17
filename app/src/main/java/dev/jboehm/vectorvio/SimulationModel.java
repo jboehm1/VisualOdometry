@@ -5,6 +5,7 @@ final class SimulationModel {
     static final int SAMPLE_RATE_HZ=60;
     static final long DURATION_NS=40_000_000_000L;
     static final long SEED=0x564543544F52L;
+    static final double CORRIDOR_HALF_SIDE=4.0,CENTER_CORNER_RADIUS=1.45,CORRIDOR_HALF_WIDTH=1.15,WALL_HEIGHT=2.85;
 
     static final class Sample {
         final long timeNs;
@@ -38,12 +39,12 @@ final class SimulationModel {
         double yaw=pose[3],localX=Math.cos(yaw)*ax-Math.sin(yaw)*az;
         double localZ=Math.sin(yaw)*ax+Math.cos(yaw)*az;
         double noisePhase=seconds*2*Math.PI;
-        imu[0]=localX+.035*Math.sin(noisePhase*17.3+1.1)+.018*Math.sin(noisePhase*31.1);
-        imu[1]=ay+.045*Math.sin(noisePhase*13.7+.4)+.016*Math.cos(noisePhase*27.2);
-        imu[2]=localZ+.032*Math.cos(noisePhase*19.1+.8)+.014*Math.sin(noisePhase*29.7);
-        imu[3]=pitchRate+.0035*Math.sin(noisePhase*15.2+.2);
-        imu[4]=yawRate+.0030*Math.cos(noisePhase*12.8+.6);
-        imu[5]=rollRate+.0040*Math.sin(noisePhase*16.7+1.7);
+        imu[0]=localX+.010*Math.sin(noisePhase*17.3+1.1)+.006*Math.sin(noisePhase*31.1);
+        imu[1]=ay+.014*Math.sin(noisePhase*13.7+.4)+.006*Math.cos(noisePhase*27.2);
+        imu[2]=localZ+.009*Math.cos(noisePhase*19.1+.8)+.005*Math.sin(noisePhase*29.7);
+        imu[3]=pitchRate+.0010*Math.sin(noisePhase*15.2+.2);
+        imu[4]=yawRate+.0009*Math.cos(noisePhase*12.8+.6);
+        imu[5]=rollRate+.0011*Math.sin(noisePhase*16.7+1.7);
         return new Sample(t,pose,imu);
     }
 
@@ -52,16 +53,16 @@ final class SimulationModel {
         double dt=.006;
         double[] before=position(t-dt),after=position(t+dt);
         double vx=(after[0]-before[0])/(2*dt),vz=(after[2]-before[2])/(2*dt);
-        double yaw=Math.atan2(vx,-vz)+.008*Math.sin(2*Math.PI*.7*t)+.0025*Math.sin(2*Math.PI*3.1*t+.3);
-        double pitch=.008*Math.sin(2*Math.PI*.625*t+.4)+.0025*Math.sin(2*Math.PI*2.4*t);
-        double roll=.009*Math.sin(2*Math.PI*1.9*t+1.1)+.002*Math.sin(2*Math.PI*2.8*t+.2);
+        double yaw=Math.atan2(vx,-vz)+.0025*Math.sin(2*Math.PI*.7*t)+.0007*Math.sin(2*Math.PI*3.1*t+.3);
+        double pitch=.0028*Math.sin(2*Math.PI*.625*t+.4)+.0008*Math.sin(2*Math.PI*2.4*t);
+        double roll=.0030*Math.sin(2*Math.PI*1.9*t+1.1)+.0007*Math.sin(2*Math.PI*2.8*t+.2);
         return new double[]{p[0],p[1],p[2],yaw,pitch,roll};
     }
 
     private static double[] position(double t) {
         // Follow four straight corridor legs joined by quarter-circle corners. Position and
         // velocity stay continuous at each turn; the image pipeline receives rendered pixels only.
-        double side=3.05,radius=.72,straight=2*(side-radius),arc=radius*Math.PI/2,total=4*(straight+arc);
+        double side=CORRIDOR_HALF_SIDE,radius=CENTER_CORNER_RADIUS,straight=2*(side-radius),arc=radius*Math.PI/2,total=4*(straight+arc);
         double duration=DURATION_NS*1e-9,wrapped=t%duration;if(wrapped<0)wrapped+=duration;
         double distance=wrapped/duration*total,segment=straight+arc;
         int quarter=(int)(distance/segment);if(quarter>3)quarter=3;
@@ -79,9 +80,9 @@ final class SimulationModel {
         }
         double gait=2*Math.PI*1.85*t;
         return new double[]{
-            x+.0025*Math.sin(2*Math.PI*5.2*t+.4),
-            1.42+.009*Math.sin(gait)+.0015*Math.sin(2*Math.PI*4.1*t+1.3),
-            z+.002*Math.sin(gait+.8)+.002*Math.cos(2*Math.PI*5.7*t)
+            x+.0007*Math.sin(2*Math.PI*5.2*t+.4),
+            1.42+.0035*Math.sin(gait)+.0005*Math.sin(2*Math.PI*4.1*t+1.3),
+            z+.0006*Math.sin(gait+.8)+.0006*Math.cos(2*Math.PI*5.7*t)
         };
     }
 

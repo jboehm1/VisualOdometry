@@ -32,4 +32,20 @@ public class SimulationModelTest {
         assertTrue(maxX>3&&minX< -3);assertTrue(maxZ>3&&minZ< -3);
         assertTrue(Math.hypot(start.x-end.x,start.z-end.z)<.02);
     }
+
+    @Test public void cameraSwayIsSmallAndRoundedCorridorHasAClosedRoof(){
+        double maxBob=0,maxPitch=0,maxRoll=0;
+        for(long t=0;t<SimulationModel.DURATION_NS;t+=SimulationModel.DURATION_NS/4000){
+            SimulationModel.Sample s=SimulationModel.sample(t);
+            maxBob=Math.max(maxBob,Math.abs(s.y-1.42));
+            maxPitch=Math.max(maxPitch,Math.abs(s.pitch));
+            maxRoll=Math.max(maxRoll,Math.abs(s.roll));
+        }
+        assertTrue("vertical camera bob should stay subtle",maxBob<.0042);
+        assertTrue("pitch sway should stay subtle",maxPitch<.0038);
+        assertTrue("roll sway should stay subtle",maxRoll<.0039);
+        assertTrue("the corridor must have an inner rounded corner",SimulationModel.CENTER_CORNER_RADIUS>SimulationModel.CORRIDOR_HALF_WIDTH);
+        assertTrue("the outer rounded wall must fit inside its extent",SimulationModel.CENTER_CORNER_RADIUS+SimulationModel.CORRIDOR_HALF_WIDTH<SimulationModel.CORRIDOR_HALF_SIDE+SimulationModel.CORRIDOR_HALF_WIDTH);
+        assertTrue("the roof must close the corridor above the camera",SimulationModel.WALL_HEIGHT>1.42);
+    }
 }

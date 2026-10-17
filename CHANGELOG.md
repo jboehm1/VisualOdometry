@@ -18,6 +18,14 @@
 - Expand deterministic tests to check empty startup, map growth from pixel motion, 3D landmarks, path coordinates, and reset behavior.
 - Mark the simulation as a non-metric demo with a depth prior and unvalidated drift/accuracy.
 
+# Unreleased — Reliable live capture and rounded simulation corridor
+
+- Make the first START launch ARCore and begin recording together, with clear STARTING, PAUSE and RESUME states.
+- Auto-save each growing live map after new keyframes or POIs, add an explicit SAVE MAP snapshot action, and preserve temporarily paused POI anchors.
+- Keep CSV odometer/IMU capture aligned with the recording lifecycle so distance and speed begin with START.
+- Reduce simulated camera and IMU shake, increase the rounded corridor bend radius, and render continuous curved walls with an overhead ceiling.
+- Add regression checks for the reduced motion and corridor dimensions/roof height.
+
 # 0.5.0-alpha — Deterministic offline simulation
 
 - Add an offline replay with a procedurally rendered indoor camera walk, hand-held motion, synchronized accelerometer/gyroscope values and known ground-truth pose.

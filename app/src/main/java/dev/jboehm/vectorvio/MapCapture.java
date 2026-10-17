@@ -135,7 +135,10 @@ final class MapCapture {
     private List<MapArchive.Poi> resolvePois() {
         List<MapArchive.Poi> result=new ArrayList<>();
         for(LivePoi poi:livePois) {
-            if(poi.anchor.getTrackingState()!=TrackingState.TRACKING)continue;
+            // A temporarily paused anchor can still hold a useful last pose.
+            // Retain it through short tracking interruptions; discard only anchors
+            // ARCore has permanently stopped.
+            if(poi.anchor.getTrackingState()==TrackingState.STOPPED)continue;
             Pose p=poi.anchor.getPose();float[] pose=new float[7];
             System.arraycopy(p.getTranslation(),0,pose,0,3);System.arraycopy(p.getRotationQuaternion(),0,pose,3,4);
             result.add(new MapArchive.Poi(poi.segment,poi.timestamp,poi.type,poi.label,pose));

@@ -74,7 +74,7 @@ public final class SimulationActivity extends Activity {
         lightButton.setTextSize(8);lightButton.setOnClickListener(v->{lightIndex=(lightIndex+1)%EXPOSURES.length;lightButton.setText(new String[]{"LIGHT 100%","LIGHT 38%","LIGHT 14%","DARK 4%"}[lightIndex]);simulationView.invalidate();});
         export.setOnClickListener(v->exportCsv());
         simulationView.setOnClickListener(v->new android.app.AlertDialog.Builder(this).setTitle("About this simulation")
-            .setMessage("A deterministic 40-second square-loop corridor walk is rendered locally at playback time. The mapping estimator starts empty and receives only rendered camera pixels plus synchronized synthetic accelerometer and gyroscope samples. It integrates gyro rotation, uses image feature motion with a weak accelerometer velocity prior, and creates 3D landmarks by triangulating repeated observations after estimated camera motion. The hidden corridor geometry and true camera pose are used only to render the video and to show a separate evaluation reference; they are never passed to the estimator.\n\nThe LIGHT control applies deterministic exposure loss and read noise before tracking. Monocular scale uses a conservative depth prior and the simulated sensor stream is not measured hardware data, so this is a repeatable pipeline/UI test, not a validated SLAM accuracy benchmark. The scene is synthetic rather than recorded footage. Use reset and the fixed seed to compare runs reproducibly.")
+            .setMessage("A deterministic 40-second rounded-square corridor walk is rendered locally at playback time. The loop has curved corners and continuous outer and inner walls beneath a continuous ceiling. The camera path has reduced handheld sway. The mapping estimator starts empty and receives only rendered camera pixels plus synchronized synthetic accelerometer and gyroscope samples. It integrates gyro rotation, uses image feature motion with a weak accelerometer velocity prior, and creates 3D landmarks by triangulating repeated observations after estimated camera motion. The hidden corridor geometry and true camera pose are used only to render the video and to show a separate evaluation reference; they are never passed to the estimator.\n\nThe LIGHT control applies deterministic exposure loss and read noise before tracking. Monocular scale uses a conservative depth prior and the simulated sensor stream is not measured hardware data, so this is a repeatable pipeline/UI test, not a validated SLAM accuracy benchmark. The scene is synthetic rather than recorded footage. Use reset and the fixed seed to compare runs reproducibly.")
             .setPositiveButton("OK",null).show());
         setContentView(root);tickNow();
     }
@@ -114,6 +114,11 @@ public final class SimulationActivity extends Activity {
     private final class SimulationView extends View {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final RectF box=new RectF();
+        private static final double OUTER_HALF=SimulationModel.CORRIDOR_HALF_SIDE+SimulationModel.CORRIDOR_HALF_WIDTH;
+        private static final double OUTER_RADIUS=SimulationModel.CENTER_CORNER_RADIUS+SimulationModel.CORRIDOR_HALF_WIDTH;
+        private static final double INNER_HALF=SimulationModel.CORRIDOR_HALF_SIDE-SimulationModel.CORRIDOR_HALF_WIDTH;
+        private static final double INNER_RADIUS=SimulationModel.CENTER_CORNER_RADIUS-SimulationModel.CORRIDOR_HALF_WIDTH;
+        private static final double CEILING_HEIGHT=SimulationModel.WALL_HEIGHT;
         private final SyntheticVision vision=new SyntheticVision();
         private Bitmap cameraFrame;
         private SyntheticVision.Result visionResult;
@@ -138,26 +143,60 @@ public final class SimulationActivity extends Activity {
         private void drawTrackingOverlay(Canvas c,int w,int h){if(visionResult==null)return;for(SyntheticVision.Point p:visionResult.tracked){float x=p.x*w/SyntheticVision.WIDTH,y=p.y*h/SyntheticVision.HEIGHT;paint.reset();paint.setAntiAlias(true);paint.setColor(0xFF72F2B5);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d(1.4f));c.drawCircle(x,y,d(4),paint);paint.setStyle(Paint.Style.FILL);c.drawCircle(x,y,d(1.5f),paint);}text(c,"TRACKED FEATURES  "+visionResult.trackedCount,d(14),h-d(224),9,0xFF72F2B5,true);}
         private void drawVideo(Canvas c,int w,int h){
             float horizon=h*.39f-(float)(sample.pitch*h*.65);paint.setShader(new android.graphics.LinearGradient(0,0,0,horizon,0xFF334959,0xFF9AA6A3,android.graphics.Shader.TileMode.CLAMP));c.drawRect(0,0,w,horizon,paint);paint.setShader(null);
-            quad(c,-5,0,-6,5,0,-6,5,0,6,-5,0,6,0xFF697976,0xFF8FA19B);
-            quad(c,-5,0,-6,-5,0,6,-5,2.85,6,-5,2.85,-6,0xFF394F59,0xFF5C6C6D);
-            quad(c,5,0,-6,5,0,6,5,2.85,6,5,2.85,-6,0xFF3E525B,0xFF596A6C);
-            quad(c,-5,0,-6,5,0,-6,5,2.85,-6,-5,2.85,-6,0xFF4A5D63,0xFF63777B);
-            for(int i=-5;i<=5;i++)worldLine(c,i*.8,0,-6,i*.8,0,6,0x6679A49B,.7f);
-            for(int i=-6;i<=6;i++)worldLine(c,-5,0,i,5,0,i,0x6679A49B,.7f);
-            // Central courtyard walls make a continuous square corridor around the loop.
-            quad(c,-2.05,0,-2.05,-2.05,0,2.05,-2.05,2.65,2.05,-2.05,2.65,-2.05,0xFF3E555D,0xFF728387);
-            quad(c,2.05,0,2.05,2.05,0,-2.05,2.05,2.65,-2.05,2.05,2.65,2.05,0xFF435A61,0xFF728387);
-            quad(c,-2.05,0,-2.05,2.05,0,-2.05,2.05,2.65,-2.05,-2.05,2.65,-2.05,0xFF465A60,0xFF728387);
-            quad(c,2.05,0,2.05,-2.05,0,2.05,-2.05,2.65,2.05,2.05,2.65,2.05,0xFF40565D,0xFF728387);
-            for(int z=-4;z<=4;z+=2){wallArtX(c,4.96,z,1.05,2.05,0xFF3B6268);wallArtX(c,-4.96,z,1.05,2.05,0xFF3A5C63);wallArtX(c,2.06,z,1.0,1.95,0xFF536B69);wallArtX(c,-2.06,z,1.0,1.95,0xFF536B69);}
-            wallArt(c,-1.7,-5.96,1.1,.8,0xFF2F5964);wallArt(c,2.1,-5.96,.72,1.35,0xFFDAA76E);
-            wallArt(c,-1.8,5.96,1.05,.8,0xFF315662);wallArt(c,2.0,5.96,.74,1.3,0xFFD6A46D);
-            for(int i=-1;i<=1;i++){light(c,i*1.7,2.83,-3.9);light(c,i*1.7,2.83,3.9);light(c,-3.9,2.83,i*1.7);light(c,3.9,2.83,i*1.7);}
+            quad(c,-6,0,-6,6,0,-6,6,0,6,-6,0,6,0xFF697976,0xFF8FA19B);
+            for(int i=-5;i<=5;i++)worldLine(c,i,0,-6,i,0,6,0x6679A49B,.7f);
+            for(int i=-6;i<=6;i++)worldLine(c,-6,0,i,6,0,i,0x6679A49B,.7f);
+            drawRoundedCorridor(c);
+            for(int z=-2;z<=2;z+=2){
+                wallArtX(c,5.14,z,1.0,2.05,0xFF3B6268);wallArtX(c,-5.14,z,1.0,2.05,0xFF3A5C63);
+                wallArtX(c,2.84,z,1.0,1.95,0xFF536B69);wallArtX(c,-2.84,z,1.0,1.95,0xFF536B69);
+            }
+            wallArt(c,-1.7,-5.14,1.1,.8,0xFF2F5964);wallArt(c,1.7,-5.14,.72,1.35,0xFFDAA76E);
+            wallArt(c,-1.7,5.14,1.05,.8,0xFF315662);wallArt(c,1.7,5.14,.74,1.3,0xFFD6A46D);
+            for(int i=-1;i<=1;i++){
+                light(c,i*1.5,2.82,-4.0);light(c,i*1.5,2.82,4.0);
+                light(c,-4.0,2.82,i*1.5);light(c,4.0,2.82,i*1.5);
+            }
+        }
+
+        private final class Face {final Path path;final float depth;final int fill,stroke;Face(Path path,float depth,int fill,int stroke){this.path=path;this.depth=depth;this.fill=fill;this.stroke=stroke;}}
+        private ArrayList<double[]> roundedLoop(double half,double radius){
+            ArrayList<double[]> points=new ArrayList<>();int steps=16;
+            double[][] corners={{half-radius,-half+radius,-Math.PI/2,0},{half-radius,half-radius,0,Math.PI/2},
+                {-half+radius,half-radius,Math.PI/2,Math.PI},{-half+radius,-half+radius,Math.PI,Math.PI*1.5}};
+            for(double[] corner:corners)for(int i=0;i<steps;i++){
+                double a=corner[2]+(corner[3]-corner[2])*i/steps;
+                points.add(new double[]{corner[0]+radius*Math.cos(a),corner[1]+radius*Math.sin(a)});
+            }
+            return points;
+        }
+        private void addFace(ArrayList<Face> faces,double[][] v,int fill,int stroke){
+            float[][] p=new float[4][];float depth=0;
+            for(int i=0;i<4;i++){p[i]=project(v[i][0],v[i][1],v[i][2]);if(p[i]==null)return;depth+=p[i][2]*.25f;}
+            Path path=new Path();path.moveTo(p[0][0],p[0][1]);for(int i=1;i<4;i++)path.lineTo(p[i][0],p[i][1]);path.close();
+            faces.add(new Face(path,depth,fill,stroke));
+        }
+        private void drawFaces(Canvas c,ArrayList<Face> faces){
+            faces.sort((a,b)->Float.compare(b.depth,a.depth));
+            for(Face face:faces){paint.reset();paint.setAntiAlias(true);paint.setColor(face.fill);c.drawPath(face.path,paint);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d(.75f));paint.setColor(face.stroke);c.drawPath(face.path,paint);}
+            paint.setStyle(Paint.Style.FILL);
+        }
+        private void drawRoundedCorridor(Canvas c){
+            ArrayList<double[]> outer=roundedLoop(OUTER_HALF,OUTER_RADIUS),inner=roundedLoop(INNER_HALF,INNER_RADIUS);
+            ArrayList<Face> faces=new ArrayList<>();int n=outer.size();
+            for(int i=0;i<n;i++){
+                int j=(i+1)%n;double[] a=outer.get(i),b=outer.get(j),ia=inner.get(i),ib=inner.get(j);
+                addFace(faces,new double[][]{{a[0],0,a[1]},{b[0],0,b[1]},{b[0],CEILING_HEIGHT,b[1]},{a[0],CEILING_HEIGHT,a[1]}},0xFF394F59,0xFF728387);
+                addFace(faces,new double[][]{{ia[0],0,ia[1]},{ib[0],0,ib[1]},{ib[0],CEILING_HEIGHT,ib[1]},{ia[0],CEILING_HEIGHT,ia[1]}},0xFF435A61,0xFF728387);
+                int roof=(i/10)%2==0?0xFF52636A:0xFF5B6D72;
+                addFace(faces,new double[][]{{a[0],CEILING_HEIGHT,a[1]},{ia[0],CEILING_HEIGHT,ia[1]},{ib[0],CEILING_HEIGHT,ib[1]},{b[0],CEILING_HEIGHT,b[1]}},roof,0xFF829096);
+            }
+            drawFaces(c,faces);
         }
         private void drawTop(Canvas c,int w){
             paint.reset();paint.setShader(new android.graphics.LinearGradient(0,0,0,d(147),0xF0081722,0x00081722,android.graphics.Shader.TileMode.CLAMP));c.drawRect(0,0,w,d(147),paint);paint.setShader(null);
             text(c,"VECTOR  /  SIMULATION",d(18),d(40),17,0xFFF1FAFF,true);
-            text(c,"SQUARE LOOP · VIDEO + IMU · EMPTY-START 3D MAPPING",d(18),d(61),9,0xFF74FCE1,true);
+            text(c,"ROUNDED LOOP · VIDEO + IMU · EMPTY-START 3D MAP",d(18),d(61),9,0xFF74FCE1,true);
             float progress=(float)(timeNs/(double)SimulationModel.DURATION_NS);String state=active?"PLAYING · ESTIMATING":"PAUSED · ESTIMATOR STOPPED";
             text(c,state+"  ·  "+String.format(Locale.US,"%.1f×   ·   %02d:%02d / 00:40",speed,(int)(timeNs/1e9)/60,(int)(timeNs/1e9)%60),d(18),d(84),10,0xFFF1FAFF,true);
             box.set(d(18),d(96),getWidth()-d(18),d(99));paint.reset();paint.setColor(0x553D7280);c.drawRoundRect(box,d(3),d(3),paint);box.right=box.left+(getWidth()-d(36))*progress;paint.setColor(0xFF74FCE1);c.drawRoundRect(box,d(3),d(3),paint);
