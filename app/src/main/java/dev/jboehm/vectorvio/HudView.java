@@ -42,7 +42,9 @@ public final class HudView extends View {
     private SceneMapper.Snapshot scene;
     private float[] imu=new float[8];
     private float cameraHz;
-    private int layers=0;
+    private volatile int layers=0;
+    private volatile boolean worldGpu;
+    public void setWorldGpu(boolean enabled){worldGpu=enabled;postInvalidate();}
     private boolean sensors=false, expandedMap=false;
     private final float[] accelerationHistory=new float[90];
     private int historyIndex=0;
@@ -131,6 +133,7 @@ public final class HudView extends View {
         if(scene==null)return;
         c.save();c.clipRect(0,d(138),w,h-d(166));
         for(SceneMapper.Shape shape:scene.shapes) {
+            if(worldGpu&&shape.kind<4)continue;
             if(shape.kind<2 && (layers==2 || layers==3))continue;
             if(shape.kind==2 && (layers==1 || layers==3))continue;
             float[] xy=shape.xy;

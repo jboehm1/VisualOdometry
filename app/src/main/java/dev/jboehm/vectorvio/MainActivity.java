@@ -56,6 +56,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private HudView hud;
     private ImuMonitor imu;
     private final SceneMapper mapper=new SceneMapper();
+    private WorldOverlayRenderer worldOverlay;
     private final MapCapture mapCapture=new MapCapture();
     private final java.util.concurrent.ExecutorService mapIo=java.util.concurrent.Executors.newSingleThreadExecutor();
     private volatile boolean photoKeyframes=false;
@@ -648,10 +649,18 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         super.onDestroy();
     }
 
+    private void disableWorldOverlay(Exception e){
+        android.util.Log.e("VectorGL","GPU overlay failed; Canvas fallback",e);
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER,0);GLES20.glDisable(GLES20.GL_SCISSOR_TEST);GLES20.glDisable(GLES20.GL_BLEND);GLES20.glDepthMask(true);
+        worldOverlay=null;mapper.worldRendering=false;hud.setWorldGpu(false);
+    }
+
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config) {
         GLES20.glClearColor(.025f,.07f,.105f,1);
         background=new CameraBackground();
         background.initialize();
+        try{worldOverlay=new WorldOverlayRenderer();worldOverlay.initialize();mapper.worldRendering=true;hud.setWorldGpu(true);}
+        catch(Exception e){worldOverlay=null;mapper.worldRendering=false;hud.setWorldGpu(false);android.util.Log.e("VectorGL","GPU overlay unavailable; Canvas fallback",e);}
         textureAssigned=false;
     }
     @Override public void onSurfaceChanged(GL10 gl,int w,int h) {
@@ -676,7 +685,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             phaseStartNs=SystemClock.elapsedRealtimeNanos();
             try{training.frame(s,frame);}catch(Exception e){training.status="VIDEO METADATA ERROR";}
             metadataMs=(SystemClock.elapsedRealtimeNanos()-phaseStartNs)/1_000_000L;
-            if(clearMap){mapper.clear();clearMap=false;}
+            if(clearMap){mapper.clear();if(worldOverlay!=null)worldOverlay.clear();clearMap=false;}
             Odometer.Result poseResult=Odometer.Result.INACTIVE;
             if(frame.getTimestamp()!=0) background.draw(frame);
             Camera camera=frame.getCamera();
@@ -718,7 +727,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             }
             savedKeyframes=mapCapture.count();capturedImages=mapCapture.imageCount();savedPois=mapCapture.poiCount();mapFull=mapCapture.full();
             // Anchor updates follow every pose result. Publish bounded geometry at ~20 Hz.
-            if(poseResult==Odometer.Result.REFERENCE || poseResult==Odometer.Result.GAP || poseResult==Odometer.Result.REJECTED) mapper.clear();
+            if(poseResult==Odometer.Result.REFERENCE || poseResult==Odometer.Result.GAP || poseResult==Odometer.Result.REJECTED){mapper.clear();if(worldOverlay!=null)worldOverlay.clear();}
             long now=SystemClock.elapsedRealtime();
             if(odometer.isRecording()&&!mapSaveInFlight
                     &&(savedKeyframes>autoSavedKeyframes||savedPois>autoSavedPois)
@@ -738,10 +747,13 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             if(now-lastSceneNs>=50) {
                 lastSceneNs=now;
                 SceneMapper.Snapshot scene=mapper.update(s,frame,poseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,odometer.snapshot(now).worldTrail);
+                if(worldOverlay!=null)try{worldOverlay.update(scene);}catch(Exception e){disableWorldOverlay(e);}
                 float[] sensors=imu.snapshot();float hz=cameraHz;
                 int keyframes=savedKeyframes,images=capturedImages,pois=savedPois;boolean full=mapFull;
                 runOnUiThread(()->{hud.updateScene(scene,sensors,hz);hud.updateCapture(keyframes,images,pois,full);});
             }
+            if(worldOverlay!=null&&camera.getTrackingState()==TrackingState.TRACKING)
+                try{worldOverlay.draw(camera,hud.layers(),width,height,getResources().getDisplayMetrics().density);}catch(Exception e){disableWorldOverlay(e);}
             if(now-lastHudUpdateMs>110) {
                 lastHudUpdateMs=now;
                 if(recorder.problem()!=null) message="CSV ERROR: check Android logcat";

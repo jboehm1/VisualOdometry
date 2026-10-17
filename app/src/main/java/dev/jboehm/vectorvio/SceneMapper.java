@@ -9,9 +9,11 @@ import java.util.List;
 
 /** GL-thread-owned local map. Anchors follow ARCore map corrections; no persistent map. */
 final class SceneMapper {
+    private static final float[] EMPTY=new float[0];
     static final class Shape {
-        final float[] xy; final int kind; final String label;
-        Shape(float[] xy,int kind,String label){this.xy=xy;this.kind=kind;this.label=label;}
+        final float[] xy,world; final int kind; final String label;
+        Shape(float[] xy,int kind,String label){this(xy,kind,label,null);}
+        Shape(float[] xy,int kind,String label,float[] world){this.xy=xy;this.kind=kind;this.label=label;this.world=world;}
     }
     static final class Snapshot {
         final List<Shape> shapes;
@@ -33,6 +35,7 @@ final class SceneMapper {
     }
     static final class MapPoint {final float x,y,z,confidence;MapPoint(float x,float y,float z,float q){this.x=x;this.y=y;this.z=z;confidence=q;}}
     static final class MapSurface {final float[] xz;final boolean vertical;MapSurface(float[] xz,boolean vertical){this.xz=xz;this.vertical=vertical;}}
+    boolean worldRendering;
     private final ArrayList<Anchor> trail=new ArrayList<>();
     private final LinkedHashMap<Long,MapPoint> mapPoints=new LinkedHashMap<>();
     private final float[] view=new float[16],projection=new float[16],vp=new float[16];
@@ -62,12 +65,11 @@ final class SceneMapper {
                 float[] world=center.transformPoint(new float[]{polygon.get(),0,polygon.get()});
                 System.arraycopy(world,0,xyz,i,3);
             }
-            float[] xy=Projection.polygon(vp,xyz);
+            float[] xy=worldRendering?EMPTY:Projection.polygon(vp,xyz);
             float[] xz=new float[xyz.length/3*2];for(int i=0,j=0;i<xyz.length;i+=3){xz[j++]=xyz[i];xz[j++]=xyz[i+2];}
             if(surfaces.size()<24)surfaces.add(new MapSurface(xz,vertical));
             if(plane.getType()==Plane.Type.HORIZONTAL_UPWARD_FACING)floors.add(new GroundTrail.Floor(center.ty(),xz));
-            if(xy.length>=6)shapes.add(new Shape(xy,vertical?1:0,String.format(java.util.Locale.US,
-                "%s  %.1f × %.1f m",vertical?"VERTICAL":"HORIZONTAL",plane.getExtentX(),plane.getExtentZ())));
+            if(worldRendering||xy.length>=6)shapes.add(new Shape(xy,vertical?1:0,"",worldRendering?xyz:null));
         }
         int points=0;float confidence=0;
         try(PointCloud cloud=frame.acquirePointCloud()) {
@@ -82,8 +84,8 @@ final class SceneMapper {
                     if(mapPoints.size()>=2400)mapPoints.remove(mapPoints.keySet().iterator().next());
                     mapPoints.put(cell,new MapPoint(x,y,z,q));
                 }
-                float[] xy=Projection.point(vp,x,y,z);
-                if(xy!=null)shapes.add(new Shape(xy,2,""));
+                float[] xy=worldRendering?EMPTY:Projection.point(vp,x,y,z);
+                if(xy!=null)shapes.add(new Shape(xy,2,"",worldRendering?new float[]{x,y,z}:null));
             }
         }
         // Project the recorded world path. No per-breadcrumb native anchors.
@@ -95,8 +97,8 @@ final class SceneMapper {
             if(!Float.isFinite(ground)){ground=(float)point.y-1.5f;groundEstimated=true;}
             float[] xyz={(float)point.x,ground+.025f,(float)point.z};
             if(previous!=null && previous.segment==point.segment) {
-                float[] line=Projection.line(vp,previousGround,xyz);
-                if(line!=null)shapes.add(new Shape(line,3,""));
+                float[] line=worldRendering?EMPTY:Projection.line(vp,previousGround,xyz);
+                if(line!=null)shapes.add(new Shape(line,3,"",worldRendering?new float[]{previousGround[0],previousGround[1],previousGround[2],xyz[0],xyz[1],xyz[2]}:null));
             }
             path.add(new float[]{(float)point.x,(float)point.y,(float)point.z});previous=point;previousGround=xyz;
         }
