@@ -135,7 +135,7 @@ public final class HudView extends View {
             if(shape.kind==2 && (layers==1 || layers==3))continue;
             float[] xy=shape.xy;
             int color=shape.kind==1?0xFFB5A0FF:CYAN;
-            if(shape.kind==2){disc(c,xy[0]*w,xy[1]*h,d(1.8f),0xB0F8D58A,false);continue;}
+            if(shape.kind==2){disc(c,xy[0]*w,xy[1]*h,d(1.2f),0x70F8D58A,false);continue;}
             if(shape.kind==3){
                 line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0x50FF922B,8);
                 line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xFFFFAB57,3);continue;
@@ -183,8 +183,8 @@ public final class HudView extends View {
     }
 
     private void drawMiniMap(Canvas c,float l,float top,float width,float height,Odometer.Snapshot s) {
-        box(c,l,top,l+width,top+height,13,0xDB071825,0x6048A6AD);
-        label(c,"FULL ROUTE · X / Z",l+d(10),top+d(20),9,MUTED,true);
+        box(c,l,top,l+width,top+height,10,0x90071825,0);
+        label(c,"ROUTE · X/Z",l+d(10),top+d(20),9,MUTED,true);
         float centerX=l+width/2f,centerY=top+height*.56f;
         for(int i=-2;i<=2;i++){
             line(c,centerX+i*width/6f,top+d(31),centerX+i*width/6f,top+height-d(9),0x273B7886,.7f);
@@ -214,7 +214,7 @@ public final class HudView extends View {
         Odometer.Point first=pts.get(0);disc(c,(float)(centerX+(first.x-midX)*scale),(float)(centerY+(first.z-midZ)*scale),d(4),AMBER,true);
         disc(c,endX,endY,d(4.5f),CYAN,false);
         if(scene!=null)line(c,endX,endY,endX+(float)Math.sin(scene.heading)*d(14),endY+(float)Math.cos(scene.heading)*d(14),CYAN,2);
-        label(c,String.format(Locale.US,"%.0f m · all segments",side),l+d(10),top+height-d(8),9,MUTED,false);
+        label(c,String.format(Locale.US,"%.0f m · route",side),l+d(10),top+height-d(8),9,MUTED,false);
     }
 
     /** Dense but bounded X/Z view of the current ARCore tracking segment. */
