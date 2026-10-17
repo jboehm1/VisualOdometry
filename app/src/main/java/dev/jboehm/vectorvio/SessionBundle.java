@@ -7,6 +7,11 @@ import java.util.zip.*;
 final class SessionBundle {
     static String stem(File csv){return csv.getName().replaceFirst("\\.csv$", "");}
     static boolean belongs(String name,String stem){return name.equals(stem+".csv")||(name.startsWith(stem+"_")&&(name.endsWith(".mp4")||name.endsWith(".csv")||name.endsWith(".json")));}
+    static int videoParts(File csv){
+        String stem=stem(csv);File[] videos=csv.getParentFile().listFiles((dir,name)->belongs(name,stem)&&name.endsWith(".mp4"));
+        int count=0;if(videos!=null)for(File f:videos)if(f.length()>0)count++;
+        return count;
+    }
     static void write(File csv,OutputStream output)throws IOException{
         String stem=stem(csv);File[] files=csv.getParentFile().listFiles((dir,name)->belongs(name,stem));
         if(files==null||!csv.isFile())throw new IOException("Session not found");Arrays.sort(files,Comparator.comparing(File::getName));

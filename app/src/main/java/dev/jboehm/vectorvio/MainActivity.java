@@ -242,7 +242,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         recorder.event("START",System.currentTimeMillis());
         recordButton.setText("PAUSE");
         recordButton.setContentDescription("Pause recording");
-        message="Recording video, IMU, map and odometer";
+        message=trainingEnabled?"Recording IMU, map and odometer — starting video":"Recording IMU, map and odometer — VIDEO OFF (enable in DATA)";
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         recordingStartPending=false;
         if(trainingEnabled){surface.queueEvent(()->{try{training.start(arSession,recorder.currentFile());}catch(Exception e){runOnUiThread(()->Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show());}runOnUiThread(this::refreshHud);});}

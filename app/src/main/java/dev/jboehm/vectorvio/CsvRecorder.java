@@ -143,7 +143,7 @@ public final class CsvRecorder {
         io.execute(()->{try(FileOutputStream out=new FileOutputStream(new File(directory,SessionBundle.stem(session)+"_metadata.json"))){out.write(json.getBytes(StandardCharsets.UTF_8));}catch(Exception e){failure("Metadata write failed",e);}});
     }
     public void exportBundle(Context context,File source,Uri destination,Consumer<String> callback){
-        io.execute(()->{String status;try{if(writer!=null)writer.flush();for(BufferedWriter w:sidecars.values())w.flush();OutputStream output=context.getContentResolver().openOutputStream(destination);if(output==null)throw new java.io.IOException("No output stream");SessionBundle.write(source,output);status="Dataset ZIP exported";}catch(Exception e){failure("Dataset export failed",e);status="Export failed: "+e.getMessage();}String result=status;main.post(()->callback.accept(result));});
+        io.execute(()->{String status;try{if(writer!=null)writer.flush();for(BufferedWriter w:sidecars.values())w.flush();OutputStream output=context.getContentResolver().openOutputStream(destination);if(output==null)throw new java.io.IOException("No output stream");SessionBundle.write(source,output);int parts=SessionBundle.videoParts(source);status=parts>0?"Dataset ZIP exported — "+parts+" MP4 part(s)":"ZIP exported WITHOUT VIDEO — enable DATA > Training video before START";}catch(Exception e){failure("Dataset export failed",e);status="Export failed: "+e.getMessage();}String result=status;main.post(()->callback.accept(result));});
     }
 
     private void closeWriter() throws java.io.IOException {
