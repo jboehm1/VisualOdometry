@@ -102,7 +102,7 @@ public final class HudView extends View {
         }
     }
     private void line(Canvas c,float x1,float y1,float x2,float y2,int color,float width) {
-        resetPaint(); p.setStrokeWidth(d(width)); p.setColor(color);
+        resetPaint(); p.setStrokeWidth(d(width)); p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND); p.setColor(color);
         c.drawLine(x1,y1,x2,y2,p);
     }
     private void disc(Canvas c,float x,float y,float radius,int color,boolean stroke) {

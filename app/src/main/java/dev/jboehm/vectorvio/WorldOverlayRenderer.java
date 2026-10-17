@@ -46,7 +46,7 @@ final class WorldOverlayRenderer {
     void update(SceneMapper.Snapshot scene){
         if(program==0)throw new IllegalStateException("Overlay is not initialized");
         check("before overlay upload");
-        geometry.clear();for(SceneMapper.Shape s:scene.shapes)geometry.add(s.kind,s.world);
+        geometry.clear();for(SceneMapper.Shape s:scene.shapes)geometry.add(s.kind,s.world);geometry.finishRoute();
         WorldGeometry.Batch[] batches={geometry.floor,geometry.wall,geometry.points,geometry.route};
         for(int i=0;i<4;i++){
             WorldGeometry.Batch b=batches[i];counts[i]=b.size/3;if(b.size==0)continue;
