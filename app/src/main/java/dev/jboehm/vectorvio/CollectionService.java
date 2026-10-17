@@ -34,6 +34,7 @@ public final class CollectionService extends Service implements SensorEventListe
     @Override public int onStartCommand(Intent intent,int flags,int startId){
         if(intent!=null&&STOP.equals(intent.getAction())){stopCapture("USER_STOP");return START_NOT_STICKY;}
         if(running||stopping)return START_NOT_STICKY;
+        currentDirectory=null;
         try{
             boolean locationAllowed=checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED;
             locations=(LocationManager)getSystemService(LOCATION_SERVICE);
@@ -127,7 +128,7 @@ public final class CollectionService extends Service implements SensorEventListe
             Runnable finish=()->{try{
                 if(sensors!=null)sensors.unregisterListener(this);if(locations!=null)try{locations.removeUpdates(this);}catch(Exception ignored){}
                 event(reason);
-                try{JSONObject summary=new JSONObject();summary.put("stop_reason",reason);summary.put("imu_samples",imuCount);summary.put("camera_callbacks",frameCount);summary.put("gps_fixes",gpsCount);summary.put("duration_ns",SystemClock.elapsedRealtimeNanos()-startNs);try(FileOutputStream out=new FileOutputStream(new File(currentDirectory,"summary.json"))){out.write(summary.toString(2).getBytes(StandardCharsets.UTF_8));}}catch(Exception ignored){}
+                try{if(currentDirectory==null)throw new IOException("No session opened");JSONObject summary=new JSONObject();summary.put("stop_reason",reason);summary.put("imu_samples",imuCount);summary.put("camera_callbacks",frameCount);summary.put("gps_fixes",gpsCount);summary.put("duration_ns",SystemClock.elapsedRealtimeNanos()-startNs);try(FileOutputStream out=new FileOutputStream(new File(currentDirectory,"summary.json"))){out.write(summary.toString(2).getBytes(StandardCharsets.UTF_8));}}catch(Exception ignored){}
                 for(BufferedWriter w:new BufferedWriter[]{imu,gps,frames,events})if(w!=null)try{w.close();}catch(Exception ignored){}
             }finally{running=false;if(!status.startsWith("ERROR"))status="Stopped · "+reason;if(wake!=null&&wake.isHeld())wake.release();new Handler(Looper.getMainLooper()).post(()->{stopForeground(true);stopSelf();});if(cameraThread!=null)cameraThread.quitSafely();if(dataThread!=null)dataThread.quitSafely();}};
             if(dataHandler!=null)dataHandler.post(finish);else finish.run();}};
