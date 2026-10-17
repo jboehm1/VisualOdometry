@@ -1,12 +1,20 @@
 # 0.6.0-alpha — Square-loop visual replay
 
 - Change the deterministic walk to a square corridor loop with softened corners and substantially reduced continuous phone shake.
-- Render a more structured corridor scene and process its camera pixels with an image-only corner detector and patch tracker.
+- Render a more structured corridor scene and process its camera pixels with a corner detector and patch tracker.
 - Preserve feature-track identities so map landmarks stay stable instead of being re-added on every frame.
 - Add deterministic exposure levels and low-light read noise so dim and dark tracking behavior can be reproduced.
-- Draw tracked feature overlays and a relative visual path/landmark map built from image correspondences; the reconstruction receives no simulated pose or scene geometry.
+- Draw tracked feature overlays and a relative path/landmark map built from image correspondences; the reconstruction receives no simulated pose or scene geometry.
 - Keep truth pose separate for comparison, and document that the lightweight relative odometer uses a scale prior and is not a validated SLAM benchmark.
 - Add tests for square-loop closure and image-derived feature tracking/reset behavior.
+
+# Unreleased — Visual-inertial 3D simulation map
+
+- Start with an empty estimated map and keep the renderer's ground-truth pose and corridor geometry outside the mapping estimator.
+- Feed the estimator rendered camera pixels plus synchronized synthetic IMU samples; integrate gyro rotation and use accelerometer velocity only as a weak prior to image-derived translation.
+- Triangulate persistent 3D landmarks from repeated feature observations after estimated camera parallax; show an XYZ camera path and estimated 3D cloud in the live inset.
+- Expand deterministic tests to check empty startup, map growth from pixel motion, 3D landmarks, path coordinates, and reset behavior.
+- Mark the simulation as a non-metric demo with a depth prior and unvalidated drift/accuracy.
 
 # 0.5.0-alpha — Deterministic offline simulation
 

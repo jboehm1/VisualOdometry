@@ -74,7 +74,7 @@ public final class SimulationActivity extends Activity {
         lightButton.setTextSize(8);lightButton.setOnClickListener(v->{lightIndex=(lightIndex+1)%EXPOSURES.length;lightButton.setText(new String[]{"LIGHT 100%","LIGHT 38%","LIGHT 14%","DARK 4%"}[lightIndex]);simulationView.invalidate();});
         export.setOnClickListener(v->exportCsv());
         simulationView.setOnClickListener(v->new android.app.AlertDialog.Builder(this).setTitle("About this simulation")
-            .setMessage("A deterministic 40-second square-loop corridor walk is rendered locally at playback time. A separate image-only feature tracker processes the rendered frames and builds the displayed relative path and feature landmarks; it receives no ground-truth pose or corridor geometry. Ground-truth pose is shown separately for evaluation. The LIGHT control applies deterministic exposure loss and read noise before vision tracking. Relative visual motion uses a simple scale prior, so this replay is useful for repeatable tracker/UI debugging, not a validated SLAM accuracy benchmark.\n\nThe scene is synthetic rather than recorded footage, and its synchronized accelerometer/gyroscope values are simulated. Use reset and the fixed seed to compare runs reproducibly.")
+            .setMessage("A deterministic 40-second square-loop corridor walk is rendered locally at playback time. The mapping estimator starts empty and receives only rendered camera pixels plus synchronized synthetic accelerometer and gyroscope samples. It integrates gyro rotation, uses image feature motion with a weak accelerometer velocity prior, and creates 3D landmarks by triangulating repeated observations after estimated camera motion. The hidden corridor geometry and true camera pose are used only to render the video and to show a separate evaluation reference; they are never passed to the estimator.\n\nThe LIGHT control applies deterministic exposure loss and read noise before tracking. Monocular scale uses a conservative depth prior and the simulated sensor stream is not measured hardware data, so this is a repeatable pipeline/UI test, not a validated SLAM accuracy benchmark. The scene is synthetic rather than recorded footage. Use reset and the fixed seed to compare runs reproducibly.")
             .setPositiveButton("OK",null).show());
         setContentView(root);tickNow();
     }
@@ -130,7 +130,7 @@ public final class SimulationActivity extends Activity {
         @Override protected void onDraw(Canvas c){
             super.onDraw(c);int w=getWidth(),h=getHeight();if(w<=0||h<=0)return;
             if(cameraFrame==null)cameraFrame=Bitmap.createBitmap(SyntheticVision.WIDTH,SyntheticVision.HEIGHT,Bitmap.Config.ARGB_8888);
-            if(processedFrames%2==0){Canvas fc=new Canvas(cameraFrame);fc.drawColor(Color.BLACK);fc.save();fc.scale(SyntheticVision.WIDTH/(float)w,SyntheticVision.HEIGHT/(float)h);drawVideo(fc,w,h);fc.restore();int[] pixels=new int[SyntheticVision.WIDTH*SyntheticVision.HEIGHT];cameraFrame.getPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);applyExposure(pixels);cameraFrame.setPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);visionResult=vision.process(pixels,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);}
+            if(processedFrames%2==0){Canvas fc=new Canvas(cameraFrame);fc.drawColor(Color.BLACK);fc.save();fc.scale(SyntheticVision.WIDTH/(float)w,SyntheticVision.HEIGHT/(float)h);drawVideo(fc,w,h);fc.restore();int[] pixels=new int[SyntheticVision.WIDTH*SyntheticVision.HEIGHT];cameraFrame.getPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);applyExposure(pixels);cameraFrame.setPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);SyntheticVision.SensorSample sensors=new SyntheticVision.SensorSample(sample.timeNs,sample.ax,sample.ay,sample.az,sample.gx,sample.gy,sample.gz);visionResult=vision.process(pixels,SyntheticVision.WIDTH,SyntheticVision.HEIGHT,sensors);}
             processedFrames++;c.drawColor(0xFF101E27);c.drawBitmap(cameraFrame,null,new RectF(0,0,w,h),null);drawTrackingOverlay(c,w,h);drawTop(c,w);drawMap(c,w,h);drawTelemetry(c,w,h);
         }
         private void applyExposure(int[] pixels){float exposure=EXPOSURES[lightIndex];if(exposure>=.999f)return;int frame=processedFrames;for(int i=0;i<pixels.length;i++){int p=pixels[i];int noise=exposure<.2f?(((i*1103515245+frame*12345)>>>28)&15):0;int r=Math.min(255,Math.round(((p>>16)&255)*exposure)+noise),g=Math.min(255,Math.round(((p>>8)&255)*exposure)+noise),b=Math.min(255,Math.round((p&255)*exposure)+noise);pixels[i]=(p&0xff000000)|(r<<16)|(g<<8)|b;}}
@@ -162,12 +162,21 @@ public final class SimulationActivity extends Activity {
             box.set(d(18),d(96),getWidth()-d(18),d(99));paint.reset();paint.setColor(0x553D7280);c.drawRoundRect(box,d(3),d(3),paint);box.right=box.left+(getWidth()-d(36))*progress;paint.setColor(0xFF74FCE1);c.drawRoundRect(box,d(3),d(3),paint);
         }
         private void drawMap(Canvas c,int w,int h){
-            float l=w-d(155),t=d(115),r=w-d(14),b=t+d(147);panel(c,l,t,r,b);text(c,"RELATIVE VISUAL MAP",l+d(10),t+d(19),8,0xFFAAC0CC,true);
-            float cx=(l+r)*.5f,cy=t+d(78),maxExtent=1f;if(visionResult!=null)for(float[] q:visionResult.path)maxExtent=Math.max(maxExtent,Math.max(Math.abs(q[0]),Math.abs(q[1])));float scale=Math.min(d(15),d(53)/maxExtent);
-            if(visionResult!=null){Path path=new Path();for(int i=0;i<visionResult.path.size();i++){float[] q=visionResult.path.get(i);float x=cx+q[0]*scale,z=cy+q[1]*scale;if(i==0)path.moveTo(x,z);else path.lineTo(x,z);}paint.reset();paint.setAntiAlias(true);paint.setColor(0xFF55D9D8);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d(1.5f));c.drawPath(path,paint);
-                for(int i=Math.max(0,visionResult.points.size()-180);i<visionResult.points.size();i++){SyntheticVision.MapPoint p=visionResult.points.get(i);paint.setStyle(Paint.Style.FILL);paint.setColor(p.depth<2?0xFFFFC976:0xFF65CBE3);c.drawCircle(cx+p.x*scale,cy+p.z*scale,d(1.5f),paint);}
-                paint.setColor(0xFFFFCA75);paint.setStyle(Paint.Style.FILL);c.drawCircle(cx+visionResult.x*scale,cy+visionResult.z*scale,d(4),paint);}
-            text(c,"TRACKED "+(visionResult==null?0:visionResult.trackedCount)+" · FEATURES "+(visionResult==null?0:visionResult.points.size()),l+d(10),b-d(10),7,0xFFAAC0CC,false);
+            float l=w-d(155),t=d(115),r=w-d(14),b=t+d(147);panel(c,l,t,r,b);text(c,"LIVE 3D MAP · ESTIMATED",l+d(10),t+d(19),8,0xFFAAC0CC,true);
+            float cx=(l+r)*.5f,cy=t+d(79),maxExtent=.8f;
+            boolean ready=visionResult!=null&&(visionResult.trackedCount>=5||!visionResult.path.isEmpty()||!visionResult.points.isEmpty());
+            if(ready){for(float[] q:visionResult.path)maxExtent=Math.max(maxExtent,Math.max(Math.abs(q[0]),Math.max(Math.abs(q[1]),Math.abs(q[2]))));for(SyntheticVision.MapPoint p:visionResult.points)maxExtent=Math.max(maxExtent,Math.max(Math.abs(p.x),Math.max(Math.abs(p.y),Math.abs(p.z))));}
+            float scale=Math.min(d(15),d(46)/maxExtent);
+            if(ready){
+                // Isometric projection retains the vertical landmark coordinate so this is a
+                // small 3D map, not a plan view of the simulator's hidden corridor.
+                Path path=new Path();for(int i=0;i<visionResult.path.size();i++){float[] q=visionResult.path.get(i);float x=cx+(q[0]-q[2])*.70f*scale,y=cy+(q[0]+q[2])*.34f*scale-q[1]*scale;if(i==0)path.moveTo(x,y);else path.lineTo(x,y);}
+                paint.reset();paint.setAntiAlias(true);paint.setColor(0xFF55D9D8);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d(1.5f));c.drawPath(path,paint);
+                for(int i=Math.max(0,visionResult.points.size()-220);i<visionResult.points.size();i++){SyntheticVision.MapPoint p=visionResult.points.get(i);float x=cx+(p.x-p.z)*.70f*scale,y=cy+(p.x+p.z)*.34f*scale-p.y*scale;paint.setStyle(Paint.Style.FILL);paint.setColor(p.y>.25f?0xFFFFC976:0xFF65CBE3);c.drawCircle(x,y,d(1.7f),paint);}
+                float px=cx+(visionResult.x-visionResult.z)*.70f*scale,py=cy+(visionResult.x+visionResult.z)*.34f*scale-visionResult.y*scale;
+                paint.setColor(0xFFFFCA75);paint.setStyle(Paint.Style.FILL);c.drawCircle(px,py,d(4),paint);
+            } else text(c,"WAITING FOR IMAGE TRACKS",l+d(12),cy,7,0xFFAAC0CC,true);
+            text(c,"TRACKED "+(visionResult==null?0:visionResult.trackedCount)+" · 3D LANDMARKS "+(visionResult==null?0:visionResult.points.size()),l+d(10),b-d(10),7,0xFFAAC0CC,false);
         }
         private void drawTelemetry(Canvas c,int w,int h){
             float top=h-d(212),left=d(14),right=w-d(14),bottom=h-d(72);panel(c,left,top,right,bottom);

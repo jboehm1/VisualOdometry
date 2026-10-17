@@ -197,14 +197,26 @@ hand tremor, walking cadence and deterministic sensor noise. Playback supports
 pause, reset, looping and 0.5×/1×/1.5× speed; CSV export writes exactly 60
 samples per second with pose, acceleration, angular velocity, units and seed.
 
+The reconstruction is empty on reset. `SyntheticVision` receives only the
+rendered frame pixels and the synchronized synthetic IMU sample. It integrates
+gyro rotation, estimates translation from image correspondences, blends in a
+small accelerometer velocity prior, and adds a 3D landmark only after matching
+the same feature from camera positions with enough estimated parallax. The SIM
+inset shows this reconstructed XYZ path and landmark cloud. The scripted pose
+and corridor dimensions are used by the renderer and a separate truth readout;
+they are not estimator inputs. This is a deliberately small deterministic
+visual-inertial mapping demo, not a production VIO/SLAM backend: scale uses a
+depth prior, image matching is simple patch search, and neither drift nor map
+accuracy has been validated against measured ground truth.
+
 This mode is useful for UI, synchronization, persistence and deterministic math
 regression, including dark environments and devices without ARCore. It is a
-procedural rendered scene, not recorded or photoreal camera footage, and its
-synthetic inertial values are not calibrated measurements from a physical
-phone. It does not inject frames into ARCore or exercise ARCore tracking,
-feature extraction, relocalization or VIO accuracy. The synthetic data model
-has repeatability and finite-value unit tests; the live pipeline still needs
-recorded datasets and phone-based acceptance tests.
+procedural rendered scene, not recorded camera footage, and its synthetic
+inertial values are not calibrated measurements from a physical phone. It does
+not inject frames into ARCore or exercise ARCore tracking, relocalization or
+live-device VIO accuracy. The synthetic pipeline has deterministic unit tests;
+the live pipeline still needs recorded datasets and phone-based acceptance
+tests.
 
 ## Closing a loop
 
