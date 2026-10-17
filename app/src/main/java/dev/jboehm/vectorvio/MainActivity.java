@@ -83,6 +83,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile boolean recordingStartPending=false;
     private volatile boolean mapSaveInFlight=false;
     private volatile int autoSavedKeyframes=0,autoSavedPois=0;
+    private volatile long mapRetryAfterMs;
+    private volatile int mapSaveFailures;
     private long lastAutoSaveAttemptMs=0;
     private volatile String message="Tap START for AR tracking, or SIM for offline replay";
     private volatile String trackingLabel="SIM READY";
@@ -489,8 +491,14 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             boolean succeeded=!message.startsWith("Map save failed");
             if(autosave)runOnUiThread(()->{
                 mapSaveInFlight=false;
-                if(succeeded&&name.equals(autoMapName)){autoSavedKeyframes=sourceFrames;autoSavedPois=sourcePois;}
-                else Toast.makeText(this,message,Toast.LENGTH_LONG).show();
+                if(!name.equals(autoMapName))return;
+                if(succeeded){autoSavedKeyframes=sourceFrames;autoSavedPois=sourcePois;mapSaveFailures=0;mapRetryAfterMs=0;}
+                else {
+                    mapSaveFailures++;
+                    mapRetryAfterMs=SystemClock.elapsedRealtime()+Math.min(60_000L,5_000L*(1L<<Math.min(4,mapSaveFailures-1)));
+                    android.util.Log.e("VectorMap",message);
+                    if(mapSaveFailures==1)Toast.makeText(this,message+" — capture continues; retrying automatically",Toast.LENGTH_LONG).show();
+                }
             });
             else if(notify || !succeeded)runOnUiThread(()->Toast.makeText(this,message,Toast.LENGTH_LONG).show());
         }); } catch(java.util.concurrent.RejectedExecutionException e) {
@@ -689,6 +697,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 cameraHz=.9f*cameraHz+.1f*hz;
             }
             if(frame.getTimestamp()>0) previousFrameNs=frame.getTimestamp();
+            try {
             mapCapture.update(s,frame,poseResult,odometer.currentSegment(),photoKeyframes,keyframeIntervalSeconds,keyframeMinDistance,keyframeMinRotation,pointConfidenceThreshold);
             PoiRequest request=pendingPoi;
             if(request!=null) {
@@ -703,7 +712,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             long now=SystemClock.elapsedRealtime();
             if(odometer.isRecording()&&!mapSaveInFlight
                     &&(savedKeyframes>autoSavedKeyframes||savedPois>autoSavedPois)
-                    &&now-lastAutoSaveAttemptMs>=1_000L) {
+                    &&now>=mapRetryAfterMs&&now-lastAutoSaveAttemptMs>=5_000L) {
                 MapArchive autosave=mapCapture.snapshot();
                 if(!autosave.frames.isEmpty()||!autosave.pois.isEmpty()) {
                     mapSaveInFlight=true;
@@ -711,6 +720,11 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     persistMap(autosave,autoMapName,false,true,savedKeyframes,savedPois);
                 }
             }
+            } catch(Exception mapError) {
+                // Optional mapping must never invalidate VIO poses or interrupt video recording.
+                android.util.Log.e("VectorMap","Map update failed; tracking continues",mapError);
+            }
+            long now=SystemClock.elapsedRealtime();
             if(now-lastSceneNs>=50) {
                 lastSceneNs=now;
                 SceneMapper.Snapshot scene=mapper.update(s,frame,poseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold);

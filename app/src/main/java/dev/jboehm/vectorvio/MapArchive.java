@@ -39,6 +39,21 @@ final class MapArchive {
         this.frames=Collections.unmodifiableList(new ArrayList<>(frames));
         this.pois=Collections.unmodifiableList(new ArrayList<>(pois));manualLoopConstraint=manual;
     }
+    /** Live sensor boundary: discard invalid measurements, never weaken file validation. */
+    static float[] cleanPoints(float[] points) {
+        float[] clean=new float[points.length];int size=0;
+        for(int i=0;i+3<points.length;i+=4) {
+            if(!Float.isFinite(points[i])||!Float.isFinite(points[i+1])||!Float.isFinite(points[i+2])
+                    ||!Float.isFinite(points[i+3])||points[i+3]<0||points[i+3]>1)continue;
+            System.arraycopy(points,i,clean,size,4);size+=4;
+        }
+        return Arrays.copyOf(clean,size);
+    }
+    static boolean validPose(float[] pose) {
+        if(pose.length!=7)return false;
+        double norm=0;for(int i=0;i<7;i++){if(!Float.isFinite(pose[i]))return false;if(i>=3)norm+=(double)pose[i]*pose[i];}
+        return norm>=.25&&norm<=2.25;
+    }
     void write(File target) throws IOException {
         try(OutputStream stream=new BufferedOutputStream(new FileOutputStream(target))){writeTo(stream);}
     }

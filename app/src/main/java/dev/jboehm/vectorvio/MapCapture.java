@@ -86,8 +86,10 @@ final class MapCapture {
             ArrayList<Float> local=new ArrayList<>();Pose inverse=pose.inverse();
             for(int i=0;i<count;i++) {
                 float x=data.get(),y=data.get(),z=data.get(),confidence=data.get();
-                if(i%stride!=0 || confidence<pointConfidence)continue;
+                if(i%stride!=0 || !Float.isFinite(x)||!Float.isFinite(y)||!Float.isFinite(z)
+                        ||!Float.isFinite(confidence)||confidence<pointConfidence||confidence>1)continue;
                 float[] p=inverse.transformPoint(new float[]{x,y,z});
+                if(!Float.isFinite(p[0])||!Float.isFinite(p[1])||!Float.isFinite(p[2]))continue;
                 for(float v:p)local.add(v);local.add(confidence);
             }
             points=new float[local.size()];for(int i=0;i<points.length;i++)points[i]=local.get(i);
@@ -124,11 +126,11 @@ final class MapCapture {
                 float[] xyz=p.transformPoint(new float[]{k.points[i],k.points[i+1],k.points[i+2]});
                 System.arraycopy(xyz,0,world,i,3);world[i+3]=k.points[i+3];
             }
-            result.add(new MapArchive.Keyframe(k.segment,k.timestamp,xyzq,world,k.image));
+            if(MapArchive.validPose(xyzq))result.add(new MapArchive.Keyframe(k.segment,k.timestamp,xyzq,MapArchive.cleanPoints(world),k.image));
         }
         if(lastPose!=null && !live.isEmpty() && lastTimestamp>live.get(live.size()-1).timestamp && frozen.size()+result.size()<MapArchive.MAX_FRAMES) {
             float[] pose=new float[7];System.arraycopy(lastPose.getTranslation(),0,pose,0,3);System.arraycopy(lastPose.getRotationQuaternion(),0,pose,3,4);
-            result.add(new MapArchive.Keyframe(segment,lastTimestamp,pose,new float[0],new byte[0]));
+            if(MapArchive.validPose(pose))result.add(new MapArchive.Keyframe(segment,lastTimestamp,pose,new float[0],new byte[0]));
         }
         return result;
     }
@@ -141,7 +143,7 @@ final class MapCapture {
             if(poi.anchor.getTrackingState()==TrackingState.STOPPED)continue;
             Pose p=poi.anchor.getPose();float[] pose=new float[7];
             System.arraycopy(p.getTranslation(),0,pose,0,3);System.arraycopy(p.getRotationQuaternion(),0,pose,3,4);
-            result.add(new MapArchive.Poi(poi.segment,poi.timestamp,poi.type,poi.label,pose));
+            if(MapArchive.validPose(pose))result.add(new MapArchive.Poi(poi.segment,poi.timestamp,poi.type,poi.label,pose));
         }
         return result;
     }
