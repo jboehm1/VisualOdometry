@@ -44,6 +44,8 @@ public final class HudView extends View {
     private float cameraHz;
     private volatile int layers=0;
     private volatile boolean worldGpu;
+    private String rendererLabel="CANVAS";
+    public void setRendererLabel(String label){rendererLabel=label;invalidate();}
     public void setWorldGpu(boolean enabled){worldGpu=enabled;postInvalidate();}
     private boolean sensors=false, expandedMap=false;
     private final float[] accelerationHistory=new float[90];
@@ -121,7 +123,7 @@ public final class HudView extends View {
         label(c,"VECTOR",d(14),d(28),17,INK,true);
         label(c,trackingText,w-d(125),d(27),10,s!=null&&s.tracking?CYAN:AMBER,true);
         label(c,gpsStatus+" · "+captureStatus,d(14),d(49),9,MUTED,false);
-        label(c,String.format(Locale.US,"%d KF · %d POI · %.0f FPS",keyframes,poiCount,cameraHz),d(14),d(130),9,MUTED,false);
+        label(c,String.format(Locale.US,"%d KF · %d POI · %s · %.0f FPS",keyframes,poiCount,rendererLabel,cameraHz),d(14),d(130),9,MUTED,false);
         if(scene!=null)label(c,"PATH · "+(scene.groundEstimated?"FLOOR EST.":"FLOOR"),w-d(135),d(130),9,0xFFFFAB57,true);
         if(expandedMap)drawLiveMap(c,d(12),d(143),w-d(24),Math.max(d(80),h-d(315)),s);
         else if(sensors)drawSensors(c,d(12),h-d(334),w-d(24),d(168));
@@ -137,6 +139,7 @@ public final class HudView extends View {
             if(shape.kind<2 && (layers==2 || layers==3))continue;
             if(shape.kind==2 && (layers==1 || layers==3))continue;
             float[] xy=shape.xy;
+            if(xy==null||xy.length%2!=0||((shape.kind==2||shape.kind==4)&&xy.length<2)||(shape.kind==3&&xy.length<4)||(shape.kind<2&&xy.length<6))continue;
             int color=shape.kind==1?0xFFB5A0FF:CYAN;
             if(shape.kind==2){disc(c,xy[0]*w,xy[1]*h,d(1.2f),0x70F8D58A,false);continue;}
             if(shape.kind==3){

@@ -50,6 +50,18 @@ public class VisualRenderTest {
         hud.toggleSensors();render(hud,"imu_synthetic",393,852);
         render(hud,"hud_small_synthetic",360,720);
     }
+    @Test public void gpuOnlyShapesAreSafeDuringCanvasFallback()throws Exception {
+        HudView hud=new HudView(RuntimeEnvironment.getApplication());
+        hud.update(new Odometer().snapshot(0),"TRACKING","Fallback fixture",0);
+        List<SceneMapper.Shape> shapes=Arrays.asList(
+            new SceneMapper.Shape(new float[0],2,"",new float[]{1,2,3}),
+            new SceneMapper.Shape(new float[0],3,"",new float[]{0,0,0,1,0,0}),
+            new SceneMapper.Shape(new float[]{.5f},2,""),
+            new SceneMapper.Shape(new float[]{0,0,1,0,1},0,""));
+        hud.updateScene(new SceneMapper.Snapshot(shapes,0,0,1,0,1),new float[8],30);
+        hud.setWorldGpu(false);hud.setRendererLabel("CANVAS*");
+        render(hud,"canvas_fallback_transition",360,720);
+    }
     @Test public void rendersSavedMapAndManualFlag()throws Exception {
         List<MapArchive.Keyframe> frames=new ArrayList<>();Random random=new Random(12);
         for(int f=0;f<20;f++) {

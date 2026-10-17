@@ -57,6 +57,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private ImuMonitor imu;
     private final SceneMapper mapper=new SceneMapper();
     private WorldOverlayRenderer worldOverlay;
+    private OverlayPolicy overlayPolicy=new OverlayPolicy(false,false);
+    private long lastOverlayErrorMs;
     private final MapCapture mapCapture=new MapCapture();
     private final java.util.concurrent.ExecutorService mapIo=java.util.concurrent.Executors.newSingleThreadExecutor();
     private volatile boolean photoKeyframes=false;
@@ -251,8 +253,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
 
     private void dataMenu(){
-        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off"};
+        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU"};
         new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
+            if(i==5){overlaySettings();return;}
             if(i==4){startActivity(new Intent(this,CollectionActivity.class));return;}
             if(i==0)hud.toggleSensors();
             if(i==1){if(gps.enabled)gps.disable();else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED){gps.enabled=true;gps.start();}else requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_REQUEST);refreshHud();}
@@ -651,19 +654,48 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         super.onDestroy();
     }
 
-    private void disableWorldOverlay(Exception e){
-        android.util.Log.e("VectorGL","GPU overlay failed; Canvas fallback",e);
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER,0);GLES20.glDisable(GLES20.GL_SCISSOR_TEST);GLES20.glDisable(GLES20.GL_BLEND);GLES20.glDepthMask(true);
-        worldOverlay=null;mapper.worldRendering=false;hud.setWorldGpu(false);
+    private void overlaySettings(){
+        new AlertDialog.Builder(this).setTitle("Overlay renderer")
+            .setMessage("Auto uses GPU overlays when available. A detected failure keeps Canvas active until Retry GPU. Canvas changes display only; camera and ARCore still require graphics support.")
+            .setItems(new String[]{"Auto GPU with fallback","Force Canvas overlay","Retry GPU / clear previous failure"},(d,which)->{
+                SharedPreferences prefs=getSharedPreferences("spatial_explorer",MODE_PRIVATE);
+                OverlayPolicy choice=new OverlayPolicy(prefs.getBoolean("overlay_canvas",false),prefs.getBoolean("overlay_gpu_failed",false));
+                if(which==0)choice.chooseAuto();else if(which==1)choice.chooseCanvas();else choice.retry();
+                prefs.edit().putBoolean("overlay_canvas",choice.canvas()).putBoolean("overlay_gpu_failed",choice.failed()).apply();
+                surface.queueEvent(this::configureWorldOverlay);
+            }).show();
     }
-
+    private void publishRenderer(){
+        String label=mapper.worldRendering?"GPU":overlayPolicy.failed()?"CANVAS*":"CANVAS";
+        hud.setWorldGpu(mapper.worldRendering);runOnUiThread(()->hud.setRendererLabel(label));
+    }
+    private void releaseWorldOverlay(){
+        WorldOverlayRenderer old=worldOverlay;worldOverlay=null;
+        if(old!=null)try{old.release();}catch(RuntimeException|OutOfMemoryError ignored){}
+        mapper.worldRendering=false;lastSceneNs=0;
+    }
+    private void disableWorldOverlay(Throwable e){
+        android.util.Log.e("VectorGL","GPU overlay failed; Canvas fallback",e);
+        releaseWorldOverlay();overlayPolicy.failure();
+        getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("overlay_gpu_failed",true).putString("overlay_failure_device",android.os.Build.FINGERPRINT).apply();
+        publishRenderer();
+        recorder.event("OVERLAY_CANVAS_FALLBACK",System.currentTimeMillis());
+        runOnUiThread(()->Toast.makeText(this,"GPU overlay unavailable — Canvas active. DATA > Overlay rendering to retry.",Toast.LENGTH_LONG).show());
+    }
+    private void configureWorldOverlay(){
+        releaseWorldOverlay();SharedPreferences prefs=getSharedPreferences("spatial_explorer",MODE_PRIVATE);
+        boolean sameDevice=android.os.Build.FINGERPRINT.equals(prefs.getString("overlay_failure_device",""));
+        overlayPolicy=new OverlayPolicy(prefs.getBoolean("overlay_canvas",false),sameDevice&&prefs.getBoolean("overlay_gpu_failed",false));
+        if(overlayPolicy.useGpu())try{
+            WorldOverlayRenderer candidate=new WorldOverlayRenderer();candidate.initialize();worldOverlay=candidate;mapper.worldRendering=true;
+        }catch(RuntimeException|OutOfMemoryError e){disableWorldOverlay(e);return;}
+        publishRenderer();
+    }
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config) {
         GLES20.glClearColor(.025f,.07f,.105f,1);
-        background=new CameraBackground();
-        background.initialize();
-        try{worldOverlay=new WorldOverlayRenderer();worldOverlay.initialize();mapper.worldRendering=true;hud.setWorldGpu(true);}
-        catch(Exception e){worldOverlay=null;mapper.worldRendering=false;hud.setWorldGpu(false);android.util.Log.e("VectorGL","GPU overlay unavailable; Canvas fallback",e);}
-        textureAssigned=false;
+        background=new CameraBackground();background.initialize();
+        // Previous handles belong to a lost EGL context; never delete them in this new one.
+        worldOverlay=null;configureWorldOverlay();textureAssigned=false;
     }
     @Override public void onSurfaceChanged(GL10 gl,int w,int h) {
         width=w;height=h;
@@ -746,16 +778,26 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 android.util.Log.e("VectorMap","Map update failed; tracking continues",mapError);
             }
             long now=SystemClock.elapsedRealtime();
-            if(now-lastSceneNs>=50) {
-                lastSceneNs=now;
-                SceneMapper.Snapshot scene=mapper.update(s,frame,poseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,odometer.snapshot(now).worldTrail);
-                if(worldOverlay!=null)try{worldOverlay.update(scene);}catch(Exception e){disableWorldOverlay(e);}
-                float[] sensors=imu.snapshot();float hz=cameraHz;
-                int keyframes=savedKeyframes,images=capturedImages,pois=savedPois;boolean full=mapFull;
-                runOnUiThread(()->{hud.updateScene(scene,sensors,hz);hud.updateCapture(keyframes,images,pois,full);});
+            try {
+                if(now-lastSceneNs>=50) {
+                    lastSceneNs=now;
+                    java.util.List<Odometer.Point> history=odometer.snapshot(now).worldTrail;
+                    SceneMapper.Snapshot scene=mapper.update(s,frame,poseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,history);
+                    if(worldOverlay!=null)try{worldOverlay.update(scene);}catch(RuntimeException|OutOfMemoryError e){
+                        disableWorldOverlay(e);
+                        scene=mapper.update(s,frame,poseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,history);
+                    }
+                    final SceneMapper.Snapshot published=scene;
+                    float[] sensors=imu.snapshot();float hz=cameraHz;
+                    int keyframes=savedKeyframes,images=capturedImages,pois=savedPois;boolean full=mapFull;
+                    runOnUiThread(()->{hud.updateScene(published,sensors,hz);hud.updateCapture(keyframes,images,pois,full);});
+                }
+                if(worldOverlay!=null&&camera.getTrackingState()==TrackingState.TRACKING)
+                    try{worldOverlay.draw(camera,hud.layers(),width,height,getResources().getDisplayMetrics().density);}catch(RuntimeException|OutOfMemoryError e){disableWorldOverlay(e);}
+            }catch(Exception displayError){
+                // Display failure must not manufacture a tracking gap or end an anchor segment.
+                if(now-lastOverlayErrorMs>=5_000){lastOverlayErrorMs=now;android.util.Log.e("VectorGL","Scene display failed; tracking and capture continue",displayError);recorder.event("OVERLAY_SCENE_ERROR",System.currentTimeMillis());}
             }
-            if(worldOverlay!=null&&camera.getTrackingState()==TrackingState.TRACKING)
-                try{worldOverlay.draw(camera,hud.layers(),width,height,getResources().getDisplayMetrics().density);}catch(Exception e){disableWorldOverlay(e);}
             if(now-lastHudUpdateMs>110) {
                 lastHudUpdateMs=now;
                 if(recorder.problem()!=null) message="CSV ERROR: check Android logcat";
