@@ -21,8 +21,8 @@ public class SyntheticVisionTest {
         SyntheticVision.Result a=null,b=null;
         for(int i=0;i<10;i++){
             int[] frame=shift(base,w,h,i*3,0);
-            a=first.process(frame,w,h,sensors(i*33_000_000L));
-            b=second.process(frame,w,h,sensors(i*33_000_000L));
+            a=first.process(frame,w,h,zeroTurnSensors(i*33_000_000L));
+            b=second.process(frame,w,h,zeroTurnSensors(i*33_000_000L));
         }
         assertNotNull(a);assertTrue("two-view image observations should triangulate map points",a.points.size()>0);
         SyntheticVision.MapPoint p=a.points.get(0);
@@ -64,4 +64,5 @@ public class SyntheticVisionTest {
         }return out;
     }
     private SyntheticVision.SensorSample sensors(long t){SimulationModel.Sample s=SimulationModel.sample(t);return new SyntheticVision.SensorSample(s.timeNs,s.ax,s.ay,s.az,s.gx,s.gy,s.gz);}
+    private SyntheticVision.SensorSample zeroTurnSensors(long t){return new SyntheticVision.SensorSample(t,0,9.80665f,0,0,0,0);}
 }
