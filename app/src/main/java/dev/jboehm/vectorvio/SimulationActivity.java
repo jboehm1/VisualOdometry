@@ -34,23 +34,24 @@ public final class SimulationActivity extends Activity {
     private final long[] speeds={500_000_000L,1_000_000_000L,1_500_000_000L};
     private int speedIndex=1;
     private boolean playing=false,loop=true;
-    private long baseSimNs=0,baseClockNs;
+    private SimulationModel.Route route=SimulationModel.DEFAULT_ROUTE;
+    private long baseSimNs=0,baseClockNs,stopAtNs=SimulationModel.DURATION_NS;
     private SimulationView simulationView;
     private TextView playButton,speedButton,loopButton,lightButton;
     private int lightIndex=0;
     private static final float[] EXPOSURES={1f,.38f,.14f,.045f};
     private final Runnable render=new Runnable(){@Override public void run(){
-        if(!playing&&!loop&&baseSimNs>=SimulationModel.DURATION_NS)baseSimNs=SimulationModel.DURATION_NS-1;
+        if(!playing&&!loop&&baseSimNs>=stopAtNs)baseSimNs=stopAtNs-1;
         long time=currentTime();
-        if(!loop&&time>=SimulationModel.DURATION_NS){time=SimulationModel.DURATION_NS-1;baseSimNs=time;playing=false;}
-        simulationView.setReplay(SimulationModel.sample(time),time,playing,speeds[speedIndex]/1e9);
+        if(!loop&&time>=stopAtNs){time=stopAtNs-1;baseSimNs=time;playing=false;}
+        simulationView.setReplay(SimulationModel.sample(time,route),time,playing,speeds[speedIndex]/1e9);
         if(playButton!=null)playButton.setText(playing?"PAUSE":"START");
         handler.postDelayed(this,33);
     }};
 
     private long currentTime(){
         long time=baseSimNs+(playing?(long)((SystemClock.elapsedRealtimeNanos()-baseClockNs)*(speeds[speedIndex]/1e9)):0);
-        return loop?time%SimulationModel.DURATION_NS:Math.min(time,SimulationModel.DURATION_NS);
+        return loop?time:Math.min(time,stopAtNs);
     }
     private int dp(float v){return Math.round(v*getResources().getDisplayMetrics().density);}
 
@@ -68,14 +69,18 @@ public final class SimulationActivity extends Activity {
         playButton=button("START");speedButton=button("1.0×");TextView reset=button("RESET");loopButton=button("LOOP ON");lightButton=button("LIGHT 100%");TextView export=button("CSV");
         controls.addView(playButton,weighted());controls.addView(speedButton,weighted());controls.addView(reset,weighted());controls.addView(loopButton,weighted());controls.addView(lightButton,weighted());controls.addView(export,weighted());
         FrameLayout.LayoutParams cp=new FrameLayout.LayoutParams(-1,dp(60),Gravity.BOTTOM);root.addView(controls,cp);
+        TextView sceneButton=button("MAP A · ↻");
+        FrameLayout.LayoutParams sceneLayout=new FrameLayout.LayoutParams(dp(142),dp(38),Gravity.TOP|Gravity.RIGHT);
+        sceneLayout.topMargin=dp(270);sceneLayout.rightMargin=dp(14);root.addView(sceneButton,sceneLayout);
+        sceneButton.setOnClickListener(v->{route=route==SimulationModel.DEFAULT_ROUTE?SimulationModel.REVERSE_VALIDATION_ROUTE:SimulationModel.DEFAULT_ROUTE;sceneButton.setText(route.reverse?"MAP B · ↺":"MAP A · ↻");stopAtNs=route.durationNs;baseSimNs=0;baseClockNs=SystemClock.elapsedRealtimeNanos();playing=false;simulationView.resetMapping();tickNow();});
         playButton.setOnClickListener(v->{if(playing){baseSimNs=currentTime();playing=false;}else{baseClockNs=SystemClock.elapsedRealtimeNanos();playing=true;}tickNow();});
         speedButton.setOnClickListener(v->{baseSimNs=currentTime();baseClockNs=SystemClock.elapsedRealtimeNanos();speedIndex=(speedIndex+1)%speeds.length;speedButton.setText(String.format(Locale.US,"%.1f×",speeds[speedIndex]/1e9));tickNow();});
-        reset.setOnClickListener(v->{baseSimNs=0;baseClockNs=SystemClock.elapsedRealtimeNanos();playing=false;simulationView.resetMapping();tickNow();});
-        loopButton.setOnClickListener(v->{loop=!loop;loopButton.setText(loop?"LOOP ON":"LOOP OFF");if(loop)baseClockNs=SystemClock.elapsedRealtimeNanos();});
-        lightButton.setTextSize(8);lightButton.setOnClickListener(v->{lightIndex=(lightIndex+1)%EXPOSURES.length;lightButton.setText(new String[]{"LIGHT 100%","LIGHT 38%","LIGHT 14%","DARK 4%"}[lightIndex]);simulationView.invalidate();});
+        reset.setOnClickListener(v->{stopAtNs=route.durationNs;baseSimNs=0;baseClockNs=SystemClock.elapsedRealtimeNanos();playing=false;simulationView.resetMapping();tickNow();});
+        loopButton.setOnClickListener(v->{baseSimNs=currentTime();baseClockNs=SystemClock.elapsedRealtimeNanos();loop=!loop;if(!loop)stopAtNs=(baseSimNs/route.durationNs+1)*route.durationNs;loopButton.setText(loop?"LOOP ON":"LOOP OFF");});
+        lightButton.setTextSize(8);lightButton.setOnClickListener(v->{lightIndex=(lightIndex+1)%EXPOSURES.length;lightButton.setText(new String[]{"LIGHT 100%","LIGHT 38%","LIGHT 14%","DARK 4%"}[lightIndex]);simulationView.lastVideoTimeNs=-1;simulationView.invalidate();});
         export.setOnClickListener(v->exportCsv());
         simulationView.setOnClickListener(v->new android.app.AlertDialog.Builder(this).setTitle("About this simulation")
-            .setMessage("A deterministic 40-second rounded-square corridor walk is rendered locally at playback time. The loop has curved corners and continuous outer and inner walls beneath a continuous ceiling. The camera path has reduced handheld sway. The mapping estimator starts empty and receives only rendered camera pixels plus synchronized synthetic accelerometer and gyroscope samples. It integrates gyro rotation, uses image feature motion with a weak accelerometer velocity prior, and creates 3D landmarks by triangulating repeated observations after estimated camera motion. The hidden corridor geometry and true camera pose are used only to render the video and to show a separate evaluation reference; they are never passed to the estimator.\n\nThe LIGHT control applies deterministic exposure loss and read noise before tracking. Monocular scale uses a conservative depth prior and the simulated sensor stream is not measured hardware data, so this is a repeatable pipeline/UI test, not a validated SLAM accuracy benchmark. The scene is synthetic rather than recorded footage. Use reset and the fixed seed to compare runs reproducibly.")
+            .setMessage("Two deterministic closed corridors are rendered locally: A is a 40-second rounded-square loop; B has different rectangular dimensions, speed, texture and reverse traversal over 50 seconds. The loop has curved corners and continuous outer and inner walls beneath a continuous ceiling. The camera path has reduced handheld sway. The mapping estimator starts empty and receives only rendered camera pixels plus synchronized synthetic accelerometer and gyroscope samples. It removes calibrated gyro rotation from image feature motion, rejects tracks with a forward/backward check, initializes metric scale during turns under a forward-planar motion assumption, and creates 3D landmarks by triangulating repeated observations after estimated camera motion. The hidden corridor geometry and true camera pose are used only to render the video and to show a separate evaluation reference; they are never passed to the estimator.\n\nThe LIGHT control applies deterministic exposure loss and read noise before tracking. Before turn initialization, monocular scale uses a depth prior and the simulated sensor stream is not measured hardware data, so this is a repeatable pipeline/UI test, not a validated SLAM accuracy benchmark. The scene is synthetic rather than recorded footage. Use reset and the fixed seed to compare runs reproducibly.")
             .setPositiveButton("OK",null).show());
         setContentView(root);tickNow();
     }
@@ -96,10 +101,10 @@ public final class SimulationActivity extends Activity {
             try(OutputStream out=getContentResolver().openOutputStream(uri)){
                 if(out==null)throw new java.io.IOException("Cannot open destination");
                 StringBuilder csv=new StringBuilder(500_000);
-                csv.append("# VECTOR deterministic synthetic walk v1, seed=").append(Long.toHexString(SimulationModel.SEED)).append(", sample_rate_hz=").append(SimulationModel.SAMPLE_RATE_HZ).append(", duration_s=40\n");
+                csv.append("# VECTOR deterministic synthetic walk v1, seed=").append(Long.toHexString(SimulationModel.SEED)).append(", sample_rate_hz=").append(SimulationModel.SAMPLE_RATE_HZ).append(", duration_s="+(route.durationNs/1_000_000_000L)+"\n");
                 csv.append("time_ns,x_m,y_m,z_m,yaw_rad,pitch_rad,roll_rad,accel_x_m_s2,accel_y_m_s2,accel_z_m_s2,gyro_x_rad_s,gyro_y_rad_s,gyro_z_rad_s\n");
-                for(int i=0;i<SimulationModel.SAMPLE_RATE_HZ*40;i++){
-                    SimulationModel.Sample s=SimulationModel.sample(i*1_000_000_000L/SimulationModel.SAMPLE_RATE_HZ);
+                for(int i=0;i<SimulationModel.SAMPLE_RATE_HZ*(route.durationNs/1_000_000_000L);i++){
+                    SimulationModel.Sample s=SimulationModel.sample(i*1_000_000_000L/SimulationModel.SAMPLE_RATE_HZ,route);
                     csv.append(String.format(Locale.US,"%d,%.6f,%.6f,%.6f,%.7f,%.7f,%.7f,%.6f,%.6f,%.6f,%.7f,%.7f,%.7f\n",
                         s.timeNs,s.x,s.y,s.z,s.yaw,s.pitch,s.roll,s.ax,s.ay,s.az,s.gx,s.gy,s.gz));
                 }
@@ -115,21 +120,16 @@ public final class SimulationActivity extends Activity {
     private final class SimulationView extends View {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final RectF box=new RectF();
-        private static final double OUTER_HALF=SimulationModel.CORRIDOR_HALF_SIDE+SimulationModel.CORRIDOR_HALF_WIDTH;
-        private static final double OUTER_RADIUS=SimulationModel.CENTER_CORNER_RADIUS+SimulationModel.CORRIDOR_HALF_WIDTH;
-        private static final double INNER_HALF=SimulationModel.CORRIDOR_HALF_SIDE-SimulationModel.CORRIDOR_HALF_WIDTH;
-        private static final double INNER_RADIUS=SimulationModel.CENTER_CORNER_RADIUS-SimulationModel.CORRIDOR_HALF_WIDTH;
-        private static final double CEILING_HEIGHT=SimulationModel.WALL_HEIGHT;
         private final SyntheticVision vision=new SyntheticVision();
         private Bitmap cameraFrame;
         private SyntheticVision.Result visionResult;
-        private int processedFrames;
-        private SimulationModel.Sample sample=SimulationModel.sample(0);
+        private int processedFrames;private long lastVideoTimeNs=-1;
+        private SimulationModel.Sample sample=SimulationModel.sample(0,route);
         private long timeNs=0;private boolean active=false;private double speed=1;
         private final float density=getResources().getDisplayMetrics().density;
         SimulationView(){super(SimulationActivity.this);setClickable(true);}
-        void setReplay(SimulationModel.Sample s,long t,boolean play,double rate){if(t+100_000_000L<timeNs){vision.reset();visionResult=null;processedFrames=0;}sample=s;timeNs=t;active=play;speed=rate;invalidate();}
-        void resetMapping(){vision.reset();visionResult=null;processedFrames=0;cameraFrame=null;invalidate();}
+        void setReplay(SimulationModel.Sample s,long t,boolean play,double rate){if(t+100_000_000L<timeNs){vision.reset();visionResult=null;processedFrames=0;lastVideoTimeNs=-1;}sample=s;timeNs=t;active=play;speed=rate;invalidate();}
+        void resetMapping(){vision.reset();visionResult=null;processedFrames=0;cameraFrame=null;lastVideoTimeNs=-1;invalidate();}
         private float d(float n){return n*density;}
         private void text(Canvas c,String value,float x,float y,float size,int color,boolean bold){paint.reset();paint.setAntiAlias(true);paint.setColor(color);paint.setTextSize(d(size));paint.setTypeface(Typeface.create(bold?"sans-serif-medium":"sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));c.drawText(value,x,y,paint);}
         private void panel(Canvas c,float l,float t,float r,float b){paint.reset();paint.setAntiAlias(true);paint.setColor(0xE90A1B27);c.drawRoundRect(l,t,r,b,d(14),d(14),paint);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d(1));paint.setColor(0x6656B8BE);c.drawRoundRect(l,t,r,b,d(14),d(14),paint);paint.setStyle(Paint.Style.FILL);}
@@ -137,69 +137,21 @@ public final class SimulationActivity extends Activity {
         @Override protected void onDraw(Canvas c){
             super.onDraw(c);int w=getWidth(),h=getHeight();if(w<=0||h<=0)return;
             if(cameraFrame==null)cameraFrame=Bitmap.createBitmap(SyntheticVision.WIDTH,SyntheticVision.HEIGHT,Bitmap.Config.ARGB_8888);
-            if(processedFrames%2==0){Canvas fc=new Canvas(cameraFrame);fc.drawColor(Color.BLACK);fc.save();fc.scale(SyntheticVision.WIDTH/(float)w,SyntheticVision.HEIGHT/(float)h);drawVideo(fc,w,h);fc.restore();int[] pixels=new int[SyntheticVision.WIDTH*SyntheticVision.HEIGHT];cameraFrame.getPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);applyExposure(pixels);cameraFrame.setPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);if(active){SyntheticVision.SensorSample sensors=new SyntheticVision.SensorSample(sample.timeNs,sample.ax,sample.ay,sample.az,sample.gx,sample.gy,sample.gz);visionResult=vision.process(pixels,SyntheticVision.WIDTH,SyntheticVision.HEIGHT,sensors);}}
+            if(lastVideoTimeNs<0||timeNs-lastVideoTimeNs>=66_000_000L){
+                int[] pixels=CorridorRenderer.render(sample,EXPOSURES[lightIndex],route);
+                cameraFrame.setPixels(pixels,0,SyntheticVision.WIDTH,0,0,SyntheticVision.WIDTH,SyntheticVision.HEIGHT);
+                if(active){SyntheticVision.SensorSample sensors=new SyntheticVision.SensorSample(timeNs,sample.ax,sample.ay,sample.az,sample.gx,sample.gy,sample.gz);visionResult=vision.process(pixels,SyntheticVision.WIDTH,SyntheticVision.HEIGHT,sensors);}
+                lastVideoTimeNs=timeNs;
+            }
             processedFrames++;c.drawColor(0xFF101E27);c.drawBitmap(cameraFrame,null,new RectF(0,0,w,h),null);drawTrackingOverlay(c,w,h);drawTop(c,w);drawMap(c,w,h);drawTelemetry(c,w,h);
         }
-        private void applyExposure(int[] pixels){float exposure=EXPOSURES[lightIndex];if(exposure>=.999f)return;int frame=processedFrames;for(int i=0;i<pixels.length;i++){int p=pixels[i];int noise=exposure<.2f?(((i*1103515245+frame*12345)>>>28)&15):0;int r=Math.min(255,Math.round(((p>>16)&255)*exposure)+noise),g=Math.min(255,Math.round(((p>>8)&255)*exposure)+noise),b=Math.min(255,Math.round((p&255)*exposure)+noise);pixels[i]=(p&0xff000000)|(r<<16)|(g<<8)|b;}}
         private void drawTrackingOverlay(Canvas c,int w,int h){if(visionResult==null)return;for(SyntheticVision.Point p:visionResult.tracked){float x=p.x*w/SyntheticVision.WIDTH,y=p.y*h/SyntheticVision.HEIGHT;paint.reset();paint.setAntiAlias(true);paint.setColor(0xFF72F2B5);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d(1.4f));c.drawCircle(x,y,d(4),paint);paint.setStyle(Paint.Style.FILL);c.drawCircle(x,y,d(1.5f),paint);}text(c,"TRACKED FEATURES  "+visionResult.trackedCount,d(14),h-d(224),9,0xFF72F2B5,true);}
-        private void drawVideo(Canvas c,int w,int h){
-            float horizon=h*.39f-(float)(sample.pitch*h*.65);paint.setShader(new android.graphics.LinearGradient(0,0,0,horizon,0xFF334959,0xFF9AA6A3,android.graphics.Shader.TileMode.CLAMP));c.drawRect(0,0,w,horizon,paint);paint.setShader(null);
-            quad(c,-6,0,-6,6,0,-6,6,0,6,-6,0,6,0xFF697976,0xFF8FA19B);
-            for(int i=-5;i<=5;i++)worldLine(c,i,0,-6,i,0,6,0x6679A49B,.7f);
-            for(int i=-6;i<=6;i++)worldLine(c,-6,0,i,6,0,i,0x6679A49B,.7f);
-            drawRoundedCorridor(c);
-            for(int z=-2;z<=2;z+=2){
-                wallArtX(c,5.14,z,1.0,2.05,0xFF3B6268);wallArtX(c,-5.14,z,1.0,2.05,0xFF3A5C63);
-                wallArtX(c,2.84,z,1.0,1.95,0xFF536B69);wallArtX(c,-2.84,z,1.0,1.95,0xFF536B69);
-            }
-            wallArt(c,-1.7,-5.14,1.1,.8,0xFF2F5964);wallArt(c,1.7,-5.14,.72,1.35,0xFFDAA76E);
-            wallArt(c,-1.7,5.14,1.05,.8,0xFF315662);wallArt(c,1.7,5.14,.74,1.3,0xFFD6A46D);
-            for(int i=-1;i<=1;i++){
-                light(c,i*1.5,2.82,-4.0);light(c,i*1.5,2.82,4.0);
-                light(c,-4.0,2.82,i*1.5);light(c,4.0,2.82,i*1.5);
-            }
-        }
-
-        private final class Face {final Path path;final float depth;final int fill,stroke;Face(Path path,float depth,int fill,int stroke){this.path=path;this.depth=depth;this.fill=fill;this.stroke=stroke;}}
-        private ArrayList<double[]> roundedLoop(double half,double radius){
-            ArrayList<double[]> points=new ArrayList<>();int steps=16;
-            double[][] corners={{half-radius,-half+radius,-Math.PI/2,0},{half-radius,half-radius,0,Math.PI/2},
-                {-half+radius,half-radius,Math.PI/2,Math.PI},{-half+radius,-half+radius,Math.PI,Math.PI*1.5}};
-            for(double[] corner:corners)for(int i=0;i<steps;i++){
-                double a=corner[2]+(corner[3]-corner[2])*i/steps;
-                points.add(new double[]{corner[0]+radius*Math.cos(a),corner[1]+radius*Math.sin(a)});
-            }
-            return points;
-        }
-        private void addFace(ArrayList<Face> faces,double[][] v,int fill,int stroke){
-            float[][] p=new float[4][];float depth=0;
-            for(int i=0;i<4;i++){p[i]=project(v[i][0],v[i][1],v[i][2]);if(p[i]==null)return;depth+=p[i][2]*.25f;}
-            Path path=new Path();path.moveTo(p[0][0],p[0][1]);for(int i=1;i<4;i++)path.lineTo(p[i][0],p[i][1]);path.close();
-            faces.add(new Face(path,depth,fill,stroke));
-        }
-        private void drawFaces(Canvas c,ArrayList<Face> faces){
-            faces.sort((a,b)->Float.compare(b.depth,a.depth));
-            for(Face face:faces){paint.reset();paint.setAntiAlias(true);paint.setColor(face.fill);c.drawPath(face.path,paint);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d(.75f));paint.setColor(face.stroke);c.drawPath(face.path,paint);}
-            paint.setStyle(Paint.Style.FILL);
-        }
-        private void drawRoundedCorridor(Canvas c){
-            ArrayList<double[]> outer=roundedLoop(OUTER_HALF,OUTER_RADIUS),inner=roundedLoop(INNER_HALF,INNER_RADIUS);
-            ArrayList<Face> faces=new ArrayList<>();int n=outer.size();
-            for(int i=0;i<n;i++){
-                int j=(i+1)%n;double[] a=outer.get(i),b=outer.get(j),ia=inner.get(i),ib=inner.get(j);
-                addFace(faces,new double[][]{{a[0],0,a[1]},{b[0],0,b[1]},{b[0],CEILING_HEIGHT,b[1]},{a[0],CEILING_HEIGHT,a[1]}},0xFF394F59,0xFF728387);
-                addFace(faces,new double[][]{{ia[0],0,ia[1]},{ib[0],0,ib[1]},{ib[0],CEILING_HEIGHT,ib[1]},{ia[0],CEILING_HEIGHT,ia[1]}},0xFF435A61,0xFF728387);
-                int roof=(i/10)%2==0?0xFF52636A:0xFF5B6D72;
-                addFace(faces,new double[][]{{a[0],CEILING_HEIGHT,a[1]},{ia[0],CEILING_HEIGHT,ia[1]},{ib[0],CEILING_HEIGHT,ib[1]},{b[0],CEILING_HEIGHT,b[1]}},roof,0xFF829096);
-            }
-            drawFaces(c,faces);
-        }
         private void drawTop(Canvas c,int w){
             paint.reset();paint.setShader(new android.graphics.LinearGradient(0,0,0,d(147),0xF0081722,0x00081722,android.graphics.Shader.TileMode.CLAMP));c.drawRect(0,0,w,d(147),paint);paint.setShader(null);
             text(c,"VECTOR  /  SIMULATION",d(18),d(40),17,0xFFF1FAFF,true);
             text(c,"ROUNDED LOOP · VIDEO + IMU · EMPTY-START 3D MAP",d(18),d(61),9,0xFF74FCE1,true);
-            float progress=(float)(timeNs/(double)SimulationModel.DURATION_NS);String state=active?"PLAYING · ESTIMATING":"PAUSED · ESTIMATOR STOPPED";
-            text(c,state+"  ·  "+String.format(Locale.US,"%.1f×   ·   %02d:%02d / 00:40",speed,(int)(timeNs/1e9)/60,(int)(timeNs/1e9)%60),d(18),d(84),10,0xFFF1FAFF,true);
+            long lapTime=timeNs%route.durationNs;float progress=(float)(lapTime/(double)route.durationNs);String state=active?"PLAYING · ESTIMATING":"PAUSED · ESTIMATOR STOPPED";
+            text(c,state+"  ·  "+String.format(Locale.US,"%.1f× · %02d:%02d / %02d:%02d",speed,(int)(lapTime/1e9)/60,(int)(lapTime/1e9)%60,(int)(route.durationNs/1e9)/60,(int)(route.durationNs/1e9)%60),d(18),d(84),10,0xFFF1FAFF,true);
             box.set(d(18),d(96),getWidth()-d(18),d(99));paint.reset();paint.setColor(0x553D7280);c.drawRoundRect(box,d(3),d(3),paint);box.right=box.left+(getWidth()-d(36))*progress;paint.setColor(0xFF74FCE1);c.drawRoundRect(box,d(3),d(3),paint);
         }
         private void drawMap(Canvas c,int w,int h){
@@ -217,11 +169,11 @@ public final class SimulationActivity extends Activity {
                 float px=cx+(visionResult.x-visionResult.z)*.70f*scale,py=cy+(visionResult.x+visionResult.z)*.34f*scale-visionResult.y*scale;
                 paint.setColor(0xFFFFCA75);paint.setStyle(Paint.Style.FILL);c.drawCircle(px,py,d(4),paint);
             } else text(c,"WAITING FOR IMAGE TRACKS",l+d(12),cy,7,0xFFAAC0CC,true);
-            text(c,"TRACKED "+(visionResult==null?0:visionResult.trackedCount)+" · 3D LANDMARKS "+(visionResult==null?0:visionResult.points.size()),l+d(10),b-d(10),7,0xFFAAC0CC,false);
+            text(c,"LAP "+(timeNs/route.durationNs+1)+" · 3D LANDMARKS "+(visionResult==null?0:visionResult.points.size()),l+d(10),b-d(10),7,0xFFAAC0CC,false);
         }
         private void drawTelemetry(Canvas c,int w,int h){
             float top=h-d(212),left=d(14),right=w-d(14),bottom=h-d(72);panel(c,left,top,right,bottom);
-            text(c,"SYNCHRONIZED SYNTHETIC IMU",left+d(13),top+d(23),10,0xFF74FCE1,true);
+            text(c,visionResult==null?"EMPTY MAP · PRESS START":String.format(Locale.US,"EST. %.2f m · %.2f m/s · %s",visionResult.distance,visionResult.speed,visionResult.metricInitialized?"TURN SCALE":"SCALE INITIALIZING"),left+d(13),top+d(23),9,0xFF74FCE1,true);
             text(c,String.format(Locale.US,"ACCEL   %+.2f   %+.2f   %+.2f  m/s²",sample.ax,sample.ay,sample.az),left+d(13),top+d(48),10,0xFFF1FAFF,false);
             text(c,String.format(Locale.US,"GYRO    %+.3f   %+.3f   %+.3f  rad/s",sample.gx,sample.gy,sample.gz),left+d(13),top+d(69),10,0xFFF1FAFF,false);
             text(c,String.format(Locale.US,"TRUTH   %+.2f  %+.2f  %+.2f m   ·   YAW %+.0f°",sample.x,sample.y,sample.z,Math.toDegrees(sample.yaw)),left+d(13),top+d(90),9,0xFFAAC0CC,false);
@@ -229,19 +181,5 @@ public final class SimulationActivity extends Activity {
             float t=(float)(timeNs*1e-9);for(int i=1;i<44;i++){float f0=(i-1)/43f,f1=i/43f;float x0=left+d(13)+(right-left-d(26))*f0,x1=left+d(13)+(right-left-d(26))*f1;float a0=(float)(Math.sin((t-(1-f0)*2)*2*Math.PI*2.05)+.22*Math.sin((t-(1-f0)*2)*2*Math.PI*8.3));float a1=(float)(Math.sin((t-(1-f1)*2)*2*Math.PI*2.05)+.22*Math.sin((t-(1-f1)*2)*2*Math.PI*8.3));line(c,x0,mid-a0*d(6),x1,mid-a1*d(6),0xFFFFC976,1.1f);}
             text(c,"60 Hz IMU · vision "+(visionResult==null?"initializing":visionResult.trackedCount+" tracked / "+visionResult.points.size()+" mapped")+" · seed "+Long.toHexString(SimulationModel.SEED),left+d(13),bottom-d(10),8,0xFFAAC0CC,false);
         }
-        private float[] project(double x,double y,double z){
-            double dx=x-sample.x,dy=y-sample.y,dz=z-sample.z,co=Math.cos(sample.yaw),si=Math.sin(sample.yaw);
-            double right=co*dx-si*dz,forward=-si*dx-co*dz;if(forward<.12)return null;
-            double up=dy*Math.cos(sample.pitch)-forward*Math.sin(sample.pitch);float focal=getWidth()*.88f;
-            return new float[]{getWidth()*.5f+(float)(right*focal/forward),getHeight()*.40f-(float)(up*focal/forward),(float)forward};
-        }
-        private void quad(Canvas c,double x1,double y1,double z1,double x2,double y2,double z2,double x3,double y3,double z3,double x4,double y4,double z4,int fill,int stroke){
-            float[] a=project(x1,y1,z1),b=project(x2,y2,z2),d=project(x3,y3,z3),e=project(x4,y4,z4);if(a==null||b==null||d==null||e==null)return;
-            Path p=new Path();p.moveTo(a[0],a[1]);p.lineTo(b[0],b[1]);p.lineTo(d[0],d[1]);p.lineTo(e[0],e[1]);p.close();paint.reset();paint.setAntiAlias(true);paint.setColor(fill);c.drawPath(p,paint);paint.setColor(stroke);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d(.8f));c.drawPath(p,paint);paint.setStyle(Paint.Style.FILL);
-        }
-        private void worldLine(Canvas c,double x1,double y1,double z1,double x2,double y2,double z2,int color,float width){float[] a=project(x1,y1,z1),b=project(x2,y2,z2);if(a!=null&&b!=null)line(c,a[0],a[1],b[0],b[1],color,width);}
-        private void wallArt(Canvas c,double x,double z,double width,double height,int color){quad(c,x-width/2,.75,z,x+width/2,.75,z,x+width/2,.75+height,z,x-width/2,.75+height,z,color,0xFFB7C5BC);}
-        private void wallArtX(Canvas c,double x,double z,double width,double height,int color){quad(c,x,.05,z-width/2,x,.05,z+width/2,x,height,z+width/2,x,height,z-width/2,color,0xFFB7C5BC);}
-        private void light(Canvas c,double x,double y,double z){float[] q=project(x,y,z);if(q!=null){paint.reset();paint.setAntiAlias(true);paint.setColor(0xFFFFE8B3);c.drawCircle(q[0],q[1],d(3),paint);}}
     }
 }

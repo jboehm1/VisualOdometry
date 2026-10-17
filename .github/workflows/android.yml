@@ -53,6 +53,19 @@ jobs:
         run: python3 -m unittest discover -s tools/tests -v
       - name: Unit tests and installable APK
         run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
+      - name: Execute three continuous laps on development and held-out reverse scenes
+        run: |
+          ./tools/simulation/run.sh app/build/reports/replay-a 3 default 15 1
+          ./tools/simulation/run.sh app/build/reports/replay-b 3 reverse 15 1
+          python3 tools/simulation/validate.py app/build/reports/replay-a app/build/reports/replay-b
+      - name: Upload measured replay results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: measured-replay-results
+          path: app/build/reports/replay-*/
+          retention-days: 14
+          if-no-files-found: ignore
       - name: Upload APK (debug-signed, for sideloading only)
         if: success()
         uses: actions/upload-artifact@v4

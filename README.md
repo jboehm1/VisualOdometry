@@ -55,7 +55,11 @@ The workflow also compiles an unsigned release variant for build coverage; it is
 
 ### Deterministic simulation
 
-The offline replay generates a 40-second rounded-square corridor walk with reduced camera sway, continuous curved inner and outer walls, and a ceiling that closes the loop overhead. At startup the estimated map is empty. The estimator receives only rendered camera pixels and synchronized synthetic accelerometer/gyroscope samples: it integrates gyro rotation, estimates translation primarily from tracked image motion with a low-weight accelerometer velocity prior, and triangulates 3D feature landmarks from repeated pixel observations after estimated camera motion. It receives no simulated pose or corridor geometry. The live inset displays its relative XYZ camera path and estimated 3D landmarks; ground-truth pose is shown separately as an evaluation reference. Cycle the light control to test deterministic exposure loss and dark read noise. Monocular scale uses a depth prior and this lightweight pipeline is not metrically validated SLAM. Reset and the fixed seed provide repeatable sessions; CSV export contains the deterministic pose and IMU ground truth.
+The offline replay has two closed, textured corridors. **MAP A / MAP B** switches between a 40-second rounded-square route and a different 50-second rectangular route traversed in reverse. Camera orientation follows motion forward. Ray-based rendering covers all image pixels with walls, floor or ceiling; camera and estimator share the same pinhole calibration. The map starts empty, and continuous laps preserve it until RESET.
+
+The estimator receives camera pixels and synthetic IMU only. It removes per-feature gyro rotation, checks patch tracks in both directions, fits translation robustly and triangulates sparse 3D landmarks. Metric initialization uses turning acceleration under a **forward planar motion assumption**; initial distance/speed have an unknown depth-prior scale until this completes. This is a reproducible regression/demo engine, not general production 6-DoF SLAM. The live phone engine remains ARCore.
+
+[Executed three-lap results, maps and raw CSVs](docs/simulation-validation/README.md) compare both scenes with a frozen estimator and no ground-truth scale fit. [Real-data validation decision](docs/REAL_DATA_VALIDATION.md) identifies the datasets and established engines needed for realistic validation.
 
 ## Instrument display
 

@@ -1,0 +1,31 @@
+{
+  "A — mise au point": {
+    "truth_distance_m": 88.599752,
+    "estimated_distance_m": 88.969058,
+    "distance_error_pct": 0.417,
+    "closure_error_m": 0.878856,
+    "position_rmse_m": 0.554804,
+    "landmark_median_surface_error_m": 0.18694650000000002,
+    "landmark_p90_surface_error_m": 0.4707238000000002,
+    "truth_speed_m_s": 0.7383312357819906,
+    "estimated_speed_m_s": 0.7407596404028436,
+    "speed_rmse_m_s": 0.007576362955097233,
+    "scale_initialization_s": 7.533333,
+    "landmarks": 1400
+  },
+  "B — validation indépendante, sens inverse": {
+    "truth_distance_m": 94.719228,
+    "estimated_distance_m": 95.313665,
+    "distance_error_pct": 0.628,
+    "closure_error_m": 1.297758,
+    "position_rmse_m": 0.676538,
+    "landmark_median_surface_error_m": 0.26772050000000003,
+    "landmark_p90_surface_error_m": 0.6528944000000001,
+    "truth_speed_m_s": 0.6314618152610442,
+    "estimated_speed_m_s": 0.6352719629629628,
+    "speed_rmse_m_s": 0.009466976155475176,
+    "scale_initialization_s": 0.666667,
+    "landmarks": 1400
+  },
+  "estimator_sha256": "a489c1501e99f460338f38e53fb39a971be28d0c9d5f4b84f5b8d08f1b1028a5"
+}

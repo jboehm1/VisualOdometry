@@ -1,3 +1,12 @@
+# Unreleased — Executed forward replay and held-out validation
+
+- Correct camera yaw sign so all route motion is forward-facing; replace polygon rendering with a fully enclosed ray-based corridor image.
+- Share actual pinhole calibration, compensate gyro rotation per feature and reject inconsistent forward/backward patch tracks.
+- Add forward-planar metric initialization from turn acceleration and explicit estimated distance/speed telemetry.
+- Preserve estimator/map state and monotonic sensor timestamps across laps; add a different rectangular map with reverse traversal and a different duration, speed and texture.
+- Execute three continuous laps on both maps with a frozen estimator; include reference/reconstruction figures, raw CSVs, errors and reproducible Java runner.
+- Document favorable simulation assumptions, incomplete sparse-map coverage and the real-data validation path using EuRoC/TUM VI and ARCore recording/replay.
+
 # 0.6.0-alpha — Square-loop visual replay
 
 - Change the deterministic walk to a square corridor loop with softened corners and substantially reduced continuous phone shake.
