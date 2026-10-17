@@ -1,3 +1,12 @@
+# Unreleased — Whole-route display and opt-in training capture
+
+- Fit the live map to all retained world-frame route segments and preserve visible breaks at tracking loss; progressively decimate long route history.
+- Explain the center reticle and detected plane overlays without implying a cropped tracking region.
+- Add a DATA menu with foreground GPS accuracy/ground speed and separately logged location fixes.
+- Add opt-in ARCore MP4 capture, per-frame camera/pose metadata and a session ZIP export containing captured assets and diagnostic IMU.
+- Request 200 Hz diagnostic IMU; mark calibration and synchronization limits explicitly.
+- Label simulation export as generated ground truth.
+
 # Unreleased — Executed forward replay and held-out validation
 
 - Correct camera yaw sign so all route motion is forward-facing; replace polygon rendering with a fully enclosed ray-based corridor image.

@@ -22,7 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /**
- * Keeps each session in app-private storage, no GPS, no cloud upload.
+ * Keeps session data and optional capture sidecars in app-private storage; no cloud upload.
  * All disk operations run on one serialized background executor. Export flushes
  * pending samples BEFORE copying the CSV to the user-selected document URI.
  */
@@ -35,8 +35,10 @@ public final class CsvRecorder {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final File directory;
     private BufferedWriter writer;
+    private final java.util.Map<String,BufferedWriter> sidecars=new java.util.HashMap<>();
     private volatile File currentFile;
     private volatile String problem;
+    private long lastFlushNs;
 
     public CsvRecorder(Context context) {
         directory = new File(context.getFilesDir(), "sessions");
@@ -101,6 +103,7 @@ public final class CsvRecorder {
             try {
                 if (writer == null) return;
                 writer.write(line);
+                if(System.nanoTime()-lastFlushNs>1_000_000_000L){writer.flush();for(BufferedWriter w:sidecars.values())w.flush();lastFlushNs=System.nanoTime();}
             } catch (Exception e) { failure("CSV write failed", e); }
         });
     }
@@ -132,7 +135,19 @@ public final class CsvRecorder {
         });
     }
 
+    public void sidecar(File session,String suffix,String header,String row){
+        if(session==null)return;File target=new File(directory,SessionBundle.stem(session)+suffix);
+        io.execute(()->{try{BufferedWriter out=sidecars.get(target.getName());if(out==null){boolean exists=target.length()>0;out=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(target,true),StandardCharsets.UTF_8));sidecars.put(target.getName(),out);if(!exists)out.write(header+"\n");}out.write(row+"\n");}catch(Exception e){failure("Dataset write failed",e);}});
+    }
+    public void metadata(File session,String json){
+        io.execute(()->{try(FileOutputStream out=new FileOutputStream(new File(directory,SessionBundle.stem(session)+"_metadata.json"))){out.write(json.getBytes(StandardCharsets.UTF_8));}catch(Exception e){failure("Metadata write failed",e);}});
+    }
+    public void exportBundle(Context context,File source,Uri destination,Consumer<String> callback){
+        io.execute(()->{String status;try{if(writer!=null)writer.flush();for(BufferedWriter w:sidecars.values())w.flush();OutputStream output=context.getContentResolver().openOutputStream(destination);if(output==null)throw new java.io.IOException("No output stream");SessionBundle.write(source,output);status="Dataset ZIP exported";}catch(Exception e){failure("Dataset export failed",e);status="Export failed: "+e.getMessage();}String result=status;main.post(()->callback.accept(result));});
+    }
+
     private void closeWriter() throws java.io.IOException {
+        for(BufferedWriter w:sidecars.values())w.close();sidecars.clear();
         if (writer != null) {
             writer.flush();
             writer.close();

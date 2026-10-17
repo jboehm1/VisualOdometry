@@ -66,7 +66,7 @@ public final class SimulationActivity extends Activity {
         simulationView=new SimulationView();root.addView(simulationView,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout controls=new LinearLayout(this);controls.setGravity(Gravity.CENTER);controls.setPadding(dp(6),dp(7),dp(6),dp(7));
         controls.setBackgroundColor(0xE9081924);
-        playButton=button("START");speedButton=button("1.0×");TextView reset=button("RESET");loopButton=button("LOOP ON");lightButton=button("LIGHT 100%");TextView export=button("CSV");
+        playButton=button("START");speedButton=button("1.0×");TextView reset=button("RESET");loopButton=button("LOOP ON");lightButton=button("LIGHT 100%");TextView export=button("TRUTH");
         controls.addView(playButton,weighted());controls.addView(speedButton,weighted());controls.addView(reset,weighted());controls.addView(loopButton,weighted());controls.addView(lightButton,weighted());controls.addView(export,weighted());
         FrameLayout.LayoutParams cp=new FrameLayout.LayoutParams(-1,dp(60),Gravity.BOTTOM);root.addView(controls,cp);
         TextView sceneButton=button("MAP A · ↻");
@@ -97,7 +97,7 @@ public final class SimulationActivity extends Activity {
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);if(request!=EXPORT_REQUEST||result!=RESULT_OK||data==null||data.getData()==null)return;
         Uri uri=data.getData();new Thread(()->{
-            String status="Simulation CSV saved";
+            String status="Synthetic ground-truth CSV saved (not estimated map)";
             try(OutputStream out=getContentResolver().openOutputStream(uri)){
                 if(out==null)throw new java.io.IOException("Cannot open destination");
                 StringBuilder csv=new StringBuilder(500_000);

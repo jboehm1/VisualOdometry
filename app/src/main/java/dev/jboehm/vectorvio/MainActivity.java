@@ -45,12 +45,12 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 /**
- * GPS-free, on-device VIO recorder. ARCore fuses camera and inertial sensors.
- * No GPS, Internet or raw camera images are recorded. Portrait-only prototype.
+ * On-device VIO recorder with optional foreground location and ARCore MP4 capture.
+ * ARCore fuses camera and inertial sensors; GNSS remains an independent measurement.
  * Tracking is deliberately suspended across app backgrounding / relocalization.
  */
 public final class MainActivity extends Activity implements GLSurfaceView.Renderer {
-    private static final int CAMERA_REQUEST=140, EXPORT_REQUEST=141, IMPORT_MAP_REQUEST=142;
+    private static final int CAMERA_REQUEST=140, EXPORT_REQUEST=141, IMPORT_MAP_REQUEST=142, LOCATION_REQUEST=143;
     private final Odometer odometer = new Odometer();
     private GLSurfaceView surface;
     private HudView hud;
@@ -72,6 +72,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private TextView torchButton;
     private CameraBackground background;
     private CsvRecorder recorder;
+    private TrainingCapture training;
+    private GpsMonitor gps;
+    private boolean trainingEnabled=false,exportDataset=false;
     private volatile Session arSession;
     private volatile int width=0,height=0;
     private volatile boolean textureAssigned=false;
@@ -100,6 +103,11 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
 
         recorder = new CsvRecorder(this);
+        training=new TrainingCapture(this,recorder);
+        gps=new GpsMonitor(this,(location,status)->{
+            if(odometer.isRecording())recorder.sidecar(recorder.currentFile(),"_gps.csv","wall_time_ms,elapsed_realtime_ns,provider,latitude_deg,longitude_deg,altitude_m,horizontal_accuracy_m,speed_mps,speed_accuracy_mps,bearing_deg",String.format(Locale.US,"%d,%d,%s,%.9f,%.9f,%s,%.3f,%s,%s,%s",location.getTime(),location.getElapsedRealtimeNanos(),location.getProvider(),location.getLatitude(),location.getLongitude(),location.hasAltitude()?Double.toString(location.getAltitude()):"",location.getAccuracy(),location.hasSpeed()?Float.toString(location.getSpeed()):"",location.hasSpeedAccuracy()?Float.toString(location.getSpeedAccuracyMetersPerSecond()):"",location.hasBearing()?Float.toString(location.getBearing()):""));
+            refreshHud();
+        });
         SharedPreferences preferences=getSharedPreferences("spatial_explorer",MODE_PRIVATE);
         keyframeIntervalSeconds=preferences.getFloat("keyframe_interval",1f);
         keyframeMinDistance=preferences.getFloat("keyframe_distance",.75f);
@@ -142,7 +150,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         root.addView(actions,controls);
         LinearLayout modes=new LinearLayout(this);
         TextView layers=action("LAYERS",0xCC102D39,Color.WHITE);
-        TextView sensors=action("IMU",0xCC102D39,Color.WHITE);
+        TextView sensors=action("DATA",0xCC102D39,Color.WHITE);
         TextView map=action("MAPS",0xCC102D39,Color.WHITE);
         TextView simulation=action("SIM",0xCC102D39,Color.WHITE);
         torchButton=action("FLASH OFF",0xCC102D39,Color.WHITE);
@@ -153,10 +161,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         layers.setOnClickListener(v->{hud.cycleLayers();preferences.edit().putInt("overlay_layers",hud.layers()).apply();});
         layers.setOnLongClickListener(v->{
             new AlertDialog.Builder(this).setTitle("Explore your local map")
-                .setMessage("LAYERS cycles planes, point cloud and trail. Cyan = horizontal planes, violet = vertical planes, gold = measured scene points. These are geometric surfaces, not recognized objects.\n\nThe cyan trail follows the camera at phone height. Turn around to see where you walked. It is a see-through overlay, with no real-world occlusion.\n\nMAPS opens the detailed live scene map, 3D inspection, export, loop checks and settings. The current map auto-saves after captured keyframes and POIs; SAVE MAP creates an extra named snapshot. POIs need a tracked plane and are saved with the map.\n\nThe first START launches ARCore and recording together. PAUSE excludes movement until RESUME. Unknown motion across tracking gaps is excluded. IMU shows device-axis acceleration (including gravity) and angular velocity.\n\nSIM runs a deterministic generated indoor video and synchronized synthetic IMU without camera permission or ARCore; it is for repeatable debug tests, not measured sensor data.\n\nAccuracy is unmeasured. ARCore manages a local map; saved snapshots can be reopened in 3D, but do not restore the private ARCore tracking map. CSV includes diagnostic IMU samples, not calibrated camera–IMU research data.")
+                .setMessage("LAYERS cycles planes, point cloud and trail. Cyan = horizontal planes, violet = vertical planes, gold = measured scene points. These are geometric surfaces, not recognized objects.\n\nThe cyan trail follows the camera at phone height. Turn around to see where you walked. It is a see-through overlay, with no real-world occlusion.\n\nMAPS opens the detailed live scene map, 3D inspection, export, loop checks and settings. The current map auto-saves after captured keyframes and POIs; SAVE MAP creates an extra named snapshot. POIs need a tracked plane and are saved with the map.\n\nThe first START launches ARCore and recording together. PAUSE excludes movement until RESUME. Unknown motion across tracking gaps is excluded. DATA opens GPS, training capture and IMU display. IMU shows device-axis acceleration (including gravity) and angular velocity.\n\nSIM runs a deterministic generated indoor video and synchronized synthetic IMU without camera permission or ARCore; it is for repeatable debug tests, not measured sensor data.\n\nAccuracy is unmeasured. ARCore manages a local map; saved snapshots can be reopened in 3D, but do not restore the private ARCore tracking map. CSV includes diagnostic IMU samples, not calibrated camera–IMU research data.")
                 .setPositiveButton("GOT IT",null).show();return true;
         });
-        sensors.setOnClickListener(v->hud.toggleSensors());
+        sensors.setOnClickListener(v->dataMenu());
         map.setOnClickListener(v->mapMenu());
         simulation.setOnClickListener(v->startActivity(new Intent(this,SimulationActivity.class)));
         torchButton.setOnClickListener(v->toggleTorch());
@@ -212,6 +220,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             message="Paused — movement during pause is excluded";
             clearMap=true;
             surface.queueEvent(()->{
+                training.stop(arSession);
                 mapCapture.finishSegment();
                 saveCurrentAutoMap();
             });
@@ -233,7 +242,21 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         message="Recording video, IMU, map and odometer";
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         recordingStartPending=false;
+        if(trainingEnabled){surface.queueEvent(()->{try{training.start(arSession,recorder.currentFile());}catch(Exception e){runOnUiThread(()->Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show());}runOnUiThread(this::refreshHud);});}
         refreshHud();
+    }
+
+    private void dataMenu(){
+        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?"};
+        new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
+            if(i==0)hud.toggleSensors();
+            if(i==1){if(gps.enabled)gps.disable();else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED){gps.enabled=true;gps.start();}else requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_REQUEST);refreshHud();}
+            if(i==2){if(odometer.isRecording()){Toast.makeText(this,"Pause first to change video capture",Toast.LENGTH_LONG).show();return;}
+                if(trainingEnabled){trainingEnabled=false;refreshHud();}
+                else new AlertDialog.Builder(this).setTitle("Capture training video?").setMessage("START/RESUME will save the camera image and internal ARCore sensors in an MP4 on this phone, plus external IMU and frame metadata. PAUSE stops the video; RESUME creates another part. No microphone audio. Export as Dataset ZIP. Video may contain private surroundings. Capture uses extra storage and battery.").setNegativeButton("CANCEL",null).setPositiveButton("ARM CAPTURE",(a,b)->{trainingEnabled=true;training.status="VIDEO ARMED";refreshHud();}).show();
+            }
+            if(i==3)new AlertDialog.Builder(this).setTitle("Full camera frame · local data").setMessage("The reticle only selects the POI hit-test target. Cyan/violet polygons are detected planes, clipped for display; they do not crop the camera input. ARCore processes its camera stream.\n\nVIO speed measures motion relative to the viewed environment. Looking at a car interior can give near-zero VIO while the car moves: GPS ground speed is separate and is not silently fused.\n\nCSV: poses + diagnostic IMU. Dataset ZIP adds video parts only if armed, frame timestamps/intrinsics, device metadata and GPS fixes if enabled. ARCore poses are estimates, not training ground truth; camera/IMU offset and extrinsics need calibration. Simulation CSV is generated truth, not the estimated map or real footage.").setPositiveButton("OK",null).show();
+        }).show();
     }
 
     private void toggleTorch() {
@@ -293,7 +316,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 odometer.reset();
                 clearMap=true;
                 String previousAutoName=autoMapName;
-                surface.queueEvent(()->{MapArchive previous=mapCapture.snapshot();if(!previous.frames.isEmpty()||!previous.pois.isEmpty())persistMap(previous,previousAutoName,false);mapCapture.reset();});
+                surface.queueEvent(()->{training.stop(arSession);MapArchive previous=mapCapture.snapshot();if(!previous.frames.isEmpty()||!previous.pois.isEmpty())persistMap(previous,previousAutoName,false);mapCapture.reset();});
                 autoMapName="map_"+System.currentTimeMillis()+"_0.vmap";
                 autoSavedKeyframes=autoSavedPois=0;
                 mapSaveInFlight=false;
@@ -308,6 +331,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
 
     private void pickExport() {
+        if(odometer.isRecording()){toggleRecording();Toast.makeText(this,"Paused to finalize recording before export",Toast.LENGTH_SHORT).show();}
+        new AlertDialog.Builder(this).setTitle("Export format").setItems(new String[]{"CSV only — poses and diagnostic IMU","Dataset ZIP — CSV, GPS, metadata and captured MP4 parts"},(d,i)->{exportDataset=i==1;pickSessionExport();}).show();
+    }
+    private void pickSessionExport() {
         File[] candidates=recorderSessions();
         if(candidates.length==0) {
             Toast.makeText(this,"No recorded CSV yet",Toast.LENGTH_SHORT).show();
@@ -321,8 +348,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 exportFile=candidates[which];
                 Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("text/csv");
-                intent.putExtra(Intent.EXTRA_TITLE,exportFile.getName());
+                intent.setType(exportDataset?"application/zip":"text/csv");
+                intent.putExtra(Intent.EXTRA_TITLE,exportDataset?SessionBundle.stem(exportFile)+"_dataset.zip":exportFile.getName());
                 try { startActivityForResult(intent,EXPORT_REQUEST); }
                 catch(Exception e){Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show();}
             }).show();
@@ -357,7 +384,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
         if(request!=EXPORT_REQUEST || result!=RESULT_OK || data==null||data.getData()==null||exportFile==null) return;
         Uri uri=data.getData();
-        recorder.export(this,exportFile,uri,status->Toast.makeText(this,status,Toast.LENGTH_LONG).show());
+        if(exportDataset)recorder.exportBundle(this,exportFile,uri,status->Toast.makeText(this,status,Toast.LENGTH_LONG).show());
+        else recorder.export(this,exportFile,uri,status->Toast.makeText(this,status,Toast.LENGTH_LONG).show());
     }
 
     private void mapMenu() {
@@ -383,7 +411,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 if(index==4) {
                     if(photoKeyframes){photoKeyframes=false;Toast.makeText(this,"Future photo capture disabled; existing photos retained",Toast.LENGTH_LONG).show();}
                     else new AlertDialog.Builder(this).setTitle("Save real camera keyframes?")
-                        .setMessage("Optional JPEG photos are saved with map snapshots on this phone and included when exporting a map ZIP. They may contain people or private surroundings. No upload occurs. Maximum 64 anchored keyframes per uninterrupted segment and 128 total. No video recording.")
+                        .setMessage("Optional JPEG photos are saved with map snapshots on this phone and included when exporting a map ZIP. They may contain people or private surroundings. No upload occurs. Maximum 64 anchored keyframes per uninterrupted segment and 128 total. DATA training video is a separate option.")
                         .setNegativeButton("CANCEL",null).setPositiveButton("ENABLE PHOTOS",(d,w)->photoKeyframes=true).show();
                 }
             }).show();
@@ -486,10 +514,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
 
     private void refreshHud() {
         hud.update(odometer.snapshot(SystemClock.elapsedRealtime()),trackingLabel,message,markerCount);
+        hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);
     }
     @Override protected void onResume() {
         super.onResume();
         imu.start();
+        gps.start();
         if(liveModeRequested)startAr();
     }
     private void startAr() {
@@ -540,6 +570,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants) {
         super.onRequestPermissionsResult(request,permissions,grants);
+        if(request==LOCATION_REQUEST){
+            boolean allowed=checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED;
+            if(allowed){gps.enabled=true;gps.start();}else gps.disable();refreshHud();return;
+        }
         if(request==CAMERA_REQUEST) {
             if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED) startAr();
             else {
@@ -555,6 +589,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     @Override protected void onPause() {
         imu.stop();
+        gps.stopUpdates();
         long now=SystemClock.elapsedRealtime();
         if(odometer.snapshot(now).recording){
             odometer.pause(now);
@@ -566,6 +601,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(rendererRunning) {
             String autoName=autoMapName;
             surface.queueEvent(()->{
+                training.stop(arSession);
                 if(torchEnabled&&arSession!=null){
                     try {
                         Config config=arSession.getConfig();
@@ -621,6 +657,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             if(width<=0||height<=0) return;
             s.setDisplayGeometry(getWindowManager().getDefaultDisplay().getRotation(),width,height);
             Frame frame=s.update();
+            try{training.frame(s,frame);}catch(Exception e){training.status="VIDEO METADATA ERROR";}
             if(clearMap){mapper.clear();clearMap=false;}
             Odometer.Result poseResult=Odometer.Result.INACTIVE;
             if(frame.getTimestamp()!=0) background.draw(frame);
@@ -687,7 +724,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 Odometer.Snapshot snap=odometer.snapshot(now);
                 String currentTracking=trackingLabel,currentMessage=message;
                 int marks=markerCount;
-                runOnUiThread(()->hud.update(snap,currentTracking,currentMessage,marks));
+                runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);});
             }
         } catch(Exception ex) {
             trackingLabel="TRACK LOST";

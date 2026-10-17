@@ -41,7 +41,7 @@ public final class Odometer {
         public final double netX, netY, netZ;
         public final long samples, outliers, gaps, elapsedMilliseconds;
         public final int segments;
-        public final List<Point> trail;
+        public final List<Point> trail,worldTrail;
 
         private Snapshot(Odometer a, long nowMs) {
             recording = a.recording;
@@ -61,7 +61,7 @@ public final class Odometer {
             gaps = a.gaps;
             segments = a.segments;
             elapsedMilliseconds = a.elapsedMs + (a.recording ? Math.max(0, nowMs-a.resumeTimeMs) : 0);
-            trail = Collections.unmodifiableList(new ArrayList<>(a.trail));
+            trail = Collections.unmodifiableList(new ArrayList<>(a.trail));worldTrail=a.worldTrail.snapshot();
         }
     }
 
@@ -74,6 +74,7 @@ public final class Odometer {
     private int segments;
     private long lastObservedNs, referencePoseNs, elapsedMs, resumeTimeMs;
     private final ArrayList<Point> trail = new ArrayList<>();
+    private final RouteHistory worldTrail=new RouteHistory();
 
     public synchronized void start(long nowMs) {
         if (recording) return;
@@ -105,7 +106,7 @@ public final class Odometer {
         samples = outliers = gaps = 0;
         segments = 0;
         elapsedMs = resumeTimeMs = lastObservedNs = referencePoseNs = 0;
-        trail.clear();
+        trail.clear();worldTrail.clear();
     }
 
     public synchronized void lostTracking() {
@@ -129,7 +130,7 @@ public final class Odometer {
             lastObservedNs = timestampNs;
             referencePoseNs = timestampNs;
             segments++;
-            beginTrailSegment();
+            beginTrailSegment(p);
             return Result.REFERENCE;
         }
         // Check gaps against the previous FRAME, not the previous accepted
@@ -146,7 +147,7 @@ public final class Odometer {
             speedMps = 0;
             gaps++;
             segments++;
-            beginTrailSegment();
+            beginTrailSegment(p);
             return Result.GAP;
         }
         // Check instantaneous frame-to-frame motion for relocalization jumps,
@@ -157,7 +158,7 @@ public final class Odometer {
             speedMps = 0;
             outliers++;
             segments++;
-            beginTrailSegment();
+            beginTrailSegment(p);
             return Result.REJECTED;
         }
 
@@ -191,10 +192,13 @@ public final class Odometer {
             if (trail.size() == MAX_TRAIL_POINTS) trail.remove(0);
             trail.add(current);
         }
+        Point lastWorld=worldTrail.last();
+        if(lastWorld==null||lastWorld.segment!=segments||p.distance(lastWorld)>=TRAIL_MIN_SPACING_METERS)worldTrail.add(new Point(p.x,p.y,p.z,segments));
         return Result.ACCEPTED;
     }
 
-    private void beginTrailSegment() {
+    private void beginTrailSegment(Point world) {
+        worldTrail.add(new Point(world.x,world.y,world.z,segments));
         // A new independent local frame. Never stitch unknown rotations/translations.
         netX=netY=netZ=0;
         if(trail.size()==MAX_TRAIL_POINTS) trail.remove(0);

@@ -23,8 +23,8 @@ final class ImuMonitor implements SensorEventListener {
     }
     void start() {
         synchronized(this) { accelTime=gyroTime=0; accelHz=gyroHz=0; }
-        if(accelerometer!=null) manager.registerListener(this,accelerometer,SensorManager.SENSOR_DELAY_GAME);
-        if(gyroscope!=null) manager.registerListener(this,gyroscope,SensorManager.SENSOR_DELAY_GAME);
+        if(accelerometer!=null) manager.registerListener(this,accelerometer,5_000);
+        if(gyroscope!=null) manager.registerListener(this,gyroscope,5_000);
     }
     void stop() { manager.unregisterListener(this); }
     @Override public synchronized void onSensorChanged(SensorEvent e) {

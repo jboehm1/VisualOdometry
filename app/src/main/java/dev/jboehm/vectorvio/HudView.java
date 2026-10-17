@@ -33,6 +33,8 @@ public final class HudView extends View {
     private int markers = 0;
     private int keyframes=0,photos=0,poiCount=0;
     private boolean mapFull=false;
+    private String captureStatus="VIDEO OFF",gpsStatus="GPS OFF";
+    public void updateDataStatus(String capture,String gps){captureStatus=capture;gpsStatus=gps;invalidate();}
     public void updateCapture(int frames,int images,boolean full){mapFull=full;updateCapture(frames,images,poiCount);}
     public void updateCapture(int frames,int images,int markers,boolean full){mapFull=full;updateCapture(frames,images,markers);}
     public void updateCapture(int keyframes,int photos){updateCapture(keyframes,photos,poiCount);}
@@ -122,13 +124,13 @@ public final class HudView extends View {
         drawReticle(c,w,h);
 
         label(c,"VECTOR",d(20),d(52),d(25)/dp,INK,true);
-        label(c,"/ SPATIAL EXPLORER  ·  0.5",d(20),d(72),10,MUTED,false);
+        label(c,"/ SPATIAL EXPLORER  ·  0.7",d(20),d(72),10,MUTED,false);
         box(c,w-d(132),d(32),w-d(16),d(63),10,0xCF0B2630,0x5539F4D2);
         disc(c,w-d(118),d(47),d(4),s!=null&&s.tracking?CYAN:AMBER,false);
         String tiny=trackingText.length()>14?trackingText.substring(0,14):trackingText;
         label(c,tiny,w-d(107),d(51),10,INK,true);
 
-        label(c,"6-DOF   •   METRIC ESTIMATE   •   NO GPS",d(20),d(105),10,CYAN,true);
+        label(c,"VIO LOCAL · "+gpsStatus,d(20),d(105),10,CYAN,true);
         label(c,notice.length()>47?notice.substring(0,47)+"…":notice,d(20),d(125),10,MUTED,false);
 
         label(c,new String[]{"PLANES + POINTS + TRAIL","PLANES + TRAIL","POINTS + TRAIL","TRAIL ONLY"}[layers],d(20),d(208),9,CYAN,true);
@@ -208,6 +210,7 @@ public final class HudView extends View {
         line(c,cx+d(48),cy,cx+d(74),cy,0xAA74FCE1,1.1f);
         line(c,cx,cy-d(74),cx,cy-d(48),0xAA74FCE1,1.1f);
         line(c,cx,cy+d(48),cx,cy+d(74),0xAA74FCE1,1.1f);
+        label(c,"FULL CAMERA FRAME",cx-d(52),cy-d(82),8,MUTED,false);
         line(c,d(20),cy, d(41),cy,0x8874FCE1,1);
         line(c,width-d(41),cy,width-d(20),cy,0x8874FCE1,1);
 
@@ -215,33 +218,25 @@ public final class HudView extends View {
 
     private void drawMiniMap(Canvas c,float l,float top,float width,float height,Odometer.Snapshot s) {
         box(c,l,top,l+width,top+height,13,0xDB071825,0x6048A6AD);
-        label(c,"SEGMENT MAP · X / Z",l+d(10),top+d(20),9,MUTED,true);
+        label(c,"FULL ROUTE · X / Z",l+d(10),top+d(20),9,MUTED,true);
         float centerX=l+width/2f,centerY=top+height*.56f;
         for(int i=-2;i<=2;i++){
             line(c,centerX+i*width/6f,top+d(31),centerX+i*width/6f,top+height-d(9),0x273B7886,.7f);
             line(c,l+d(10),centerY+i*height/7f,l+width-d(10),centerY+i*height/7f,0x273B7886,.7f);
         }
-        if (s==null || s.trail.isEmpty()) {
+        if (s==null || s.worldTrail.isEmpty()) {
             disc(c,centerX,centerY,d(4),CYAN,false);
             label(c,"awaiting path",l+d(13),top+height-d(11),9,MUTED,false);
             return;
         }
-        List<Odometer.Point> pts=s.trail;
-        double loX=0,hiX=0,loZ=0,hiZ=0;
-        for(Odometer.Point v:pts) {
-            if(v.segment!=s.segments)continue;
-            loX=Math.min(loX,v.x);hiX=Math.max(hiX,v.x);
-            loZ=Math.min(loZ,v.z);hiZ=Math.max(hiZ,v.z);
-        }
-        double side=Math.max(2,Math.max(hiX-loX,hiZ-loZ)*1.25);
-        double midX=(hiX+loX)/2,midZ=(hiZ+loZ)/2;
+        List<Odometer.Point> pts=s.worldTrail;
+        double[] bounds=RouteHistory.bounds(pts);double midX=bounds[0],midZ=bounds[1],side=bounds[2];
         double scale=(Math.min(width-d(28),height-d(49)))/side;
         Path path=new Path();
         for(int i=0;i<pts.size();i++) {
             Odometer.Point v=pts.get(i);
             float x=(float)(centerX+(v.x-midX)*scale);
             float y=(float)(centerY+(v.z-midZ)*scale);
-            if(v.segment!=s.segments)continue;
             if(i==0 || pts.get(i-1).segment!=v.segment) path.moveTo(x,y);else path.lineTo(x,y);
         }
         resetPaint();
@@ -250,21 +245,22 @@ public final class HudView extends View {
         Odometer.Point last=pts.get(pts.size()-1);
         float endX=(float)(centerX+(last.x-midX)*scale);
         float endY=(float)(centerY+(last.z-midZ)*scale);
-        disc(c,(float)(centerX-midX*scale),(float)(centerY-midZ*scale),d(4),AMBER,true);
+        Odometer.Point first=pts.get(0);disc(c,(float)(centerX+(first.x-midX)*scale),(float)(centerY+(first.z-midZ)*scale),d(4),AMBER,true);
         disc(c,endX,endY,d(4.5f),CYAN,false);
         if(scene!=null)line(c,endX,endY,endX+(float)Math.sin(scene.heading)*d(14),endY+(float)Math.cos(scene.heading)*d(14),CYAN,2);
-        label(c,String.format(Locale.US,"%.0f m window",side),l+d(10),top+height-d(8),9,MUTED,false);
+        label(c,String.format(Locale.US,"%.0f m · all segments",side),l+d(10),top+height-d(8),9,MUTED,false);
     }
 
     /** Dense but bounded X/Z view of the current ARCore tracking segment. */
     private void drawLiveMap(Canvas c,float l,float top,float width,float height,Odometer.Snapshot s) {
         box(c,l,top,l+width,top+height,14,0xE9071825,0x8063A9B5);
-        label(c,"LIVE SCENE MAP · X / Z · CURRENT SEGMENT",l+d(11),top+d(19),9,CYAN,true);
+        label(c,"FULL ROUTE + LIVE GEOMETRY · X / Z",l+d(11),top+d(19),9,CYAN,true);
         if(scene==null){label(c,"Waiting for tracked geometry…",l+d(15),top+d(48),11,MUTED,false);return;}
         double minX=scene.cameraX,maxX=minX,minZ=scene.cameraZ,maxZ=minZ;
         for(SceneMapper.MapPoint point:scene.mapPoints){minX=Math.min(minX,point.x);maxX=Math.max(maxX,point.x);minZ=Math.min(minZ,point.z);maxZ=Math.max(maxZ,point.z);}
         for(float[] path:scene.path){minX=Math.min(minX,path[0]);maxX=Math.max(maxX,path[0]);minZ=Math.min(minZ,path[2]);maxZ=Math.max(maxZ,path[2]);}
         for(MapArchive.Poi poi:scene.pois){minX=Math.min(minX,poi.pose[0]);maxX=Math.max(maxX,poi.pose[0]);minZ=Math.min(minZ,poi.pose[2]);maxZ=Math.max(maxZ,poi.pose[2]);}
+        if(s!=null)for(Odometer.Point point:s.worldTrail){minX=Math.min(minX,point.x);maxX=Math.max(maxX,point.x);minZ=Math.min(minZ,point.z);maxZ=Math.max(maxZ,point.z);}
         double side=Math.max(1.5,Math.max(maxX-minX,maxZ-minZ)*1.18),midX=(maxX+minX)/2,midZ=(maxZ+minZ)/2;
         float mapTop=top+d(30),mapBottom=top+height-d(15),mapLeft=l+d(15),mapRight=l+width-d(15);
         float scale=(float)(Math.min(mapRight-mapLeft,mapBottom-mapTop)/side);
@@ -284,9 +280,10 @@ public final class HudView extends View {
             float x=(float)(cx+(point.x-midX)*scale),y=(float)(cy+(point.z-midZ)*scale);
             int tint=point.y>1.5f?0xFFAB95FF:0xFFFFD080;disc(c,x,y,d(2f),tint,false);
         }
-        float[] prior=null;
-        for(float[] pose:scene.path){float x=(float)(cx+(pose[0]-midX)*scale),y=(float)(cy+(pose[2]-midZ)*scale);
-            if(prior!=null)line(c,prior[0],prior[1],x,y,0xFF74FCE1,2.3f);prior=new float[]{x,y};}
+        Odometer.Point prior=null;
+        if(s!=null)for(Odometer.Point pose:s.worldTrail){
+            if(prior!=null&&prior.segment==pose.segment)line(c,(float)(cx+(prior.x-midX)*scale),(float)(cy+(prior.z-midZ)*scale),(float)(cx+(pose.x-midX)*scale),(float)(cy+(pose.z-midZ)*scale),CYAN,2.3f);prior=pose;
+        }
         for(MapArchive.Poi poi:scene.pois){float x=(float)(cx+(poi.pose[0]-midX)*scale),y=(float)(cy+(poi.pose[2]-midZ)*scale);disc(c,x,y,d(5),AMBER,false);}
         float px=(float)(cx+(scene.cameraX-midX)*scale),py=(float)(cy+(scene.cameraZ-midZ)*scale);
         disc(c,px,py,d(4),Color.WHITE,false);
@@ -299,7 +296,7 @@ public final class HudView extends View {
         float left=d(14),right=w-d(14),top=h-d(299),bottom=h-d(103);
         box(c,left,top,right,bottom,19,0xED071925,0x65568188);
         line(c,left+d(16),top+d(45),right-d(16),top+d(45),0x344C7386,1);
-        label(c,"LIVE TELEMETRY",left+d(17),top+d(27),11,CYAN,true);
+        label(c,captureStatus,left+d(17),top+d(27),11,CYAN,true);
         label(c,s!=null&&s.recording?"●  REC":"Ⅱ  IDLE",right-d(80),top+d(27),11,
               s!=null&&s.recording?CYAN:AMBER,true);
 

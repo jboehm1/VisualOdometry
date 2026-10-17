@@ -26,7 +26,7 @@ S21 validation is still pending. SIM opens an offline procedural video/IMU repla
 - Place and export user-named door, hazard, landmark or note markers anchored to tracked planes.
 - Open **SIM** for a deterministic 40-second generated indoor walk, synchronized 60 Hz synthetic IMU, ground-truth path, speed/loop controls, and repeatable CSV export.
 - **START / PAUSE / RESUME / RESET / MARK** a recording, auto-save the evolving map, and use **SAVE MAP** for an extra named snapshot.
-- Keep data **on the phone**; camera permission is requested only after you choose live AR tracking, never for SIM. The app does not request GPS or storage permission; Android document picker controls exported file destinations.
+- Keep data **on the phone**; camera permission is requested only after you choose live AR tracking, never for SIM. GPS is optional and requests foreground location permission only when enabled; Android document picker controls exported file destinations.
 - Reject duplicate frames, tracking interruptions, frame gaps and physically implausible position jumps before they become odometer distance.
 - Run unit tests for the distance accumulator using Java/JUnit and build a debug-signed APK in GitHub Actions.
 
@@ -67,7 +67,7 @@ The translucent overlay is drawn over a portrait camera feed:
 
     ┌────────────────────────────────────────┐
     │ VECTOR  / VISUAL–INERTIAL ODOMETER      │
-    │ ● TRACKING              6-DOF • NO GPS │
+    │ ● TRACKING              6-DOF • GPS OPTIONAL │
     │                                        │
     │                ⊕                       │
     │     CAMERA VIEW        ┌────────────┐  │
@@ -109,7 +109,7 @@ When the tracking signal becomes unreliable, the accumulator does **not** preten
 
 ### Your data
 
-- Raw camera video is *shown*, never saved by this app.
+- Camera video is saved only after opting in through **DATA → Training video → ARM CAPTURE**. START/RESUME creates an ARCore MP4 part; PAUSE/backgrounding stops it. No microphone audio is captured.
 - Raw accelerometer/gyro samples are separately logged through Android SensorManager in CSV v2; these are diagnostic device-axis readings, not ARCore internal calibrated measurements.
 - Each session CSV contains device-wall timestamp, frame timestamp, camera position, orientation quaternion, derived metric counters and explicit events.
 - Files remain in app-private `files/sessions`; EXPORT uses Android's native document picker. Reset retains previous sessions, and EXPORT lets you pick historical recordings.
@@ -126,3 +126,13 @@ When the tracking signal becomes unreliable, the accumulator does **not** preten
 5. [Plot and audit your session](tools/plot_session.py): export CSV and run `python tools/plot_session.py run.csv --out plots --known-distance 10` after `pip install matplotlib`. This writes separate trajectory, speed, height and distance graphs plus a JSON report. The known distance must be independently measured.
 
 **Safety:** Not suitable for autonomous drone navigation, collision avoidance, geofencing, or safety-critical positioning. Phone camera/IMU quality does not make a certified flight controller. Do not fly with or rely on these measurements until evaluated independently in a controlled test environment.
+
+### Full-route map, GPS and training export (0.7)
+
+- The reticle selects the hit-test/POI target. Cyan/violet polygons display detected surfaces; neither limits the camera analysis to the middle rectangle.
+- The mini-map fits all retained world-coordinate route segments. Tracking gaps remain disconnected, and old display points are progressively decimated for bounded memory. VIO coordinates may drift/relocalize; this is not a guaranteed common global frame across losses.
+- **DATA → GPS** enables foreground-only location with accuracy and independent ground speed in the HUD. Location fixes are exported in a GPS sidecar while recording. GPS is not silently fused into VIO distance. Viewing a moving car's interior can produce near-zero camera-relative motion while GPS reports road speed.
+- **DATA → Training video** arms optional ARCore MP4 capture. **EXPORT → Dataset ZIP** exports session CSV, recorded MP4 parts, per-frame timestamps/intrinsics/estimated poses, device metadata and optional GPS. Existing CSV-only recordings cannot supply past video.
+- Diagnostic IMU requests 200 Hz; actual device delivery must be measured. It uses Android device axes with gravity, and is distinct from ARCore's internally calibrated sensor stream.
+- Camera/IMU extrinsics, offset and rolling-shutter readout are not calibrated in this export. These fields are explicitly unknown in metadata. ARCore poses are estimates rather than training ground truth. See [capture format](docs/CAPTURE_FORMAT.md).
+- Simulation **TRUTH** exports generated pose/IMU reference, not the estimated path/cloud. Synthetic replay and live ARCore use different estimators, so a favorable simulation score does not validate live behavior.
