@@ -148,8 +148,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         actions.addView(save,weighted());
         actions.addView(reset,weighted());
         actions.addView(export,weighted());
-        FrameLayout.LayoutParams controls=new FrameLayout.LayoutParams(-1,dp(61),Gravity.BOTTOM);
-        controls.leftMargin=dp(9);controls.rightMargin=dp(9);controls.bottomMargin=dp(17);
+        FrameLayout.LayoutParams controls=new FrameLayout.LayoutParams(-1,dp(48),Gravity.BOTTOM);
+        controls.leftMargin=dp(9);controls.rightMargin=dp(9);controls.bottomMargin=dp(8);
         root.addView(actions,controls);
         LinearLayout modes=new LinearLayout(this);
         TextView layers=action("LAYERS",0xCC102D39,Color.WHITE);
@@ -158,13 +158,13 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         TextView simulation=action("SIM",0xCC102D39,Color.WHITE);
         torchButton=action("FLASH OFF",0xCC102D39,Color.WHITE);
         modes.addView(layers,weighted());modes.addView(sensors,weighted());modes.addView(map,weighted());modes.addView(simulation,weighted());modes.addView(torchButton,weighted());
-        FrameLayout.LayoutParams modeLayout=new FrameLayout.LayoutParams(-1,dp(48),Gravity.TOP);
-        modeLayout.topMargin=dp(142);modeLayout.leftMargin=dp(12);modeLayout.rightMargin=dp(12);
+        FrameLayout.LayoutParams modeLayout=new FrameLayout.LayoutParams(-1,dp(40),Gravity.TOP);
+        modeLayout.topMargin=dp(72);modeLayout.leftMargin=dp(12);modeLayout.rightMargin=dp(12);
         root.addView(modes,modeLayout);
         layers.setOnClickListener(v->{hud.cycleLayers();preferences.edit().putInt("overlay_layers",hud.layers()).apply();});
         layers.setOnLongClickListener(v->{
             new AlertDialog.Builder(this).setTitle("Explore your local map")
-                .setMessage("LAYERS cycles planes, point cloud and trail. Cyan = horizontal planes, violet = vertical planes, gold = measured scene points. These are geometric surfaces, not recognized objects.\n\nThe cyan trail follows the camera at phone height. Turn around to see where you walked. It is a see-through overlay, with no real-world occlusion.\n\nMAPS opens the detailed live scene map, 3D inspection, export, loop checks and settings. The current map auto-saves after captured keyframes and POIs; SAVE MAP creates an extra named snapshot. POIs need a tracked plane and are saved with the map.\n\nThe first START launches ARCore and recording together. PAUSE excludes movement until RESUME. Unknown motion across tracking gaps is excluded. DATA opens GPS, training capture and IMU display. IMU shows device-axis acceleration (including gravity) and angular velocity.\n\nSIM runs a deterministic generated indoor video and synchronized synthetic IMU without camera permission or ARCore; it is for repeatable debug tests, not measured sensor data.\n\nAccuracy is unmeasured. ARCore manages a local map; saved snapshots can be reopened in 3D, but do not restore the private ARCore tracking map. CSV includes diagnostic IMU samples, not calibrated camera–IMU research data.")
+                .setMessage("LAYERS cycles planes, point cloud and trail. Cyan = horizontal planes, violet = vertical planes, gold = measured scene points. These are geometric surfaces, not recognized objects.\n\nThe orange trail is displayed near the detected floor. FLOOR EST. means a 1.5 m phone-height assumption is used where the floor is unknown. The recorded camera trajectory is unchanged. Turn around to see where you walked. It is a see-through overlay, with no real-world occlusion.\n\nMAPS opens the detailed live scene map, 3D inspection, export, loop checks and settings. The current map auto-saves after captured keyframes and POIs; SAVE MAP creates an extra named snapshot. POIs need a tracked plane and are saved with the map.\n\nThe first START launches ARCore and recording together. PAUSE excludes movement until RESUME. Unknown motion across tracking gaps is excluded. DATA opens GPS, training capture and IMU display. IMU shows device-axis acceleration (including gravity) and angular velocity.\n\nSIM runs a deterministic generated indoor video and synchronized synthetic IMU without camera permission or ARCore; it is for repeatable debug tests, not measured sensor data.\n\nAccuracy is unmeasured. ARCore manages a local map; saved snapshots can be reopened in 3D, but do not restore the private ARCore tracking map. CSV includes diagnostic IMU samples, not calibrated camera–IMU research data.")
                 .setPositiveButton("GOT IT",null).show();return true;
         });
         sensors.setOnClickListener(v->dataMenu());
@@ -184,13 +184,13 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         hud.update(odometer.snapshot(SystemClock.elapsedRealtime()),trackingLabel,message,markerCount);
     }
     private LinearLayout.LayoutParams weighted() {
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(48),1);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(40),1);
         p.setMargins(dp(4),0,dp(4),0);
         return p;
     }
     private TextView action(String text,int bg,int fg) {
         TextView v=new TextView(this);
-        v.setText(text);v.setTextColor(fg);v.setTextSize(12f);
+        v.setText(text);v.setTextColor(fg);v.setTextSize(10f);
         v.setTypeface(Typeface.create("sans-serif-medium",Typeface.BOLD));
         v.setGravity(Gravity.CENTER);
         v.setAllCaps(true);

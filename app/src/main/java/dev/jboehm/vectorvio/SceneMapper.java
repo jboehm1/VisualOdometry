@@ -23,6 +23,7 @@ final class SceneMapper {
         final float confidence;
         float heading,pitch,targetMeters=-1;
         float cameraX,cameraZ;
+        boolean groundEstimated;
         Snapshot(List<Shape> shapes,int h,int v,int p,int a,float q){this(shapes,h,v,p,a,q,new ArrayList<>(),new ArrayList<>(),new ArrayList<>(),new ArrayList<>(),0);}
         Snapshot(List<Shape> shapes,int h,int v,int p,int a,float q,List<MapPoint> mapPoints,List<MapSurface> surfaces,List<float[]> path,List<MapArchive.Poi> pois){this(shapes,h,v,p,a,q,mapPoints,surfaces,path,pois,0);}
         Snapshot(List<Shape> shapes,int h,int v,int p,int a,float q,List<MapPoint> mapPoints,List<MapSurface> surfaces,List<float[]> path,List<MapArchive.Poi> pois,int segment) {
@@ -45,8 +46,10 @@ final class SceneMapper {
         camera.getViewMatrix(view,0);camera.getProjectionMatrix(projection,0,.05f,100f);
         Matrix.multiplyMM(vp,0,projection,0,view,0);
         ArrayList<Shape> shapes=new ArrayList<>();ArrayList<MapSurface> surfaces=new ArrayList<>();
+        List<GroundTrail.Floor> floors=new ArrayList<>();
         int h=0,v=0;
-        for(Plane plane:session.getAllTrackables(Plane.class)) {
+        java.util.Collection<Plane> planes=session.getAllTrackables(Plane.class);
+        for(Plane plane:planes) {
             if(plane.getTrackingState()!=TrackingState.TRACKING || plane.getSubsumedBy()!=null) continue;
             boolean vertical=plane.getType()==Plane.Type.VERTICAL;
             if(vertical)v++;else h++;
@@ -62,6 +65,7 @@ final class SceneMapper {
             float[] xy=Projection.polygon(vp,xyz);
             float[] xz=new float[xyz.length/3*2];for(int i=0,j=0;i<xyz.length;i+=3){xz[j++]=xyz[i];xz[j++]=xyz[i+2];}
             if(surfaces.size()<24)surfaces.add(new MapSurface(xz,vertical));
+            if(plane.getType()==Plane.Type.HORIZONTAL_UPWARD_FACING)floors.add(new GroundTrail.Floor(center.ty(),xz));
             if(xy.length>=6)shapes.add(new Shape(xy,vertical?1:0,String.format(java.util.Locale.US,
                 "%s  %.1f × %.1f m",vertical?"VERTICAL":"HORIZONTAL",plane.getExtentX(),plane.getExtentZ())));
         }
@@ -85,14 +89,16 @@ final class SceneMapper {
         // Project the recorded world path. No per-breadcrumb native anchors.
         // Breaks remain explicit; no fabricated motion through tracking outages.
         ArrayList<float[]> path=new ArrayList<>();
-        Odometer.Point previous=null;
+        Odometer.Point previous=null;float[] previousGround=null;boolean groundEstimated=false;
         for(Odometer.Point point:history) {
-            float[] xyz={(float)point.x,(float)point.y,(float)point.z};
+            float ground=GroundTrail.floorY(point,floors);
+            if(!Float.isFinite(ground)){ground=(float)point.y-1.5f;groundEstimated=true;}
+            float[] xyz={(float)point.x,ground+.025f,(float)point.z};
             if(previous!=null && previous.segment==point.segment) {
-                float[] line=Projection.line(vp,new float[]{(float)previous.x,(float)previous.y,(float)previous.z},xyz);
+                float[] line=Projection.line(vp,previousGround,xyz);
                 if(line!=null)shapes.add(new Shape(line,3,""));
             }
-            path.add(xyz);previous=point;
+            path.add(new float[]{(float)point.x,(float)point.y,(float)point.z});previous=point;previousGround=xyz;
         }
         ArrayList<MapArchive.Poi> currentPois=new ArrayList<>();
         for(MapArchive.Poi poi:pois) {
@@ -103,6 +109,7 @@ final class SceneMapper {
         }
         Snapshot snapshot=new Snapshot(shapes,h,v,points,history.size(),points==0?0:confidence/points,
             new ArrayList<>(mapPoints.values()),surfaces,path,currentPois,segment);
+        snapshot.groundEstimated=groundEstimated;
         snapshot.cameraX=camera.getPose().tx();snapshot.cameraZ=camera.getPose().tz();
         float[] axis=camera.getDisplayOrientedPose().getZAxis();
         snapshot.heading=(float)Math.atan2(-axis[0],-axis[2]);

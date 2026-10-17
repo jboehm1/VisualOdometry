@@ -113,40 +113,23 @@ public final class HudView extends View {
         if(w<=0||h<=0) return;
         Odometer.Snapshot s=snapshot;
 
-        resetPaint();
-        p.setShader(new LinearGradient(0,0,0,d(175),
-                0xEA07121D,0x0007121D, Shader.TileMode.CLAMP));
-        c.drawRect(0,0,w,d(175),p);
-        p.setShader(new LinearGradient(0,h-d(330),0,h,
-                0x0007121D,0xE9000E18,Shader.TileMode.CLAMP));
-        c.drawRect(0,h-d(330),w,h,p);
         drawScene(c,w,h);
         drawReticle(c,w,h);
-
-        label(c,"VECTOR",d(20),d(52),d(25)/dp,INK,true);
-        label(c,"/ SPATIAL EXPLORER  ·  0.7",d(20),d(72),10,MUTED,false);
-        box(c,w-d(132),d(32),w-d(16),d(63),10,0xCF0B2630,0x5539F4D2);
-        disc(c,w-d(118),d(47),d(4),s!=null&&s.tracking?CYAN:AMBER,false);
-        String tiny=trackingText.length()>14?trackingText.substring(0,14):trackingText;
-        label(c,tiny,w-d(107),d(51),10,INK,true);
-
-        label(c,"VIO LOCAL · "+gpsStatus,d(20),d(105),10,CYAN,true);
-        label(c,notice.length()>47?notice.substring(0,47)+"…":notice,d(20),d(125),10,MUTED,false);
-
-        label(c,new String[]{"PLANES + POINTS + TRAIL","PLANES + TRAIL","POINTS + TRAIL","TRAIL ONLY"}[layers],d(20),d(208),9,CYAN,true);
-        if(scene!=null) {
-            label(c,String.format(Locale.US,"%d H / %d V PLANES   ·   %d POINTS   ·   %.0f FPS",scene.horizontal,scene.vertical,scene.points,cameraHz),d(20),d(226),9,INK,true);
-        }
-        if(scene!=null) label(c,String.format(Locale.US,"MAP %d KF%s · %d IMG · %d POI · GAPS %d · REJECT %d",keyframes,mapFull?" FULL":"",photos,poiCount,s==null?0:s.gaps,s==null?0:s.outliers),d(20),d(242),9,MUTED,false);
-        if(expandedMap) drawLiveMap(c,d(14),d(253),w-d(28),Math.max(d(80),h-d(564)),s);
-        else if(sensors) drawSensors(c,d(14),h-d(478),w-d(28),d(168));
-        else drawMiniMap(c,w-d(157),h-d(454),d(137),d(145),s);
+        box(c,0,0,w,d(64),0,0x8507121D,0);
+        label(c,"VECTOR",d(14),d(28),17,INK,true);
+        label(c,trackingText,w-d(125),d(27),10,s!=null&&s.tracking?CYAN:AMBER,true);
+        label(c,gpsStatus+" · "+captureStatus,d(14),d(49),9,MUTED,false);
+        label(c,String.format(Locale.US,"%d KF · %d POI · %.0f FPS",keyframes,poiCount,cameraHz),d(14),d(130),9,MUTED,false);
+        if(scene!=null)label(c,"PATH · "+(scene.groundEstimated?"FLOOR EST.":"FLOOR"),w-d(135),d(130),9,0xFFFFAB57,true);
+        if(expandedMap)drawLiveMap(c,d(12),d(143),w-d(24),Math.max(d(80),h-d(315)),s);
+        else if(sensors)drawSensors(c,d(12),h-d(334),w-d(24),d(168));
+        else drawMiniMap(c,w-d(118),h-d(280),d(106),d(112),s);
         drawDataPanel(c,w,h,s);
     }
 
     private void drawScene(Canvas c,int w,int h) {
         if(scene==null)return;
-        c.save();c.clipRect(0,d(247),w,h-d(305));
+        c.save();c.clipRect(0,d(138),w,h-d(166));
         for(SceneMapper.Shape shape:scene.shapes) {
             if(shape.kind<2 && (layers==2 || layers==3))continue;
             if(shape.kind==2 && (layers==1 || layers==3))continue;
@@ -154,8 +137,8 @@ public final class HudView extends View {
             int color=shape.kind==1?0xFFB5A0FF:CYAN;
             if(shape.kind==2){disc(c,xy[0]*w,xy[1]*h,d(1.8f),0xB0F8D58A,false);continue;}
             if(shape.kind==3){
-                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0x4044E8FD,9);
-                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xFF7AF2FF,2.5f);continue;
+                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0x50FF922B,8);
+                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xFFFFAB57,3);continue;
             }
             if(shape.kind==4) {
                 float x=xy[0]*w,y=xy[1]*h;disc(c,x,y,d(7),0xFFFFC976,false);disc(c,x,y,d(2),Color.WHITE,false);
@@ -168,13 +151,7 @@ public final class HudView extends View {
                 float x=xy[i]*w,y=xy[i+1]*h;cx+=x;cy+=y;
                 if(i==0)path.moveTo(x,y);else path.lineTo(x,y);
             }
-            path.close();resetPaint();p.setColor((color&0xFFFFFF)|0x20000000);c.drawPath(path,p);
-            p.setColor(color);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(d(1.2f));c.drawPath(path,p);
-            cx/=xy.length/2f;cy/=xy.length/2f;
-            cx=Math.max(d(88),Math.min(w-d(88),cx));
-            cy=Math.max(d(266),Math.min(h-d(322),cy));
-            box(c,cx-d(84),cy-d(16),cx+d(84),cy+d(7),6,0xD5091C2B,0);
-            label(c,shape.label,cx-d(78),cy,9,color,true);
+            path.close();resetPaint();p.setColor((color&0xFFFFFF)|0x14000000);c.drawPath(path,p);
         }
         c.restore();
     }
@@ -199,19 +176,9 @@ public final class HudView extends View {
 
     private void drawReticle(Canvas c, int width, int height) {
         float cx=width*.5f,cy=height*.41f;
-        disc(c,cx,cy,d(38),0x6674FCE1,true);
-        disc(c,cx,cy,d(60),0x2874FCE1,true);
-        disc(c,cx,cy,d(2.5f),CYAN,false);
-        if(scene!=null && scene.targetMeters>=0) {
-            box(c,cx-d(58),cy+d(74),cx+d(58),cy+d(99),8,0xDD071925,0);
-            label(c,String.format(Locale.US,"SURFACE %.2f m",scene.targetMeters),cx-d(51),cy+d(91),10,CYAN,true);
-        }
-        line(c,cx-d(74),cy,cx-d(48),cy,0xAA74FCE1,1.1f);
-        line(c,cx+d(48),cy,cx+d(74),cy,0xAA74FCE1,1.1f);
-        line(c,cx,cy-d(74),cx,cy-d(48),0xAA74FCE1,1.1f);
-        line(c,cx,cy+d(48),cx,cy+d(74),0xAA74FCE1,1.1f);
-        line(c,d(20),cy, d(41),cy,0x8874FCE1,1);
-        line(c,width-d(41),cy,width-d(20),cy,0x8874FCE1,1);
+        disc(c,cx,cy,d(2),0xBFFFFFFF,false);
+        line(c,cx-d(9),cy,cx-d(4),cy,0x90FFFFFF,1);
+        line(c,cx+d(4),cy,cx+d(9),cy,0x90FFFFFF,1);
 
     }
 
@@ -292,36 +259,17 @@ public final class HudView extends View {
     }
 
     private void drawDataPanel(Canvas c,int w,int h,Odometer.Snapshot s) {
-        float left=d(14),right=w-d(14),top=h-d(299),bottom=h-d(103);
-        box(c,left,top,right,bottom,19,0xED071925,0x65568188);
-        line(c,left+d(16),top+d(45),right-d(16),top+d(45),0x344C7386,1);
-        label(c,captureStatus,left+d(17),top+d(27),11,CYAN,true);
-        label(c,s!=null&&s.recording?"●  REC":"Ⅱ  IDLE",right-d(80),top+d(27),11,
-              s!=null&&s.recording?CYAN:AMBER,true);
+        float left=d(12),right=w-d(12),top=h-d(158),bottom=h-d(64);
+        box(c,left,top,right,bottom,12,0xB0071925,0);
+        label(c,s!=null&&s.recording?"● REC":"Ⅱ PAUSED",left+d(10),top+d(17),9,s!=null&&s.recording?CYAN:AMBER,true);
+        if(s==null)return;
+        float second=left+(right-left)*.53f;
+        label(c,String.format(Locale.US,"%.2f m",s.totalMeters),left+d(10),top+d(48),25,INK,true);
+        label(c,String.format(Locale.US,"%.1f km/h",s.speedMps*3.6),second,top+d(48),22,INK,true);
+        label(c,"VIO DISTANCE",left+d(11),top+d(64),8,MUTED,false);
+        label(c,"VIO SPEED",second,top+d(64),8,MUTED,false);
+        long seconds=s.elapsedMilliseconds/1000;
+        label(c,String.format(Locale.US,"%02d:%02d · Δh %+.2f m · gaps %d",seconds/60,seconds%60,s.verticalMeters,s.gaps),left+d(10),top+d(83),9,MUTED,false);
 
-        if(s==null) {
-            label(c,"Waiting for ARCore…",left+d(18),top+d(100),16,INK,false);
-            return;
-        }
-        float y1=top+d(78);
-        label(c,"VIO PATH DISTANCE",left+d(18),y1,9,MUTED,true);
-        label(c,String.format(Locale.US,"%.2f",s.totalMeters),left+d(17),y1+d(40),33,INK,true);
-        label(c,"m",left+d(127),y1+d(36),13,CYAN,true);
-
-        float secondColumn=left+(right-left)*.55f;
-        label(c,"VIO SPEED",secondColumn,y1,9,MUTED,true);
-        label(c,String.format(Locale.US,"%.1f",s.speedMps*3.6),secondColumn,y1+d(40),33,INK,true);
-        label(c,"km/h",secondColumn+d(89),y1+d(36),11,CYAN,true);
-
-        line(c,left+d(17),top+d(132),right-d(17),top+d(132),0x344C7386,1);
-        label(c,"SEGMENT OFFSET",left+d(18),top+d(153),9,MUTED,true);
-        label(c,String.format(Locale.US,"%.2f m",s.displacementMeters),left+d(18),top+d(176),17,INK,true);
-        label(c,"Δ HEIGHT",secondColumn,top+d(153),9,MUTED,true);
-        label(c,String.format(Locale.US,"%+.2f m",s.verticalMeters),secondColumn,top+d(176),17,INK,true);
-
-        float seconds=s.elapsedMilliseconds/1000f;
-        label(c,String.format(Locale.US,"TIME %02d:%02d  •  SEGMENTS %d  •  MARKERS %d",
-                    (int)(seconds/60),(int)(seconds%60),s.segments,markers),
-                    left+d(18),bottom-d(9),9,MUTED,false);
     }
 }
