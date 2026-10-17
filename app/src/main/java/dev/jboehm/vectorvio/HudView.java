@@ -210,7 +210,6 @@ public final class HudView extends View {
         line(c,cx+d(48),cy,cx+d(74),cy,0xAA74FCE1,1.1f);
         line(c,cx,cy-d(74),cx,cy-d(48),0xAA74FCE1,1.1f);
         line(c,cx,cy+d(48),cx,cy+d(74),0xAA74FCE1,1.1f);
-        label(c,"FULL CAMERA FRAME",cx-d(52),cy-d(82),8,MUTED,false);
         line(c,d(20),cy, d(41),cy,0x8874FCE1,1);
         line(c,width-d(41),cy,width-d(20),cy,0x8874FCE1,1);
 
@@ -305,12 +304,12 @@ public final class HudView extends View {
             return;
         }
         float y1=top+d(78);
-        label(c,"PATH DISTANCE",left+d(18),y1,9,MUTED,true);
+        label(c,"VIO PATH DISTANCE",left+d(18),y1,9,MUTED,true);
         label(c,String.format(Locale.US,"%.2f",s.totalMeters),left+d(17),y1+d(40),33,INK,true);
         label(c,"m",left+d(127),y1+d(36),13,CYAN,true);
 
         float secondColumn=left+(right-left)*.55f;
-        label(c,"SPEED",secondColumn,y1,9,MUTED,true);
+        label(c,"VIO SPEED",secondColumn,y1,9,MUTED,true);
         label(c,String.format(Locale.US,"%.1f",s.speedMps*3.6),secondColumn,y1+d(40),33,INK,true);
         label(c,"km/h",secondColumn+d(89),y1+d(36),11,CYAN,true);
 
