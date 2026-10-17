@@ -251,8 +251,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
 
     private void dataMenu(){
-        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?"};
+        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off"};
         new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
+            if(i==4){startActivity(new Intent(this,CollectionActivity.class));return;}
             if(i==0)hud.toggleSensors();
             if(i==1){if(gps.enabled)gps.disable();else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED){gps.enabled=true;gps.start();}else requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_REQUEST);refreshHud();}
             if(i==2){if(odometer.isRecording()){Toast.makeText(this,"Pause first to change video capture",Toast.LENGTH_LONG).show();return;}
@@ -537,6 +538,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(liveModeRequested)startAr();
     }
     private void startAr() {
+        if(CollectionService.running){Toast.makeText(this,"Stop COLLECT ONLY before live AR",Toast.LENGTH_LONG).show();return;}
         if(rendererRunning)return;
         if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED) {
             trackingLabel="PERMISSION";
