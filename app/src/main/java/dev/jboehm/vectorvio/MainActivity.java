@@ -243,6 +243,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         long now=SystemClock.elapsedRealtime();
         odometer.start(now);
         recorder.event("START",System.currentTimeMillis());
+        recorder.event("DISTANCE_ROTATION_GATE_V1_035_TO_120_MM",System.currentTimeMillis());
         recordButton.setText("PAUSE");
         recordButton.setContentDescription("Pause recording");
         message=trainingEnabled?"Recording IMU, map and odometer — starting video":"Recording IMU, map and odometer — VIDEO OFF (enable in DATA)";
@@ -730,7 +731,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 Pose pose=camera.getPose();
                 float[] xyz=pose.getTranslation();
                 float[] quaternion=pose.getRotationQuaternion();
-                poseResult=odometer.onPose(xyz[0],xyz[1],xyz[2],frame.getTimestamp());
+                poseResult=odometer.onPose(xyz[0],xyz[1],xyz[2],quaternion,frame.getTimestamp());
                 long wallMs=System.currentTimeMillis();
                 if(frame.getTimestamp()-lastLoggedFrameNs>=100_000_000L
                        && odometer.isRecording()
