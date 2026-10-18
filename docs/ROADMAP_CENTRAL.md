@@ -2,7 +2,7 @@
 
 > **Point d'entrée unique des développements actuels.** État consolidé le **19 octobre 2026** après audit de 17 PR GitHub (11 fusionnées, 3 closes sans fusion, 3 ouvertes). **Ni statut « 100 % global », ni qualification de sécurité ou de précision physique**. Une ligne « LOGICIEL_VALIDE » ne signifie pas « testé sur le S21 ».
 
-**Audit des fusions et conflits :** [17 PR, #1/#2 clôturées, #11 intégrée, #3/#5/#17 restantes](coordination/git-consolidation-20261019.md). Le diagnostic Git est un instantané ; relire les têtes et la CI avant toute prochaine fusion.
+**Audit des fusions et conflits :** [bilan Git et PR actualisés](coordination/git-consolidation-20261019.md). À l'ouverture de l'audit : 17 PR, #1/#2 clôturées, #11 intégrée ; **PR #18 (suites ADVIO/Mobile-GVIO)** a également été fusionnée depuis, et #19 est une PR documentaire transitoire. Seuls les trois chantiers #3/#5/#17 restent fonctionnellement ouverts. Le diagnostic Git est un instantané ; relire les têtes et la CI avant toute prochaine fusion.
 
 ## Quelle branche fait autorité ?
 
@@ -94,7 +94,7 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 
 ### LAB — Datasets, validation A/B/C et benchmark métrique
 
-**Branche(s)** : `feature/three-validation-campaigns + feature/slam-explorer + work/slam-roadmap-b1-b2-b8` · **Constat** : Infrastructure et campagnes CI présentes, couverture réelle incomplète. **Évidence** : Campagnes A/B/C, PR #14 ADVIO-09 et PR #16 testenv modulaire déjà fusionnées, provenance V5 B1–B8 conservée sur branche de travail.
+**Branche(s)** : `feature/three-validation-campaigns + feature/slam-explorer + work/slam-roadmap-b1-b2-b8` · **Constat** : Infrastructure et campagnes CI présentes, couverture réelle incomplète. **Évidence** : Campagnes A/B/C, PR #14 ADVIO-09, PR #16 testenv modulaire et **PR #18 suites smartphone** déjà fusionnées, provenance V5 B1–B8 conservée sur branche de travail.
 
 | Tâche | Priorité | Statut | Critère d'acceptation précis |
 |---|---|---|---|
