@@ -60,6 +60,13 @@ class TrajectoryEvalTest(unittest.TestCase):
             p.write_text("frame_time_ns,metric_x,metric_y,metric_z\n1000000000,0,0,0\n2000000000,1,0,0\n2100000000,1.1,0,0\n")
             a=v.parse(p,"vector-motion")
             self.assertEqual([1,2,2],[s.segment for s in a])
+    def test_new_vector_motion_segment_column_overrides_gap_heuristic(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/"m.csv"
+            p.write_text("frame_time_ns,metric_x,metric_y,metric_z,odometer_segment\n"
+                         "1000000000,0,0,0,3\n1010000000,1,0,0,4\n"
+                         "1020000000,1.1,0,0,4\n")
+            self.assertEqual([3,4,4],[s.segment for s in v.parse(p,"vector-motion")])
     def test_no_truth_is_explicit(self):
         with self.assertRaises(FileNotFoundError):v.parse(Path("/no/such/file"),"tum")
         est,gt=self.walk()
