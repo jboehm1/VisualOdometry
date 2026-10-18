@@ -78,3 +78,60 @@ jobs:
             campaign_results/testenv_smoke/runs/*/cases/*/report.json
           if-no-files-found: ignore
           retention-days: 30
+
+
+  real-public:
+    name: Real public SIMUL Java + external EuRoC evaluator through V2 suites
+    if: github.event_name == 'pull_request'
+    needs: no-network
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install evaluator dependency
+        run: python -m pip install -r tools/benchmark/requirements.txt
+      - name: Execute two independently labeled genuine recorded-data capabilities
+        run: python testenv.py run --suite tools/testenv/suites/real-public.json --out campaign_results/testenv_public
+      - name: Check independent truth and code/engine identity are not conflated
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('campaign_results/testenv_public')
+          data=json.loads((root/'latest.json').read_text())
+          assert data['status']=='PASS' and data['counts']['PASS']==2
+          cases={x['id']:x for x in data['cases']}
+          assert cases['simul-java']['actual_estimator_executed']
+          assert cases['simul-java']['reference_used_to_score']
+          assert cases['simul-java']['metrics']['test_cases']==12
+          assert cases['published-vins']['actual_estimator_executed'] is False
+          assert cases['published-vins']['reference_used_to_score']
+          java=json.loads(next(root.glob('runs/*/cases/simul-java/report.json')).read_text())
+          euroc=json.loads(next(root.glob('runs/*/cases/published-vins/report.json')).read_text())
+          assert java['measured_engine']=='actual_pinned_Java_PdrEngine'
+          assert java['reference_kind']=='annotated_step_intervals'
+          assert 'ate_rmse_m' not in java['metrics']
+          assert euroc['measured_engine']=='published_VINS_Mono_trajectory_only'
+          assert euroc['metrics']['pairs']>=3000
+          assert not list(root.glob('runs/*/cases/*/engine'))
+          PY
+      - name: Upload ONLY HTML + small evidence JSON, never the recordings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testenv-public-real-evidence
+          path: |
+            campaign_results/testenv_public/index.html
+            campaign_results/testenv_public/latest.json
+            campaign_results/testenv_public/runs/*/summary.json
+            campaign_results/testenv_public/runs/*/cases/*/case.json
+            campaign_results/testenv_public/runs/*/cases/*/report.json
+          if-no-files-found: ignore
+          retention-days: 30
