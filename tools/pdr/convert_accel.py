@@ -14,7 +14,7 @@ def convert(source, output, t_col, xyz, time_unit="s", accel_unit="mps2", skip=0
     scales = {"s": 1e9, "ms": 1e6, "us": 1e3, "ns": 1}
     if time_unit not in scales: raise ValueError("time unit")
     if accel_unit not in {"mps2", "g"}: raise ValueError("accel unit")
-    with open(source, newline="", encoding="utf8-sig") as s, open(output,"w",newline="",encoding="utf8") as o:
+    with open(source, newline="", encoding="utf-8-sig") as s, open(output,"w",newline="",encoding="utf8") as o:
         reader=csv.reader(s); writer=csv.writer(o)
         writer.writerow(["t_ns","type","x","y","z"])
         for _ in range(skip):next(reader,None)
