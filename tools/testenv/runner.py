@@ -181,7 +181,8 @@ def _case(job: dict, suite_path: Path, case_dir: Path, root: Path,
                               metrics=report.get("metrics", {}), report_sha256=sha256(case_dir / "report.json"),
                               accuracy_claim_level=report.get("accuracy_claim_level"),
                               reference_kind=report.get("reference_kind"),
-                              actual_estimator_executed=report.get("actual_estimator_executed"))
+                              actual_estimator_executed=report.get("actual_estimator_executed"),
+                              reference_used_to_score=report.get("reference_used_to_score"))
                 return result
         case_output = case_dir / "engine"
         case_output.mkdir()
