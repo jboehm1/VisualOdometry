@@ -13,6 +13,12 @@ python benchmark.py catalog
 python benchmark.py plan --dataset simul --engine android-pdr
 python benchmark.py run --dataset simul --engine android-pdr --out campaign_results/simul
 python benchmark.py run --dataset euroc_external --engine external-vins --out campaign_results/euroc_vins
+# Real phone: 71MB ADVIO camera+gyro AUDIT with external Pixel ARCore scoring
+python benchmark.py run --dataset advio09 --engine external-pixel-arcore --out campaign_results/advio09
+# Real phone: 951MB Mobile-GVIO actual research image+gyro inference; Sim3 shape only
+python benchmark.py run --dataset mobile_gvio --engine research-mono-gyro --out campaign_results/mobile_gvio
+# The V3 suite produces comparable *reports*, NOT directly comparable accuracy metrics:
+python testenv.py run --suite tools/testenv/suites/real-phone.json --out campaign_results/real_phone
 ```
 
 The published **SIMUL** run automatically fetches four actual recordings from 4 different people (12 tests: 3 carrying positions each); the Java PDR engine is compiled from the pinned parallel workstream. The Python PDR baseline is also executed, explicitly labeled secondary in the report. The annotations are only loaded **after** the estimates and give **step intervals**, not independent metric displacement.
@@ -67,7 +73,9 @@ python benchmark.py run --dataset phone_csv --engine csv-audit \
 | **OxIOD raw CSV** (`oxiod`) | `android-pdr`, `python-pdr` | **Code path available with input**; complete OxIOD sequence/pose truth not qualified | Inferred steps/stride/distance; **no independent trajectory accuracy** |
 | **Canonical IMU** (`canonical`) | `android-pdr`, `python-pdr` | **Yes with input**; Java and Python runners executable | Step metrics and inferred distance, not ground-truth error |
 | **VECTOR exported phone CSV** (`phone_csv`) | `csv-audit` | **Yes with exported CSV** | Phone-reported distance/route; relative distance error only with independently measured path length |
-| **RoNIN, RIDI, ADVIO, KITTI, Hilti, TUM-VIE, TLIO…** | None in this CLI yet | **No**, catalog only | No valid score available through this CLI |
+| **ADVIO-09 smartphone** (`advio09`) | `external-pixel-arcore` | **Yes**, pinned public ~71MB ZIP; raw video+gyro audit and **previously recorded** Google Pixel ARCore | Rigid SE3 ATE for external Pixel trajectory against fixation-aided reference, NOT our app | 
+| **Mobile-GVIO Indoor-2 smartphone** (`mobile_gvio`) | `research-mono-gyro` | **Yes**, pinned ~951MB public archive + ~2.8GB extracted; actual research image+gyro inference | Posthoc-clock + posthoc-scale **Sim3 trajectory shape** only, NOT independently calibrated metric odometry |
+| **RoNIN, RIDI, KITTI, Hilti, TUM-VIE, TLIO…** | None in this CLI yet | **No**, catalog only | No valid score available through this CLI |
 
 **Important:** The `android-pdr` name refers to the **real pinned Java PdrEngine algorithm**, compiled from `feature/camera-free-pdr` at `f8228aa7…`. It does **not** assert that this feature is already merged into the installable `feature/slam-explorer` APK. It does not execute Android hardware `STEP_DETECTOR` on the cloud runner; instead it uses the Java accelerometer fallback.
 
@@ -96,6 +104,10 @@ The new standalone workflow `.github/workflows/unified-benchmark.yml` tests:
 When GitHub workflows are active on the integration branch, changes to this CLI rerun them. The default repo branch remains old `master`; a `workflow_dispatch` UI button may require updating the default branch, so normal `push`/PR CI is the current proven trigger.
 
 Reports can be transferred **from ChatGPT** to private Google Drive using connected GitHub and Drive apps. **GitHub → private Drive automatically** requires an explicitly authorized credential/secret; this is not implied by green CI. The separate `drive-campaigns.yml` workflow has not yet been proven with the configured `SLAM_RCLONE_CONFIG_B64` secret.
+
+## Smartphone datasets added in V3
+
+The source programs and their original evidence are documented in [V3 real-phone suite](TEST_ENV_PHONE_V3.md). The records use different reference definitions: rigid SE3 for external previously recorded Pixel ARCore versus truth-aligned Sim3 *shape only* for actual research image+gyro output. Both declare their source engine and exact accuracy-claim level and retain no raw videos in CI artifacts. These errors are **not comparable** with each other or the EuRoC published VINS score.
 
 ## Next engineering gates
 
