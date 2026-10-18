@@ -52,6 +52,10 @@ import javax.microedition.khronos.opengles.GL10;
 public final class MainActivity extends Activity implements GLSurfaceView.Renderer {
     private static final int CAMERA_REQUEST=140, EXPORT_REQUEST=141, IMPORT_MAP_REQUEST=142, LOCATION_REQUEST=143;
     private final Odometer odometer = new Odometer();
+    private final AnchoredOdometry anchoredOdometry=new AnchoredOdometry();
+    private final TraceGuide traceGuide=new TraceGuide();
+    private volatile boolean returnTraceRequested;
+    private volatile String guideText="";
     private GLSurfaceView surface;
     private HudView hud;
     private ImuMonitor imu;
@@ -243,7 +247,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         long now=SystemClock.elapsedRealtime();
         odometer.start(now);
         recorder.event("START",System.currentTimeMillis());
-        recorder.event("DISTANCE_RAW_TRANSLATIONS_V3_NO_DEADBAND",System.currentTimeMillis());
+        recorder.event("DISTANCE_ANCHOR_RELATIVE_V4_NO_DEADBAND",System.currentTimeMillis());
         recordButton.setText("PAUSE");
         recordButton.setContentDescription("Pause recording");
         message=trainingEnabled?"Recording IMU, map and odometer — starting video":"Recording IMU, map and odometer — VIDEO OFF (enable in DATA)";
@@ -254,8 +258,14 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
 
     private void dataMenu(){
-        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU"};
+        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return")};
         new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
+            if(i==6){
+                if(!returnTraceRequested&&!odometer.isRecording()){
+                    Toast.makeText(this,"Start tracking first; return mode needs one continuous session",Toast.LENGTH_LONG).show();return;
+                }
+                returnTraceRequested=!returnTraceRequested;return;
+            }
             if(i==5){overlaySettings();return;}
             if(i==4){startActivity(new Intent(this,CollectionActivity.class));return;}
             if(i==0)hud.toggleSensors();
@@ -266,6 +276,25 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             }
             if(i==3)new AlertDialog.Builder(this).setTitle("Full camera frame · local data").setMessage("The reticle only selects the POI hit-test target. Cyan/violet polygons are detected planes, clipped for display; they do not crop the camera input. ARCore processes its camera stream.\n\nVIO speed measures motion relative to the viewed environment. Looking at a car interior can give near-zero VIO while the car moves: GPS ground speed is separate and is not silently fused.\n\nCSV: poses + diagnostic IMU. Dataset ZIP adds video parts only if armed, frame timestamps/intrinsics, device metadata and GPS fixes if enabled. ARCore poses are estimates, not training ground truth; camera/IMU offset and extrinsics need calibration. Simulation CSV is generated truth, not the estimated map or real footage.").setPositiveButton("OK",null).show();
         }).show();
+    }
+
+    private void stopTraceGuide(){
+        if(traceGuide.active()||returnTraceRequested){traceGuide.clear();returnTraceRequested=false;guideText="RETURN STOPPED — reference lost";}
+    }
+    private void updateTraceGuide(Pose metric){
+        if(!returnTraceRequested){traceGuide.clear();if(!guideText.startsWith("RETURN STOPPED"))guideText="";return;}
+        Odometer.Point p=new Odometer.Point(metric.tx(),metric.ty(),metric.tz(),odometer.currentSegment());
+        if(!traceGuide.active()&&!traceGuide.start(odometer.snapshot(SystemClock.elapsedRealtime()).metricTrail,p)){
+            returnTraceRequested=false;guideText="RETURN — record a longer trace first";return;
+        }
+        TraceGuide.Guidance g=traceGuide.update(p);
+        if(g==null){stopTraceGuide();return;}
+        float[] axis=metric.getZAxis();
+        double dx=g.x-p.x,dz=g.z-p.z;
+        double angle=Math.atan2(dx,dz)-Math.atan2(-axis[0],-axis[2]);
+        angle=Math.atan2(Math.sin(angle),Math.cos(angle))*180/Math.PI;
+        String turn=Math.hypot(axis[0],axis[2])<.2?"level camera":Math.abs(angle)<15?"ahead":(angle>0?"left ":"right ")+Math.round(Math.abs(angle))+"°";
+        guideText=g.arrived?"RETURN — near start (estimated)":String.format(Locale.US,"%s · %.1f m left · trace %.1f m · %s",g.offRoute>1?"REJOIN":"RETURN",g.remaining,g.offRoute,turn);
     }
 
     private void toggleTorch() {
@@ -634,7 +663,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                         torchButton.setTextColor(Color.WHITE);
                     });
                 }
-                mapper.clear();mapCapture.finishSegment();
+                stopTraceGuide();anchoredOdometry.reset();mapper.clear();mapCapture.finishSegment();
                 MapArchive archive=mapCapture.snapshot();
                 if(!archive.frames.isEmpty()||!archive.pois.isEmpty())persistMap(archive,autoName,false);
             });
@@ -720,7 +749,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             phaseStartNs=SystemClock.elapsedRealtimeNanos();
             try{training.frame(s,frame);}catch(Exception e){training.status="VIDEO METADATA ERROR";}
             metadataMs=(SystemClock.elapsedRealtimeNanos()-phaseStartNs)/1_000_000L;
-            if(clearMap){mapper.clear();if(worldOverlay!=null)worldOverlay.clear();clearMap=false;}
+            if(clearMap){traceGuide.clear();returnTraceRequested=false;guideText="";anchoredOdometry.reset();odometer.lostTracking();mapper.clear();if(worldOverlay!=null)worldOverlay.clear();clearMap=false;}
             Odometer.Result poseResult=Odometer.Result.INACTIVE;
             if(frame.getTimestamp()!=0) background.draw(frame);
             Camera camera=frame.getCamera();
@@ -731,7 +760,35 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 Pose pose=camera.getPose();
                 float[] xyz=pose.getTranslation();
                 float[] quaternion=pose.getRotationQuaternion();
-                poseResult=odometer.onPose(xyz[0],xyz[1],xyz[2],quaternion,frame.getTimestamp());
+                if(odometer.isRecording()) {
+                    try {
+                        int oldReference=anchoredOdometry.referenceId();
+                        Pose metric=anchoredOdometry.update(s,pose,frame.getTimestamp());
+                        if(metric!=null){
+                            if(oldReference!=anchoredOdometry.referenceId()){
+                                // First/reacquired references start a segment; a same-frame rebase does not.
+                                recorder.event("ODOMETRY_REFERENCE_"+anchoredOdometry.referenceId(),System.currentTimeMillis());
+                            }
+                            if(anchoredOdometry.freshReference){
+                                odometer.lostTracking();
+                                if(traceGuide.active()){traceGuide.clear();returnTraceRequested=false;guideText="RETURN STOPPED — reference lost";}
+                            }
+                            poseResult=odometer.onMeasuredPose(metric.tx(),metric.ty(),metric.tz(),xyz,frame.getTimestamp());
+                            if(poseResult==Odometer.Result.REJECTED||poseResult==Odometer.Result.GAP)anchoredOdometry.reset();
+                            updateTraceGuide(metric);
+                            final Pose a=anchoredOdometry.anchorPose,m=metric;
+                            final long ts=frame.getTimestamp();final int id=anchoredOdometry.referenceId();
+                            if(a!=null)recorder.sidecar(recorder.currentFile(),"_motion.csv",
+                                "frame_time_ns,reference_id,world_x,world_y,world_z,anchor_x,anchor_y,anchor_z,anchor_qx,anchor_qy,anchor_qz,anchor_qw,metric_x,metric_y,metric_z",
+                                ()->{float[] aq=a.getRotationQuaternion();return String.format(Locale.US,"%d,%d,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f",ts,id,xyz[0],xyz[1],xyz[2],a.tx(),a.ty(),a.tz(),aq[0],aq[1],aq[2],aq[3],m.tx(),m.ty(),m.tz());});
+                        } else if(frame.getTimestamp()>previousFrameNs){
+                            stopTraceGuide();odometer.lostTracking();message="Distance paused — waiting for tracked reference";
+                        }
+                    }catch(RuntimeException referenceError){
+                        stopTraceGuide();anchoredOdometry.reset();odometer.lostTracking();
+                        message="Distance paused — reference unavailable";
+                    }
+                } else anchoredOdometry.reset();
                 long wallMs=System.currentTimeMillis();
                 if(frame.getTimestamp()-lastLoggedFrameNs>=100_000_000L
                        && odometer.isRecording()
@@ -741,6 +798,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     lastLoggedFrameNs=frame.getTimestamp();
                 }
             } else {
+                stopTraceGuide();anchoredOdometry.reset();
                 odometer.lostTracking();
                 String why=camera.getTrackingFailureReason().toString();
                 trackingLabel="SEARCHING";
@@ -805,12 +863,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 Odometer.Snapshot snap=odometer.snapshot(now);
                 String currentTracking=trackingLabel,currentMessage=message;
                 int marks=markerCount;
-                runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);});
+                runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(guideText);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);});
             }
         } catch(Exception ex) {
             trackingLabel="TRACK LOST";
             message=ex.getClass().getSimpleName()+": check camera / AR service";
-            odometer.lostTracking();
+            stopTraceGuide();anchoredOdometry.reset();odometer.lostTracking();
             mapper.clear();
             mapCapture.finishSegment();
             runOnUiThread(()->{hud.updateScene(new SceneMapper.Snapshot(new java.util.ArrayList<>(),0,0,0,0,0),imu.snapshot(),0);refreshHud();});

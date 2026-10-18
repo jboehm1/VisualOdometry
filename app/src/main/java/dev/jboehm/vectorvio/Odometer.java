@@ -40,7 +40,7 @@ public final class Odometer {
         public final double netX, netY, netZ;
         public final long samples, outliers, gaps, elapsedMilliseconds;
         public final int segments;
-        public final List<Point> trail,worldTrail;
+        public final List<Point> trail,worldTrail,metricTrail;
 
         private Snapshot(Odometer a, long nowMs) {
             recording = a.recording;
@@ -60,7 +60,7 @@ public final class Odometer {
             gaps = a.gaps;
             segments = a.segments;
             elapsedMilliseconds = a.elapsedMs + (a.recording ? Math.max(0, nowMs-a.resumeTimeMs) : 0);
-            trail = Collections.unmodifiableList(new ArrayList<>(a.trail));worldTrail=a.worldTrail.snapshot();
+            trail = Collections.unmodifiableList(new ArrayList<>(a.trail));worldTrail=a.worldTrail.snapshot();metricTrail=a.metricTrail.snapshot();
         }
     }
 
@@ -74,6 +74,7 @@ public final class Odometer {
     private long lastObservedNs, referencePoseNs, elapsedMs, resumeTimeMs;
     private final ArrayList<Point> trail = new ArrayList<>();
     private final RouteHistory worldTrail=new RouteHistory();
+    private final RouteHistory metricTrail=new RouteHistory();
 
     public synchronized void start(long nowMs) {
         if (recording) return;
@@ -105,7 +106,7 @@ public final class Odometer {
         samples = outliers = gaps = 0;
         segments = 0;
         elapsedMs = resumeTimeMs = lastObservedNs = referencePoseNs = 0;
-        trail.clear();worldTrail.clear();
+        trail.clear();worldTrail.clear();metricTrail.clear();
     }
 
     public synchronized void lostTracking() {
@@ -117,18 +118,24 @@ public final class Odometer {
     }
 
     public synchronized Result onPose(double x,double y,double z,long timestampNs){
-        return integrate(x,y,z,timestampNs);
+        return integrate(x,y,z,timestampNs,null);
     }
     /** Compatibility input: orientation never changes accepted translation or distance. */
     public synchronized Result onPose(double x,double y,double z,float[] quaternion,long timestampNs){
-        return integrate(x,y,z,timestampNs);
+        return integrate(x,y,z,timestampNs,null);
     }
-    private Result integrate(double x, double y, double z, long timestampNs) {
+    /** Stable metric coordinates for measurement; raw world coordinates only for display history. */
+    public synchronized Result onMeasuredPose(double x,double y,double z,float[] world,long timestampNs){
+        if(world==null||world.length<3||!Float.isFinite(world[0])||!Float.isFinite(world[1])||!Float.isFinite(world[2]))return Result.REJECTED;
+        return integrate(x,y,z,timestampNs,new Point(world[0],world[1],world[2]));
+    }
+    private Result integrate(double x, double y, double z, long timestampNs,Point world) {
         if (!recording) return Result.INACTIVE;
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)
                 || timestampNs <= 0) return Result.REJECTED;
         tracking = true;
         Point p = new Point(x, y, z);
+        if(world==null)world=p;
         samples++;
         if (reference == null) {
             reference = p;
@@ -136,7 +143,8 @@ public final class Odometer {
             lastObservedNs = timestampNs;
             referencePoseNs = timestampNs;
             segments++;
-            beginTrailSegment(p);
+            metricTrail.add(new Point(p.x,p.y,p.z,segments));
+            beginTrailSegment(world);
             return Result.REFERENCE;
         }
         // Check gaps against the previous FRAME, not the previous accepted
@@ -153,7 +161,8 @@ public final class Odometer {
             speedMps = 0;
             gaps++;
             segments++;
-            beginTrailSegment(p);
+            metricTrail.add(new Point(p.x,p.y,p.z,segments));
+            beginTrailSegment(world);
             return Result.GAP;
         }
         // Check instantaneous frame-to-frame motion for relocalization jumps,
@@ -164,7 +173,8 @@ public final class Odometer {
             speedMps = 0;
             outliers++;
             segments++;
-            beginTrailSegment(p);
+            metricTrail.add(new Point(p.x,p.y,p.z,segments));
+            beginTrailSegment(world);
             return Result.REJECTED;
         }
 
@@ -196,8 +206,10 @@ public final class Odometer {
             if (trail.size() == MAX_TRAIL_POINTS) trail.remove(0);
             trail.add(current);
         }
+        Point lastMetric=metricTrail.last();
+        if(lastMetric==null||lastMetric.segment!=segments||p.distance(lastMetric)>=TRAIL_MIN_SPACING_METERS)metricTrail.add(new Point(p.x,p.y,p.z,segments));
         Point lastWorld=worldTrail.last();
-        if(lastWorld==null||lastWorld.segment!=segments||p.distance(lastWorld)>=TRAIL_MIN_SPACING_METERS)worldTrail.add(new Point(p.x,p.y,p.z,segments));
+        if(lastWorld==null||lastWorld.segment!=segments||world.distance(lastWorld)>=TRAIL_MIN_SPACING_METERS)worldTrail.add(new Point(world.x,world.y,world.z,segments));
         return Result.ACCEPTED;
     }
 

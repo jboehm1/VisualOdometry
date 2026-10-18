@@ -96,3 +96,13 @@ Critère de diagnostic : si caméra ET ancre changent ensemble tandis que leur p
 4. https://docs.opencv.org/4.11.0/d9/dab/tutorial_homography.html — rotation pure et homographie.
 5. https://docs.openvins.com/update-zerovelocity.html — limites et tests de zéro-vitesse.
 6. https://developers.google.com/ar/reference/java/com/google/ar/core/Camera — pose de la caméra physique.
+
+## Mise en œuvre après cet audit
+
+Le changement suivant introduit `AnchorCoordinates` et `AnchoredOdometry` dans le live. Chaque pose métrique est `metricFromAnchor * inverse(worldFromAnchor) * worldFromCamera`, avec caméra/ancre lues dans la même frame. Référence locale initiale à axes monde (Y gravité), renouvelée à plus de 4 m ; ce rayon n'est pas un seuil d'acceptation des mètres. Transfert de référence par transformation complète dans la même frame, sans nouveau segment ni distance artificielle. Une seule référence active, deux temporairement pendant le transfert ; anciennes références détachées. Perte d'ancre/caméra, pause et trou de timestamps créent une rupture explicite. Pas de repli sur les différences monde si l'ancre manque. Un échec du compteur n'arrête pas la capture vidéo.
+
+Aucun deadband n'est réintroduit. La correction annule les changements rigides communs, mais le bruit et les corrections différentielles subsistent. Ce n'est pas un détecteur visuel de rotation pure et la disparition du défaut S21 reste à constater sur appareil.
+
+`*_motion.csv` journalise chaque frame mesurée avec caméra monde, ancre monde, identifiant de référence et position métrique. Les poses brutes historiques et MP4 restent inchangés. La route monde historique destinée à l'affichage n'est pas encore entièrement réoptimisée/reprojetée après correction de carte. La nouvelle route métrique destinée au guidage est séparée, bornée et décimée pour affichage/navigation ; elle ne remplace pas les poses de diagnostic.
+
+Tests : algèbre réelle de `com.google.ar.core.Pose`, 360 corrections de repère, transferts répétés, incréments millimétriques, arc physique, duplication de timestamp, perte/réacquisition, trou temporel et échec de création d'ancre. Les tests d'ancres utilisent des références simulées ; aucun téléphone n'est piloté.

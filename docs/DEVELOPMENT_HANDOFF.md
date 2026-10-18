@@ -2,6 +2,12 @@
 
 État au 18 octobre 2026. Ce document remplace l'ancien handover 0.1.
 
+## Actualisation : correctif de repère et guidage retour
+
+Les sections historiques ci-dessous décrivent la baseline cc2533c. Le nouveau live utilise `AnchoredOdometry`/`AnchorCoordinates` pour corriger les changements rigides communs caméra/ancre, sans seuil sur les translations. Tests et limites dans ROTATION_ANALYSIS.md ; schéma `_motion.csv` et commandes du mode retour dans CAPTURE_FORMAT.md. La confirmation physique sur S21 reste nécessaire. Le problème de rotation n'est pas déclaré universellement résolu.
+
+Une aide optionnelle DATA -> Return along current trace fige le segment courant en coordonnées métriques et indique retour/rejoindre la trace, distance restante, écart et gauche/droite. Guidage interrompu sur perte de référence ; pas de recalage d'anciennes cartes. Les poses monde brutes destinées à l'export et l'historique visuel restent distincts du trajet métrique. Les anciennes priorités de ce document concernant l'implémentation de cette référence ou du retour sont désormais partiellement réalisées ; tests terrain et projection cohérente de toute l'ancienne carte restent ouverts.
+
 ## 1. Reprendre le projet
 
 - Dépôt : https://github.com/jboehm1/VisualOdometry

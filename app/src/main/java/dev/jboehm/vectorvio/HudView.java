@@ -31,6 +31,8 @@ public final class HudView extends View {
     private String trackingText = "INITIALIZING";
     private String notice = "Move slowly and scan a textured environment";
     private int markers = 0;
+    private String guideText="";
+    public void updateGuide(String text){guideText=text;invalidate();}
     private int keyframes=0,photos=0,poiCount=0;
     private boolean mapFull=false;
     private String captureStatus="VIDEO OFF",gpsStatus="GPS OFF";
@@ -295,6 +297,10 @@ public final class HudView extends View {
         label(c,String.format(Locale.US,"%.1f km/h",s.speedMps*3.6),second,top+d(48),22,INK,true);
         label(c,"VIO DISTANCE",left+d(11),top+d(64),8,MUTED,false);
         label(c,"VIO SPEED",second,top+d(64),8,MUTED,false);
+        if(!guideText.isEmpty()){
+            box(c,left,top-d(28),right,top-d(3),8,0xD0071925,0);
+            label(c,guideText,left+d(9),top-d(12),9,AMBER,true);
+        }
         long seconds=s.elapsedMilliseconds/1000;
         label(c,String.format(Locale.US,"%02d:%02d · Δh %+.2f m · gaps %d",seconds/60,seconds%60,s.verticalMeters,s.gaps),left+d(10),top+d(83),9,MUTED,false);
 
