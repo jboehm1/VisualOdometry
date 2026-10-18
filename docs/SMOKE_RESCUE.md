@@ -44,15 +44,16 @@ All price observations are snapshot only (2026-10-19), EUR distributor figures u
 | M5Stack MLX90640 Unit | **$65** manufacturer | I2C real thermal pixels 32x24, requires MCU | cheap thermal proof, insufficient thermal resolution for life-critical image |
 | M5Stack T-Lite | **$79** manufacturer | 32x24 sensor, MCU and screen | fastest standalone thermal demonstrator |
 | Pimoroni MLX90640 BerryBase DE | **€74.90 incl VAT**, listing out-of-stock | 32x24 I2C | convenient EU option if restocked |
-| **TI AWR6843AOPEVM** | **€174.92 ex VAT**, Mouser | USB point cloud with appropriate demo, requires vendor firmware/config; ADC requires extra board | **best first real 3D point-cloud purchase** |
+| **TI AWR6843AOPEVM** | **€174.92 ex VAT**, Mouser | USB point cloud with appropriate demo, requires vendor firmware/config; ADC requires extra board | best slightly higher-aperture starting point (3TX/4RX compared with 2TX/3RX of cheaper AWRL6432BOOST) |
+| **TI AWRL6432BOOST** | **€139.75 ex VAT**, Mouser | USB point clouds, 2TX/3RX; 120°az/80°elev | **lower-cost real mapping-capable radar contender**; verify usable static returns, low-power firmware and FoV |
 | TI IWR6843ISK-ODS | **€205.44 ex VAT**, Mouser | USB point-cloud wide 120°x120° FoV | more elevation coverage |
 | TI IWR6843ISK | **€248.23 ex VAT**, Mouser | USB point-cloud 120°az x30°elev | less attractive elevation for stairs |
 
-Sources: https://www.mouser.de/de/ProductDetail/Texas-Instruments/AWR6843AOPEVM ; https://www.mouser.de/de/ProductDetail/Texas-Instruments/IWR6843ISK-ODS ; https://www.mouser.de/de/ProductDetail/Texas-Instruments/IWR6843ISK ; https://www.ti.com/tool/IWR6843ISK-ODS ; https://shop.m5stack.com/products/thermal-camera ; https://shop.m5stack.com/products/m5stick-t-lite-thermal-camera-dev-kit-mlx90640 ; https://www.berrybase.de/mlx90640-waermebild-kamera-breakout-550 ; https://esphome.io/components/sensor/ld2450/
+Sources: https://www.mouser.de/de/ProductDetail/Texas-Instruments/AWR6843AOPEVM ; https://www.mouser.de/de/ProductDetail/Texas-Instruments/AWRL6432BOOST ; https://www.ti.com/tool/AWRL6432BOOST ; https://www.mouser.de/de/ProductDetail/Texas-Instruments/IWR6843ISK-ODS ; https://www.mouser.de/de/ProductDetail/Texas-Instruments/IWR6843ISK ; https://www.ti.com/tool/IWR6843ISK-ODS ; https://shop.m5stack.com/products/thermal-camera ; https://shop.m5stack.com/products/m5stick-t-lite-thermal-camera-dev-kit-mlx90640 ; https://www.berrybase.de/mlx90640-waermebild-kamera-breakout-550 ; https://esphome.io/components/sensor/ld2450/
 
 **False bargains:** Seeed MR60BHA2 vendor confirms no raw ADC/IQ/FFT access, only processed vital-sign information: https://github.com/Seeed-Studio/wiki-documents/discussions/3362 . Do NOT substitute human-presence module for true 3D obstacle mapping.
 
-Stage-1 full approximate budget: **€90–170** (cheap 24GHz human tracker + M5 thermal 32x24 + ESP32/USB/power) detects moving targets/heat only, NO map. Stage-2 **€300–420** (AWR6843AoP + MLX90640 + power/MCU/cables) is the recommended approximate radar-cloud + thermal hardware laboratory test. DCA1000/MMWAVEICBOOST may be needed for RAW ADC: USB demo point-cloud does NOT imply access to RF samples. Confirm serial interface, correct supply, board thermal operating limits and EU radio conformity. Do not put unprotected consumer electronics near fire.
+Stage-1 full approximate budget: **€90–170** (cheap 24GHz human tracker + M5 thermal 32x24 + ESP32/USB/power) detects moving targets/heat only, NO map. Stage-2 **~€250–340** with AWRL6432BOOST 2TX/3RX or **€300–420** with AWR6843AoP 3TX/4RX (plus MLX90640 + power/MCU/cables) is the recommended approximate radar-cloud + thermal hardware laboratory test. DCA1000/MMWAVEICBOOST may be needed for RAW ADC: USB demo point-cloud does NOT imply access to RF samples. Confirm serial interface, correct supply, board thermal operating limits and EU radio conformity. Do not put unprotected consumer electronics near fire.
 
 ## 4. Actual closest research datasets
 Status words: DISCOVERED = link/description researched; NOT DOWNLOADED, NOT PARSED, NOT BENCHMARKED. See SMOKE_RESCUE_DATASETS.json for machine register.
@@ -61,7 +62,7 @@ Status words: DISCOVERED = link/description researched; NOT DOWNLOADED, NOT PARS
 | --- | --- | --- | --- |
 | **P0** | SNAIL Radar Indoor https://snail-radar-indoor.github.io/ | 4D radar+LiDAR+IMU, handheld abandoned hospital and hotel with smoke; 217 sequences / **255.68 GB** claimed | huge; inspect smallest relevant smoke sequence first; no thermal; site shows future-dated changelog **2026-10-30** relative to audit 2026-10-19, availability unverified |
 | **P0** | Indoor FireRescue Radar https://huggingface.co/datasets/yysd123/indoor_mmwave | 27k RGB+LiDAR+4D radar+IMU frames, 10 buildings/35 layouts, 3D boxes + actual fire-training smoke | ~14.9GB HF subset; full by email; CC-BY-NC-4.0; array much higher resolution than cheap radar |
-| **P0** | UPO Smoke https://robotics.upo.es/datasets/smoke/ | seven smoke experiments with RADAR, LiDAR, visible images; ROS data | sizes, GT, radar type, licenses need verification |
+| **P0 (first practical data)** | UPO Smoke https://robotics.upo.es/datasets/smoke/ | seven underground (12 x 6 m) artificial-smoke experiments, **4× TI IWR6843**, Ouster lidar, RGB and wheel odometry, **AR-marker-assisted partial ground truth** | Experiment 7 is smallest: **2.0 GiB displayed / 2,183,007,782 bytes**; ROS1 topics including /ti_mmwave_left_radar/radar_scan_pcl and /ground_truth; marker-derived pose partly interpolated using odometry, NOT fully independent for every frame. License **CC BY-NC-SA 3.0**. The exact hardware match is a strong reason to prioritize it. |
 | **P0** | Dortmund SmokeBot https://zenodo.org/records/1489911 | ~10.7GB radar + Velodyne, real tests with firefighters and smoke | robot sensor platform, no guaranteed independent GT |
 | **P1** | SmokeBasement https://zenodo.org/records/15173055 | ~27GB stereo thermal + Hesai LiDAR in firefighter exercise smoke, six sessions | NO radar; imperfect sync/host timestamp; calibrations partly provided |
 | **P1** | MSC RAD4R smoke https://mscrad4r.github.io/smoke/overall/ | radar-oriented smoke-specific sequences | outdoor campus ~0.8km loops, not building rescuer; downloads require password |
@@ -95,7 +96,7 @@ Frame example (one per line):
 **NOT implemented:** vendors UART/ADC/ROS drivers, replay of smoke datasets, thermal-grid fusion, joint time sync, localization radar-SLAM, Java PDR integration, real tests, Android APK, trained AI, PPE-safe hardware, evacuation route or CE/NFPA qualification. CI unit+synthetic test only; record exact run SHA after it completes.
 
 ## 6. Staged scientific validation requirements
-1. Download **small** real smoke sequence with licensed access and hash; decode real frame, verify clocks/extrinsics. Start with UPO (potentially small) or IFR sample, reserve huge SNAIL later. No GT leakage.
+1. Download **small** real smoke sequence with licensed access and hash; decode real frame, verify clocks/extrinsics. Start with the **smallest UPO experiment 7 (~2.18GB)** or IFR subset, and do a download HEAD/partial index audit before any full transfer, reserve huge SNAIL later. No GT leakage.
 2. Clean-air experiments measured independently: ranges 0.5 /1/2/4/6m, x/y angles, persons **and nonhuman obstacles**, moving and static; repeats x3. LD2450 is human-only comparison, not mapping metric.
 3. Thermal on target vs hot background at known distances; test saturation and false person detections.
 4. Authorized ventilated artificial fog/smoke, no flame; measured opacity and humidity; match clear control. Test water mist separately. NO unqualified fire exposure.
@@ -108,7 +109,7 @@ Frame example (one per line):
 
 ## 7. Roadmap / honest progress
 - S00 research source and competitor inventory: documented, source URLs provided; prices snapshot pending future vendor confirmation.
-- S01 research replay/occupancy/thermal-angle render: **implemented, synthetic only**, pending exact CI evidence.
+- S01 research replay/occupancy/thermal-angle render: **implemented, synthetic only**; first exact-head CI **39174535005 SUCCESS** at 06bf8e5f03faf15dbae1ba2830e4cf91bf821d5e, 8 Python unittest tests and 11-frame/55-return generated HTML; changes after that SHA require fresh CI. https://github.com/jboehm1/VisualOdometry/actions/runs/39174535005
 - S02 real smoke dataset adapter: not started, no bytes downloaded.
 - S03 benchmark occupancy vs ground truth: not started.
 - S04 calibrated pixel-level thermal fusion: not started.
@@ -118,3 +119,8 @@ Frame example (one per line):
 - S08 specialist hazard and certification review: not started; no release for fire service.
 
 **Handover:** recheck fresh integration SHA and PR #15/#16/#5 immediately before touching shared files. Merge as isolated PR only after exact CI, review license of data and testing limitations. No claim of background progress or access to other chats unpushed work.
+
+### Extra checked sources / dataset detail
+
+- TI xWRL6432 (2TX/3RX, compact low-power; 120° azimuth and ~80° elevation board): https://www.ti.com/tool/IWRL6432BOOST ; distributor price https://www.mouser.de/de/ProductDetail/Texas-Instruments/AWRL6432BOOST . Point-cloud output exists but low angular resolution and minimum valid obstacles need bench verification. Compare static corners and person targets against AWR6843AoP before selecting.
+- UPO university source gives robot hardware + marker assisted partial GT and license https://robotics.upo.es/datasets/smoke/ . Experiment 7 **ROS bag index** https://robotics.upo.es/datasets/smoke/experiment_7.txt lists 168s, RadarScan, PointCloud2, compressed RGB, lidar and /ground_truth; experiment_7.bag size 2,183,007,782 bytes. No samples downloaded during this audit; a downloadable bag being online is NOT successful parsing or estimation.
