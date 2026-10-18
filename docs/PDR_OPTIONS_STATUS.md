@@ -46,3 +46,5 @@ heuristics do not prove a body heading.
 **Workstream ownership:** do not revise test environment and dataset pipelines
 under `tools/benchmark/` and `tools/campaigns/`; coordination file owns this
 chore's scope.
+
+**Orientation opt-in lifetime:** PHONE FORWARD is NEVER persisted and resets after STOP/onPause. Device yaw requires fresh, deliberate user opt-in for each recording; walk/run stride preferences are persisted separately.

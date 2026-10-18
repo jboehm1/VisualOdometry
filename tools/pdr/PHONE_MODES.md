@@ -28,3 +28,5 @@ under GitHub Actions can be checked without editing shared workflows. All
 performance claims on a physical Galaxy S21 remain unverified.
 
 **Host-testing note (Robolectric):** the PDR START control refuses to open a session if neither the hardware step detector nor accelerometer is available. Robolectric normally exposes no sensors by default. `PdrAndroidTest` installs a simulated accelerometer with `ShadowSensorManager.addSensor(ShadowSensor.newInstance(Sensor.TYPE_ACCELEROMETER))` before asserting a successful START. The absent-sensor behavior is deliberate; do not bypass it simply to make a simulator pass.
+
+**The PHONE FORWARD opt-in resets after every session and on new Activity creation.** Unlike the measured stride profile, it is never saved in SharedPreferences. This avoids inadvertently treating a phone moved into a pocket as a compass for walking direction.

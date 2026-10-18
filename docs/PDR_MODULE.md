@@ -240,3 +240,5 @@ probabilities**. No empirical percentage accuracy is established.
 Consult [camera-free option matrix](PDR_OPTIONS_STATUS.md) before describing
 a feature as completed. Test infrastructure and original OxIOD/RoNIN dataset
 campaigns are handled by a separate workstream.
+
+**Safety detail:** PHONE FORWARD opt-in is reset every time a session ends and every time the Activity is launched. Never persist a position-accuracy assumption between phone placements. Walk/run stride calibrations, by contrast, are stored by profile.
