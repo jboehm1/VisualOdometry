@@ -21,7 +21,9 @@ public final class PdrSensorBridge implements SensorEventListener {
     private final PdrEngine engine;
     private final Callback callback;
     private final float[] r=new float[9], orientation=new float[3];
-    private boolean registered, useStepDetector, magneticReliable=true;
+    private boolean registered, useStepDetector, magneticReliable, allowDeviceHeading;
+    private long accelerationSamples, rotationSamples, magneticSamples, stepSensorSamples, fallbackSteps;
+    private long firstSampleNs=Long.MIN_VALUE, latestSampleNs=Long.MIN_VALUE;
     private String stepMode="ACCEL FALLBACK";
     public PdrSensorBridge(Context c,PdrEngine e,Callback cb){
         manager=(SensorManager)c.getSystemService(Context.SENSOR_SERVICE);
@@ -31,8 +33,18 @@ public final class PdrSensorBridge implements SensorEventListener {
      * Permission must be checked by the Activity before this call. Without
      * ACTIVITY_RECOGNITION, use acceleration fallback, not a hidden permission bypass.
      */
-    public void start(boolean stepPermission){
-        stop(); if(manager==null)return;
+    public void start(boolean stepPermission) {
+        start(stepPermission, true);
+    }
+    /**
+     * A phone's yaw is NOT the person's heading. Device-heading use is explicitly
+     * opt-in and accepted only when the screen is approximately horizontal,
+     * face up, with its top edge pointing in the direction of travel.
+     * GNSS course is managed independently by PdrActivity.
+     */
+    public void start(boolean stepPermission,boolean phoneTopForward) {
+        stop();allowDeviceHeading=phoneTopForward;
+        if(manager==null){stepMode="NO SENSOR MANAGER";return;}
         Sensor detector=stepPermission?manager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR):null;
         useStepDetector=detector!=null;
         stepMode=useStepDetector?"ANDROID STEP_DETECTOR":"ACCEL FALLBACK (EXPERIMENTAL)";
@@ -43,48 +55,89 @@ public final class PdrSensorBridge implements SensorEventListener {
         register(manager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),SensorManager.SENSOR_DELAY_GAME);
         register(manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR),SensorManager.SENSOR_DELAY_GAME);
         register(manager.getDefaultSensor(Sensor.TYPE_PRESSURE),SensorManager.SENSOR_DELAY_NORMAL);
+        accelerationSamples=rotationSamples=magneticSamples=stepSensorSamples=fallbackSteps=0;
+        firstSampleNs=latestSampleNs=Long.MIN_VALUE;
         registered=true;
     }
     private void register(Sensor sensor,int rate){
         if(sensor!=null)manager.registerListener(this,sensor,rate);
     }
     public String stepMode(){return stepMode;}
+    public boolean hasStepSource(boolean permissionGranted){
+        return manager!=null &&
+            ((permissionGranted && manager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)!=null)
+             || manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)!=null);
+    }
+    private boolean has(int type){
+        return manager!=null && manager.getDefaultSensor(type)!=null;
+    }
+    public String sensorInventory(boolean permissionGranted){
+        return "SENSORS — step detector: " + (has(Sensor.TYPE_STEP_DETECTOR)
+                    ? (permissionGranted?"available":"permission needed"):"missing")
+            + "; accel: " + (has(Sensor.TYPE_ACCELEROMETER)?"yes":"no")
+            + "; gyro: " + (has(Sensor.TYPE_GYROSCOPE)?"yes":"no")
+            + "; magnet: " + (has(Sensor.TYPE_MAGNETIC_FIELD)?"yes":"no")
+            + "; rotation vector: " + (has(Sensor.TYPE_ROTATION_VECTOR)?"yes":"no")
+            + "; pressure: " + (has(Sensor.TYPE_PRESSURE)?"yes":"no");
+    }
+    public String sessionDiagnostics(){
+        return "Sensor samples — accel "+accelerationSamples+"; rotation "+
+            rotationSamples+"; magnetic "+magneticSamples+
+            "; hardware step "+stepSensorSamples+"; fallback steps "+fallbackSteps+
+            "; magnet "+(magneticReliable?"plausible":"unverified / disturbed");
+    }
+    public boolean isDeviceHeadingEnabled(){return allowDeviceHeading;}
+    public long lastSampleNs(){return latestSampleNs;}
+    public long firstSampleNs(){return firstSampleNs;}
     public boolean hasRotationVector(){
         return manager!=null&&manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)!=null;
     }
     public void stop(){
         if(manager!=null)manager.unregisterListener(this);
-        registered=false;magneticReliable=true;
+        registered=false;magneticReliable=false;
     }
     @Override public void onSensorChanged(SensorEvent e){
         if(!registered || !engine.isRecording())return;
         long t=e.timestamp;int type=e.sensor.getType();
+        if(firstSampleNs==Long.MIN_VALUE)firstSampleNs=t;
+        latestSampleNs=Math.max(latestSampleNs,t);
         double x=e.values.length>0?e.values[0]:0;
         double y=e.values.length>1?e.values[1]:0;
         double z=e.values.length>2?e.values[2]:0;
         switch(type){
             case Sensor.TYPE_STEP_DETECTOR:
+                stepSensorSamples++;
                 callback.sample("RAW_STEP_DETECTOR",t,x,y,z,e.accuracy);
                 if(engine.step(t))callback.step(t);
                 break;
             case Sensor.TYPE_ACCELEROMETER:
+                accelerationSamples++;
                 callback.sample("RAW_ACCEL",t,x,y,z,e.accuracy);
                 if(!useStepDetector){
-                    if(engine.acceleration(t,x,y,z))callback.step(t);
+                    if(engine.acceleration(t,x,y,z)){
+                        fallbackSteps++;
+                        callback.step(t);
+                    }
                 }
                 break;
             case Sensor.TYPE_GYROSCOPE:
                 callback.sample("RAW_GYRO",t,x,y,z,e.accuracy);
                 break;
             case Sensor.TYPE_MAGNETIC_FIELD:
+                magneticSamples++;
                 callback.sample("RAW_MAG",t,x,y,z,e.accuracy);
                 double strength=Math.sqrt(x*x+y*y+z*z);
                 magneticReliable=Double.isFinite(strength)&&strength>=20&&strength<=75;
                 break;
             case Sensor.TYPE_ROTATION_VECTOR:
+                rotationSamples++;
                 callback.rotationVector(t,e.values,e.accuracy);
-                if(magneticReliable && e.accuracy!=SensorManager.SENSOR_STATUS_UNRELIABLE){
-                    SensorManager.getRotationMatrixFromVector(r,e.values);
+                // r[8] is the world-up component of device screen-normal.
+                // >= cos(45deg) means screen face up and within 45° of level.
+                SensorManager.getRotationMatrixFromVector(r,e.values);
+                boolean phoneLevel=r[8]>=0.70710678f;
+                if(allowDeviceHeading && phoneLevel && magneticReliable
+                        && e.accuracy!=SensorManager.SENSOR_STATUS_UNRELIABLE){
                     SensorManager.getOrientation(r,orientation);
                     engine.deviceHeading(t,orientation[0]);
                     callback.sample("HEADING",t,orientation[0],0,0,e.accuracy);
