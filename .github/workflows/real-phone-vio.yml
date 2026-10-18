@@ -23,6 +23,8 @@ jobs:
           python-version: "3.11"
       - name: Install image, IMU and reference readers
         run: python -m pip install --quiet rosbags opencv-python-headless scipy
+      - name: Verify independent scoring regressions before touching remote data
+        run: python -m unittest discover -s tools/campaigns/tests -p test_mobile_gvio.py -v
       - name: Download checksum-verified real smartphone signals to temporary disk
         run: python tools/campaigns/mobile_gvio_fetch.py --out /tmp/actual_phone
       - name: Estimate from actual camera image pixels and IMU without truth input
@@ -30,7 +32,7 @@ jobs:
           python tools/campaigns/mobile_gvio_raw.py \
             --bag /tmp/actual_phone/indoor_2.bag \
             --calib /tmp/actual_phone/orbslam3.yaml \
-            --seconds 22 --skip 295 \
+            --seconds 22 --skip 8 \
             --out campaign_results/raw_phone
       - name: Evaluate only after estimation against original independent reference
         run: |
@@ -50,6 +52,7 @@ jobs:
           assert i["gyro_integrated_samples"]>=100
           assert i["visual_essential_pose_updates"]>=8
           assert s["matched_pose_pairs"]>=30
+          assert i["clock_basis"]=="ROS_msg_header.stamp_original_device_capture_time"
           assert s["estimator_metric_scale_observed"] is False
           print("REAL_CAMERA_AND_IMU_PROVEN",i["actual_images_processed"],
                 i["gyro_integrated_samples"],i["visual_essential_pose_updates"],
