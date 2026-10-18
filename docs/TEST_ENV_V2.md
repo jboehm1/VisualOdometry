@@ -90,6 +90,6 @@ Separate image+IMU smartphone research scripts/PR #12 are outside this tool's re
     python -m unittest discover -s tools/testenv/tests -p 'test_*.py' -v
     python testenv.py run --suite tools/testenv/suites/smoke.json --out /tmp/vector-testenv
 
-The new dedicated .github/workflows/testenv.yml runs unit contract tests and a true offline Python engine smoke, twice for validated --resume history. The expensive public real-data campaign is **opt-in**, never silently triggered by an ordinary code push.
+The dedicated .github/workflows/testenv.yml runs unit contract tests and an actual offline Python engine smoke twice, verifying --resume and HTML history. On PR events, a separate bounded real-data job **also executes the exact V2 suite** against original SIMUL IMU (pinned Java PdrEngine) and published EuRoC VINS-Mono poses. This expensive job does not run on ordinary branch pushes. It uploads only small JSON/HTML reports; published VINS poses are external estimator outputs, never a claim of Android VIO execution.
 
 Before merging, recheck AGENTS.md / docs/DEVELOPMENT_COORDINATION.md and the current feature/slam-explorer HEAD. This work changes no shared Android entrypoints, menus, manifests, Java engines, other workflows, or evaluator mathematics.
