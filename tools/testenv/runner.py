@@ -26,6 +26,8 @@ BENCH = ROOT / "benchmark.py"
 PROVENANCE_CODE = tuple(ROOT / name for name in (
     "benchmark.py", "tools/campaigns/unified.py", "tools/campaigns/run_dataset.py",
     "tools/campaigns/imu_pdr.py", "tools/campaigns/oxiod.py",
+    "tools/campaigns/advio09_real.py", "tools/campaigns/mobile_gvio_fetch.py",
+    "tools/campaigns/mobile_gvio_raw.py", "tools/campaigns/mobile_gvio_score.py",
     "tools/campaigns/simul_real.py", "tools/campaigns/chat_real_proof.py",
     "tools/campaigns/android_pdr_bridge.py", "tools/campaigns/public_trajectory.py",
     "tools/campaigns/java/PdrStepTrace.java",
