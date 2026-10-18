@@ -894,10 +894,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                             if(poseResult==Odometer.Result.REJECTED||poseResult==Odometer.Result.GAP)anchoredOdometry.reset();
                             updateTraceGuide(metric);
                             final Pose a=anchoredOdometry.anchorPose,m=metric;
-                            final long ts=frame.getTimestamp();final int id=anchoredOdometry.referenceId();
+                            final long ts=frame.getTimestamp();final int id=anchoredOdometry.referenceId(),segment=odometer.currentSegment();
                             if(a!=null)recorder.sidecar(recorder.currentFile(),"_motion.csv",
-                                "frame_time_ns,reference_id,world_x,world_y,world_z,anchor_x,anchor_y,anchor_z,anchor_qx,anchor_qy,anchor_qz,anchor_qw,metric_x,metric_y,metric_z",
-                                ()->{float[] aq=a.getRotationQuaternion();return String.format(Locale.US,"%d,%d,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f",ts,id,xyz[0],xyz[1],xyz[2],a.tx(),a.ty(),a.tz(),aq[0],aq[1],aq[2],aq[3],m.tx(),m.ty(),m.tz());});
+                                "frame_time_ns,reference_id,world_x,world_y,world_z,anchor_x,anchor_y,anchor_z,anchor_qx,anchor_qy,anchor_qz,anchor_qw,metric_x,metric_y,metric_z,odometer_segment",
+                                ()->{float[] aq=a.getRotationQuaternion();return String.format(Locale.US,"%d,%d,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%d",ts,id,xyz[0],xyz[1],xyz[2],a.tx(),a.ty(),a.tz(),aq[0],aq[1],aq[2],aq[3],m.tx(),m.ty(),m.tz(),segment);});
                         } else if(frame.getTimestamp()>previousFrameNs){
                             stopTraceGuide();odometer.lostTracking();message="Distance paused — waiting for tracked reference";
                         }
