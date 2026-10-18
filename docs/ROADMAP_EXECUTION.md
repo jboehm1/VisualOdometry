@@ -22,9 +22,9 @@ Ce document est distinct de [l’Atlas interactif](VECTOR_VIO_ATLAS_INTERACTIF_v
 | **B5** Noyau spatial modulaire et contrats | Réduire dépendances MainActivity/ARCore et permettre modes indépendants. | P1 | **34 %** | Revue tests et preuve terrain spécifique | Instrumentation sur téléphone toujours nécessaire |
 | **B6** Courses et cartographie d’un supermarché | MVP sans IA: rayons saisis, passages tracés, liste triée, confidentialité. | P2 | **23 %** | Revue tests et preuve terrain spécifique | Consentement des tiers et précision multi-visites |
 | **B7** Retour sur ses pas et fiabilité de navigation | Fil d’Ariane fidèle aux segments, suivi prudent, aucune promesse Search & Rescue certifiée. | P2 | **29 %** | Revue tests et preuve terrain spécifique | Ne doit jamais remplacer instruments de montagne |
-| **B8** Atlas, traçabilité et reproductibilité | Versionner historique intégral, backlog détaillé, expériences et critères de preuve. | P1 | **80 %** | Revue tests et preuve terrain spécifique | Nécessite discipline de mise à jour |
+| **B8** Atlas, traçabilité et reproductibilité | Versionner historique intégral, backlog détaillé, expériences et critères de preuve. | P1 | **100 %** | Revue tests et preuve terrain spécifique | Nécessite discipline de mise à jour |
 
-**Avancement global moyen : 34 %** (indicateur organisationnel uniquement).
+**Avancement global moyen : 36 %** (indicateur organisationnel uniquement).
 
 ## Détail par tâche et sous-tâche
 
@@ -113,7 +113,7 @@ Ce document est distinct de [l’Atlas interactif](VECTOR_VIO_ATLAS_INTERACTIF_v
 | B7.4 | Mode hors ligne/export secours et test perte caméra/batterie | **20 %** | GPS offline/GPX existent, mode secours non développé | Pas de couverture, GPS peu précis, panne de batterie |
 | B7.5 | Tests sur parcours sûr avec erreurs injectées, échec honnête | **0 %** | Non réalisé | Ne doit jamais remplacer instruments de montagne |
 
-### B8 — Atlas, traçabilité et reproductibilité · P1 · 80 %
+### B8 — Atlas, traçabilité et reproductibilité · P1 · 100 %
 
 **Objectif :** Versionner historique intégral, backlog détaillé, expériences et critères de preuve.
 
@@ -121,7 +121,7 @@ Ce document est distinct de [l’Atlas interactif](VECTOR_VIO_ATLAS_INTERACTIF_v
 |---|---|---:|---|---|
 | B8.1 | Préserver V1/V2 et intégrer réflexions dans HTML V3 | **100 %** | Atlas V3 produit localement, V1/V2 conservées | Modifications locales du navigateur requièrent export JSON |
 | B8.2 | Produire plan distinct avec avancement par sous-tâche | **100 %** | ROADMAP_EXECUTION.md produit | Avancement mesuré par preuves, pas par temps estimé |
-| B8.3 | Publier code/docs sur branche GitHub dédiée | **0 %** | À confirmer après commit distant | GitHub/CI peuvent refuser la publication |
+| B8.3 | Publier code/docs sur branche GitHub dédiée | **100 %** | Commits confirmés sur work/slam-roadmap-b1-b2-b8 | CI et revue de code restent à vérifier séparément |
 | B8.4 | Tests hors-ligne Java du prototype de recalage | **100 %** | javac + smoke déterministe exécutés localement | Ni tests instrumentés ni test de précision réelle |
 | B8.5 | Établir décisions et journal de preuves/limitations | **100 %** | Historique et réserves conservés dans Atlas | Nécessite discipline de mise à jour |
 
