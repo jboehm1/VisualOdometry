@@ -34,6 +34,14 @@ public final class PdrTraceWriter {
             if(++written%256==0){eventOut.flush();rawOut.flush();}
         }catch(IOException e){throw new IllegalStateException("PDR trace write failed",e);}
     }
+    /** Store all GNSS course rejection inputs for bit-for-bit replay gating. */
+    public void gpsCourse(long t,double radians,float speed,float horizontalAccuracy,float bearingAccuracy) {
+        if(eventOut==null)return;
+        try {
+            eventOut.write(String.format(Locale.US,"%d,GPS_COURSE,%.10f,%.6f,%.6f,%.6f%n",
+                t,radians,speed,horizontalAccuracy,bearingAccuracy));
+        }catch(IOException e){throw new IllegalStateException("GPS trace write failed",e);}
+    }
     public void step(long t){sample("STEP",t,0,0,0,0);}
     public void close() throws IOException {
         if(eventOut!=null){eventOut.close();eventOut=null;}
