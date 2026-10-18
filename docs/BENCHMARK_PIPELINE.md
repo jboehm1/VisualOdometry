@@ -11,7 +11,7 @@ Source files:
 - tools/benchmark/tests/test_bench.py: deterministic fixtures, sensor index, scale/leakage tests.
 - .github/workflows/benchmark.yml: cloud smoke tests and manually requested real-file audit.
 
-The catalog is a **prioritized research shortlist**; finding every dataset on the internet is not achievable, and only EuRoC, TUM VI and our Camera2 capture indexes currently have parsers.
+The catalog is a **prioritized research shortlist**; finding every dataset on the internet is not achievable, and EuRoC, TUM VI, our Camera2 capture indexes and a declarative generic CSV mapping are currently implemented. Dataset-specific transforms and reference quality still need review.
 
 ## 1. Architecture
 
@@ -177,3 +177,41 @@ Aspirational development targets, not observed results: distance error <=2% on g
 - OpenVINS: https://docs.openvins.com/gs-datasets.html
 - ORB-SLAM3: https://github.com/UZ-SLAMLab/ORB_SLAM3
 - ARCore replay: https://developers.google.com/ar/develop/recording-and-playback
+
+
+## 9. Add a new dataset without editing Python source
+
+The generic mapping adapter supports camera-free IMU/PDR, synchronized videos,
+magnetometer and barometer streams, provided you describe their existing CSV
+column names and time units. It does not automatically decode binary ROS bags,
+HDF5, vendor videos or calibrated quaternion orientation. Example mapping
+(to adapt to the actual corpus) lives at
+tools/benchmark/generic-imu-example.json.
+
+    python tools/benchmark/bench.py prepare \
+      --dataset generic \
+      --root ~/slam-data/my_imu_only_dataset \
+      --config tools/benchmark/generic-imu-example.json \
+      --out benchmark_results/my_imu_dataset/inputs
+
+The JSON mapping defines:
+- frames: optional CSV, column containing timestamps, time unit
+  (ns/us/ms/s), resource filename and resource root; omit for no camera.
+- sensors: list of CSV sources, each with timestamp column/unit, sensor
+  type ACCEL/GYRO/MAG/BARO and numeric columns (three axes or one barometer value).
+- truth: optional path, format tum/euroc and pose frame. Reference is not used
+  during inference. Preserve the original truth-quality category.
+- pose_frame and calibration_files: explicit data provenance. These values
+  must be interpreted by the external VIO/PDR engine.
+
+Streams are timestamp-merged with constant memory beyond file buffers, native
+units are retained (no silent conversion of magnetic field or pressure to
+distance), and camera files are referenced rather than duplicated. Different
+sensor sample rates are supported. For video, frames.csv references a video
+file; accurate video frame extraction/timestamp calibration remains the duty
+of the decoding engine.
+
+This is the **modular expansion hook** for RIDI/OxIOD/RoNIN and new scientific
+datasets, not a claim that their native archives are automatically supported.
+Before each new dataset run, inspect original source files, implement and test
+the mapping, document ground-truth provenance, axes, biases and time alignment.
