@@ -27,6 +27,8 @@ import com.google.android.gms.location.Priority;
 import dev.jboehm.vectorvio.location.LocationSample;
 import dev.jboehm.vectorvio.location.LocationPairer;
 import dev.jboehm.vectorvio.location.LocationComparisonRecorder;
+import dev.jboehm.vectorvio.location.LocationComparisonRepository;
+import java.util.List;
 
 import java.io.*;
 import java.util.Locale;
@@ -48,6 +50,7 @@ public final class LocationComparisonActivity extends Activity {
     private final LocationPairer pairer=new LocationPairer();
     private LocationSample lastGps,lastFused;
     private File lastSession;
+    private LocationComparisonRepository sessions;
     private volatile boolean running,stopping;
     private long lastUiMs;
     private TextView statusText,gpsText,fusedText,comparisonText;
@@ -61,6 +64,8 @@ public final class LocationComparisonActivity extends Activity {
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(18),dp(18),dp(18),dp(22));
         content.setBackgroundColor(0xff091723);
+        sessions=new LocationComparisonRepository(new File(getFilesDir(),"location_comparisons"));
+        lastSession=sessions.latest();
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);
         scroll.addView(content);setContentView(scroll);
         content.addView(text("GPS  ↔  ANDROID FUSED",22,0xff70fade,true));
@@ -74,7 +79,9 @@ public final class LocationComparisonActivity extends Activity {
         content.addView(startStop);
         exportButton=button("EXPORTER LE DERNIER TEST · ZIP",false);
         exportButton.setOnClickListener(v->export());
-        exportButton.setEnabled(false);content.addView(exportButton);
+        exportButton.setEnabled(lastSession!=null);content.addView(exportButton);
+        Button history=button("MES TESTS · EXPORTER / SUPPRIMER",false);
+        history.setOnClickListener(v->showSessions());content.addView(history);
         Button help=button("PROTOCOLE ET LIMITES",false);
         help.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("GPS versus Google FLP")
             .setMessage("Les deux sources sont enregistrées en parallèle, à environ 1 Hz demandé. Les positions sont appariées sans interpolation dans une fenêtre de 1,5 s. Seuls les fixes frais, non simulés et d'une précision annoncée de 30 m ou moins sont appariés ; tous les fixes sont conservés bruts.\n\nL'écart GPS–FLP n'est PAS une erreur de position réelle : les API peuvent partager le même signal GNSS et des biais communs.\n\nTester immobile, puis sur un trajet mesuré et sous les arbres. Garder cet écran visible. Retour/écran éteint arrête la session. Aucun GPS/VIO/PDR existant n'est modifié.")
@@ -241,9 +248,38 @@ public final class LocationComparisonActivity extends Activity {
     private void complete(String note){
         stopping=false;worker=null;sensorThread=null;gpsListener=null;fusedCallback=null;recorder=null;
         startStop.setEnabled(true);startStop.setText("NOUVEAU TEST");
-        exportButton.setEnabled(lastSession!=null&&
-            new File(lastSession,LocationComparisonRecorder.META_JSON).isFile());
+        lastSession=sessions.latest();
+        exportButton.setEnabled(lastSession!=null);
         message(note);
+    }
+
+    /** Explicit export/delete of older finalized tests, including after app restart. */
+    private void showSessions(){
+        if(running||stopping){message("Arrêter la comparaison avant de consulter l'historique.");return;}
+        List<File> all=sessions.listFinalized();
+        if(all.isEmpty()){message("Aucun test finalisé conservé localement.");return;}
+        String[] names=new String[all.size()];
+        for(int i=0;i<all.size();i++)names[i]=all.get(i).getName().replace("location_ab_","");
+        new AlertDialog.Builder(this).setTitle("Tests GPS ↔ FUSED enregistrés")
+            .setItems(names,(dialog,i)->{
+                final File selected=all.get(i);
+                new AlertDialog.Builder(this).setTitle(selected.getName())
+                    .setItems(new String[]{"EXPORTER ZIP","SUPPRIMER DÉFINITIVEMENT"},(d,j)->{
+                        if(j==0){lastSession=selected;export();}
+                        else new AlertDialog.Builder(this)
+                            .setTitle("Supprimer ce test local ?")
+                            .setMessage("Les fichiers privés de cette session seront effacés. Cette action est irréversible.")
+                            .setNegativeButton("ANNULER",null)
+                            .setPositiveButton("SUPPRIMER",(a,b)->{
+                                try{
+                                    sessions.deleteFinalized(selected);
+                                    lastSession=sessions.latest();
+                                    exportButton.setEnabled(lastSession!=null);
+                                    message("Session supprimée ; données des autres tests conservées");
+                                }catch(IOException error){message("Suppression refusée : "+error.getMessage());}
+                            }).show();
+                    }).setNegativeButton("ANNULER",null).show();
+            }).setNegativeButton("FERMER",null).show();
     }
 
     private void export(){
