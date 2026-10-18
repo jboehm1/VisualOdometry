@@ -13,7 +13,7 @@ import java.util.*;
  */
 public final class PdrReplay {
     public static void main(String[] args) throws Exception {
-        if(args.length!=1)throw new IllegalArgumentException("usage: PdrReplay <events.csv>");
+        if(args.length<1||args.length>2)throw new IllegalArgumentException("usage: PdrReplay <events.csv> [path-out.csv]");
         PdrEngine p=new PdrEngine();p.start(1);
         long lastTime=1;
         int rows=0,bad=0;
@@ -45,5 +45,12 @@ public final class PdrReplay {
         System.out.printf(Locale.US,
             "{\"rows\":%d,\"rejected_rows\":%d,\"steps\":%d,\"distance_m\":%.5f,\"east_m\":%.5f,\"north_m\":%.5f,\"steps_without_heading\":%d}%n",
             rows,bad,s.steps,s.distanceM,s.eastM,s.northM,s.stepsWithoutHeading);
+        if(args.length==2) {
+            try(BufferedWriter out=Files.newBufferedWriter(Paths.get(args[1]),StandardCharsets.UTF_8)){
+                out.write("t_ns,east_m,north_m\n");
+                for(PdrEngine.Point p:p.path())
+                    out.write(String.format(Locale.US,"%d,%.6f,%.6f%n",p.timeNs,p.eastM,p.northM));
+            }
+        }
     }
 }
