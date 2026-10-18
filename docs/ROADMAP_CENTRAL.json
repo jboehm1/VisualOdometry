@@ -233,7 +233,7 @@
       "name": "Fumée dense / pompier : recherche non sécuritaire",
       "owner_branch": "feature/smoke-rescue-research (PR #17 draft; actively changing)",
       "priority": "P2 (recherche) / P0 (interdire les promesses de sécurité)",
-      "stage": "Independent smoke/radar/UPO research scripts and dataset catalogue in draft PR #17; no merged rescue device, no physical qualification",
+      "stage": "Independent smoke/radar/UPO research scripts and dataset catalogue in draft PR #17; no merged rescue device, no physical qualification ; aucun système qualifié, aucune utilisation d'intervention autorisée.",
       "evidence": "Synthetic offline radar/thermal fixtures and optional UPO bag pipeline on PR #17; runs must be checked on final SHA.",
       "risks": "Erreur de position potentiellement mortelle ; visibilité nulle, repères modifiés, chaleur, communications rompues, étage ambigu. PR #17 now also edits selected ADVIO benchmark/workflow files.",
       "tasks": [
