@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-19",
+  "updated_at": "2026-10-19 (audit PRs after #11 merge)",
   "source_of_truth": "feature/slam-explorer:docs/ROADMAP_CENTRAL.md",
   "branch_notes": {
     "default_github_branch": "master — archive 2019, non utilisée pour intégration Android",
-    "android_integration": "feature/slam-explorer",
-    "work_branches": "PR #3 B1–B8 ; PR #5 PDR ; PR #11 Android FLP"
+    "android_integration": "feature/slam-explorer (FLP #11 now integrated; PDR #5 and B1–B8 #3 not integrated)",
+    "work_branches": "PR #3 B1–B8 draft conflict; PR #5 PDR draft conflict; PR #17 smoke draft active; PR #11 already merged"
   },
   "statuses": [
     "NON_FAIT",
@@ -31,9 +31,9 @@
       "name": "Application Android / exploration",
       "owner_branch": "feature/slam-explorer",
       "priority": "P0",
-      "stage": "Intégration partielle vérifiée",
-      "evidence": "Odomètre ARCore, HUD, carte, GPS ROUTES, capture et replay déjà présents sur branche intégration.",
-      "risks": "Précision/course/S21, régimes thermiques et comportement multi-modules non validés.",
+      "stage": "GNSS–FLP A/B experimental lab now included in integration; PDR and B1–B8 remain separate",
+      "evidence": "Odomètre ARCore, HUD, carte, GPS ROUTES, capture et replay déjà présents sur branche intégration. PR #11 experimentally merged at 9ff7d3a; physical S21 comparison remains.",
+      "risks": "Précision/course/S21, régimes thermiques et comportement multi-modules non validés. PR #3/#5 have MainActivity and manifest conflicts.",
       "tasks": [
         {
           "id": "C01",
@@ -146,10 +146,10 @@
     {
       "id": "FLP",
       "name": "A/B localisation Android GNSS natif vs Google FLP",
-      "owner_branch": "feature/android-flp-comparison",
+      "owner_branch": "feature/slam-explorer (source feature/android-flp-comparison / merged PR #11)",
       "priority": "P0",
-      "stage": "Pilote Android implémenté et CI verte sur SHA fonctionnel, PR #11 ouverte",
-      "evidence": "129 tests Android, Lint/APK et campagnes existantes au SHA 04ad04e ; raw/paired CSV, analyse Python offline, ZIP local.",
+      "stage": "Merged opt-in GNSS/FLP comparison (CI green on PR head; post-merge combined CI to be validated)",
+      "evidence": "129 tests Android, Lint/APK et campagnes existantes au SHA 04ad04e ; raw/paired CSV, analyse Python offline, ZIP local. GitHub PR #11 merge 9ff7d3a, CI branch runs 39171989618 / 39171989629 green; field metrics absent.",
       "risks": "Les deux sources partagent potentiellement le GNSS; désaccord ≠ précision, mesures physiques et batterie manquantes.",
       "tasks": [
         {
@@ -194,8 +194,8 @@
       "name": "Datasets, validation A/B/C et benchmark métrique",
       "owner_branch": "feature/three-validation-campaigns + feature/slam-explorer + work/slam-roadmap-b1-b2-b8",
       "priority": "P0",
-      "stage": "Infrastructure et campagnes CI présentes, couverture réelle incomplète",
-      "evidence": "Campagnes A/B/C et scripts, provenance normalisée V5 B1–B8; PR #14 de benchmark ADVIO-09 ouverte.",
+      "stage": "Several benchmark and testenv PRs already merged into integration (#4/#6/#7/#9/#10/#12/#14/#16); hardware and full datasets not qualified",
+      "evidence": "Campagnes A/B/C et scripts, provenance normalisée V5 B1–B8; PR #14 de benchmark ADVIO-09 ouverte. PR #14 ADVIO09 and PR #16 modular testenv already merged, not open.",
       "risks": "Dataset catalogué ≠ acquis/rejoué ; baseline PDR Python ≠ Java; EuRoC non joué directement par ARCore Android.",
       "tasks": [
         {
@@ -231,11 +231,11 @@
     {
       "id": "SMOKE",
       "name": "Fumée dense / pompier : recherche non sécuritaire",
-      "owner_branch": "R&D futur, aucun moteur pompier déclaré",
+      "owner_branch": "feature/smoke-rescue-research (PR #17 draft; actively changing)",
       "priority": "P2 (recherche) / P0 (interdire les promesses de sécurité)",
-      "stage": "Cas d'usage documenté ; aucun système qualifié ni essai réel",
-      "evidence": "Références NIST sur localisation secours en fumée, GNSS non fiable indoor et capteurs complémentaires.",
-      "risks": "Erreur de position potentiellement mortelle ; visibilité nulle, repères modifiés, chaleur, communications rompues, étage ambigu.",
+      "stage": "Independent smoke/radar/UPO research scripts and dataset catalogue in draft PR #17; no merged rescue device, no physical qualification",
+      "evidence": "Synthetic offline radar/thermal fixtures and optional UPO bag pipeline on PR #17; runs must be checked on final SHA.",
+      "risks": "Erreur de position potentiellement mortelle ; visibilité nulle, repères modifiés, chaleur, communications rompues, étage ambigu. PR #17 now also edits selected ADVIO benchmark/workflow files.",
       "tasks": [
         {
           "id": "S01",
@@ -281,5 +281,43 @@
         }
       ]
     }
-  ]
+  ],
+  "git_audit": {
+    "integration_base_at_review": "9ff7d3ae34019c759ca427c1f76a8e017039a4bc",
+    "open_prs": [
+      3,
+      5,
+      17
+    ],
+    "recently_merged": [
+      11
+    ],
+    "superseded_closed_without_merge": [
+      1,
+      2
+    ],
+    "recently_merged_into_integration": [
+      4,
+      6,
+      7,
+      9,
+      10,
+      11,
+      12,
+      14,
+      15,
+      16
+    ],
+    "merged_into_work_branch_only": [
+      8
+    ],
+    "other_closed_superseded": [
+      13
+    ],
+    "branch_count_at_review": 20,
+    "combined_android_ci_after_11_merge": "pending_validation_via_docs_branch",
+    "audit_document": "docs/coordination/git-consolidation-20261019.md",
+    "smoke_research_branch_mutating": true,
+    "checked_at": "2026-10-19"
+  }
 }
