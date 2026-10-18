@@ -29,47 +29,55 @@ jobs:
       - name: Download EXACT original public UPO experiment 7 bag
         timeout-minutes: 27
         run: |
-          mkdir -p "$RUNNER_TEMP/upo"
+          mkdir -p campaign_results/smoke-upo7
           # Original noncommercial dataset is transient, never an uploaded artifact.
           curl --fail --show-error --location --retry 2 --retry-delay 5 \
             --connect-timeout 30 --max-time 1500 \
             --proto '=https' --tlsv1.2 \
-            --output "$RUNNER_TEMP/upo/experiment_7.bag" "$ORIGINAL_URL"
+            --output "campaign_results/smoke-upo7/experiment_7.bag" "$ORIGINAL_URL"
           python - <<'PY'
           import os
           from pathlib import Path
-          data=Path(os.environ['RUNNER_TEMP'])/'upo/experiment_7.bag'
+          data=Path('campaign_results/smoke-upo7/experiment_7.bag')
           actual=data.stat().st_size
           assert actual == int(os.environ["EXPECTED_BYTES"]), f"Not the full published recording: {actual} bytes"
           print(f"ORIGINAL_PUBLIC_BAG_BYTES_VERIFIED={actual}")
           PY
-      - name: Decode real sensor messages and compute measured statistics
-        timeout-minutes: 8
+      - name: Plan and execute canonical Test Environment V2 on original UPO recording
+        timeout-minutes: 12
         run: |
-          mkdir -p campaign_results/smoke-upo7
-          python tools/smoke_rescue/upo_real.py \
-            --bag "$RUNNER_TEMP/upo/experiment_7.bag" \
-            --max-seconds 60 \
-            --out campaign_results/smoke-upo7/real_sensor_report.json
+          python -m tools.testenv.cli plan \
+            --suite tools/testenv/suites/smoke-upo7-real.json \
+            > campaign_results/smoke-upo7/plan.json
+          python -m tools.testenv.cli run \
+            --suite tools/testenv/suites/smoke-upo7-real.json \
+            --out campaign_results/smoke-upo7-benchmark \
+            > campaign_results/smoke-upo7/suite-run.json
           python - <<'PY'
           import json
           from pathlib import Path
-          report=json.loads(Path("campaign_results/smoke-upo7/real_sensor_report.json").read_text())
-          assert report["mode"]=="DECODED_REAL_ROS1_BAG"
+          cases=list(Path("campaign_results/smoke-upo7-benchmark/runs").glob("*/cases/upo7-radar-sensor/report.json"))
+          assert len(cases)==1, f"Expected exactly one canonical case, got {len(cases)}"
+          report=json.loads(cases[0].read_text())
+          assert report["status"]=="PASS" and report["dataset_id"]=="upo_smoke"
+          assert report["requested_engine"]=="radar-sensor-audit"
           assert report["actual_estimator_executed"] is False
+          assert report["reference_used_to_score"] is False
           assert report["metric_distance_accuracy_proven"] is False
-          for name in ("radar_left","radar_right","lidar"):
-              assert report["metrics"][name]["frames"]>=10, f"No real decoded {name} frames"
-          print("Genuine original UPO radar/LiDAR ROS1 messages decoded; no odometry accuracy inferred.")
+          print("REAL UPO original ROS data benchmarked via TESTENV V2; sensor metrics follow:")
+          print(json.dumps(report["metrics"],sort_keys=True))
           PY
-      - name: Publish bounded report (never original data)
+      - name: Upload evidence: only reports/HTML, NEVER dataset bag
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: smoke-upo7-real-sensor-stats-only
-          path: campaign_results/smoke-upo7/real_sensor_report.json
+          name: smoke-upo7-testenv-v2-evidence
+          path: |
+            campaign_results/smoke-upo7/*.json
+            campaign_results/smoke-upo7-benchmark/**/*.json
+            campaign_results/smoke-upo7-benchmark/**/*.html
           if-no-files-found: warn
           retention-days: 14
       - name: Delete local copyrighted original
         if: always()
-        run: rm -f "$RUNNER_TEMP/upo/experiment_7.bag"
+        run: rm -f "campaign_results/smoke-upo7/experiment_7.bag"
