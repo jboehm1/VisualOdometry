@@ -95,6 +95,10 @@ public final class PdrEngine {
         deviceHeadingAvailable=false;gpsCourseAvailable=false;gapPending=true;
     }
     public boolean isRecording() { return recording; }
+    /** Gate delayed callbacks from the preceding session before they reach the trace. */
+    public boolean isInCurrentSession(long timeNs) {
+        return recording && timeNs>=sessionStartNs && timeNs>0;
+    }
 
     /** Android SensorManager azimuth: radians clockwise from north; phone top Y axis. */
     public void deviceHeading(long timeNs, double radians) {
@@ -159,7 +163,7 @@ public final class PdrEngine {
     }
     /** Fallback used ONLY when Android's STEP_DETECTOR is missing or not permitted. */
     public boolean acceleration(long timeNs, double x, double y, double z) {
-        if (!recording) return false;
+        if (!isInCurrentSession(timeNs)) return false;
         return fallback.accept(timeNs,x,y,z) && step(timeNs);
     }
     public Snapshot snapshot(long timeNs){return new Snapshot(this,timeNs);}

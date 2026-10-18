@@ -52,6 +52,7 @@ public final class PdrActivity extends Activity {
     private PdrEngine.Snapshot completedSnapshot;
     private java.util.List<PdrEngine.Point> completedPath;
     private String recordedStepMode="NOT STARTED";
+    private String completedTimingReport="NO SENSOR SAMPLES";
     private String note="READY";
     private final Runnable tick=new Runnable(){
         @Override public void run(){render();ui.postDelayed(this,350);}
@@ -253,7 +254,7 @@ public final class PdrActivity extends Activity {
         }
         try {writer=new PdrTraceWriter(this);}
         catch(Exception e){note="Cannot start trace: "+e.getMessage();render();return;}
-        completedSnapshot=null;completedPath=null;
+        completedSnapshot=null;completedPath=null;completedTimingReport="NO SENSOR SAMPLES";
         recordedRunning=runningMode;
         recordedPhoneTopForward=phoneTopForward;
         engine.setStepLengthMeters(savedStride(recordedRunning));
@@ -289,6 +290,7 @@ public final class PdrActivity extends Activity {
     }
     private void finishSession(boolean background){
         if(!engine.isRecording())return;
+        completedTimingReport=bridge.sessionTimingReport();
         bridge.stop();stopGps();
         engine.pause();
         completedSnapshot=engine.snapshot(SystemClock.elapsedRealtimeNanos());
@@ -365,7 +367,7 @@ public final class PdrActivity extends Activity {
                 completedPath!=null?completedPath:engine.path(),
                 completedSnapshot!=null?completedSnapshot:engine.snapshot(SystemClock.elapsedRealtimeNanos()),
                 recordedStepMode,recordedRunning?"RUN":"WALK",
-                recordedPhoneTopForward?"PHONE_FORWARD":"DISTANCE_ONLY");
+                recordedPhoneTopForward?"PHONE_FORWARD":"DISTANCE_ONLY",completedTimingReport);
             Toast.makeText(this,"PDR ZIP exported",Toast.LENGTH_LONG).show();
         }catch(Exception e){new AlertDialog.Builder(this).setMessage("Export failed: "+e.getMessage())
                .setPositiveButton("OK",null).show();}

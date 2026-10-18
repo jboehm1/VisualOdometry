@@ -140,6 +140,23 @@ public final class PdrEngineTest {
         p.pressure(6_000_000_000L,1000);
         assertEquals(0,p.snapshot(6_000_000_000L).elevationM,1e-9);
     }
+    @Test public void preStartAccelerationCannotPrimeFallbackState(){
+        PdrEngine p=new PdrEngine();
+        long startNs=5_000_000_000L;
+        p.start(startNs);
+        long t=1_000_000_000L;
+        for(int k=0;k<6;k++)for(int j=0;j<30;j++){
+            assertFalse(p.acceleration(t,0,0,j==10?15.0:9.81));
+            t+=20_000_000L;
+        }
+        assertEquals(0,p.snapshot(startNs).steps);
+        assertFalse(p.isInCurrentSession(startNs-1));
+        assertTrue(p.isInCurrentSession(startNs));
+        // A new single shock must not count as a valid walking bout.
+        for(int j=0;j<30;j++)
+            assertFalse(p.acceleration(startNs+j*20_000_000L,0,0,j==10?15.0:9.81));
+        assertEquals(0,p.snapshot(startNs+600_000_000L).steps);
+    }
     @Test public void accelerationFallbackDetectsDistinctSyntheticPeaks() {
         PdrEngine p=new PdrEngine();p.start(1);
         long t=1_000_000_000L;

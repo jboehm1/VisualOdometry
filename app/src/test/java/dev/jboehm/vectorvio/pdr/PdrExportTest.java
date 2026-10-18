@@ -66,6 +66,27 @@ public final class PdrExportTest {
         }finally{zipFile.delete();}
     }
 
+    @Test public void exportKeepsPerSensorTimingDiagnostics() throws Exception {
+        Application app=RuntimeEnvironment.getApplication();
+        PdrEngine p=new PdrEngine();p.start(1_000_000_000L);
+        PdrTraceWriter w=new PdrTraceWriter(app);
+        w.sample("START",1_000_000_000L,0,0,0,0);
+        SensorTimingMonitor monitor=new SensorTimingMonitor();
+        monitor.observe(SensorTimingMonitor.ACCEL,1_000_000_000L,1_010_000_000L);
+        monitor.observe(SensorTimingMonitor.ACCEL,1_500_000_000L,1_800_000_000L);
+        File zipFile=new File(app.getCacheDir(),"pdr-timing-"+System.nanoTime()+".zip");
+        try{
+            w.export(app,Uri.fromFile(zipFile),p.path(),p.snapshot(2_000_000_000L),
+                "ACCEL FALLBACK","WALK","DISTANCE_ONLY",monitor.detailedReport());
+            try(ZipFile zip=new ZipFile(zipFile)){
+                String metadata=entry(zip,"metadata.txt");
+                assertTrue(metadata.contains("Sensor timing diagnostics"));
+                assertTrue(metadata.contains("accel: events=2"));
+                assertTrue(metadata.contains("gaps_over_250ms=1"));
+                assertTrue(metadata.contains("not proof of lost samples"));
+            }
+        }finally{zipFile.delete();}
+    }
     @Test public void directionLossIsExportedAsReplayableEventAndPathBreak() throws Exception {
         Application app=RuntimeEnvironment.getApplication();
         PdrEngine engine=new PdrEngine();

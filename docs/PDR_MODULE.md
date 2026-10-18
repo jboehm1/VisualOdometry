@@ -249,3 +249,28 @@ campaigns are handled by a separate workstream.
 - Phone heading is invalidated when magnetic quality or the screen-facing/up posture gate fails; an explicit `HEADING_INVALID` trace event permits replay of the same direction gaps. GNSS course remains an independent, separately gated source. Default sensor bridge overload now opts **out** of assumed phone direction.
 - Pressure discards out-of-order/duplicate timestamps, negative GNSS accuracy values are rejected, and actual Android step/accelerometer listener registration is required to start a live session. No change to shared menus, Manifest or workflows.
 - Added Java/Robolectric regression tests for these safeguards. The synthetic cadence samples are **NOT** proof of physical step accuracy; all real IMU placements, independent distance, S21 installation and energy/thermal tests remain pending.
+
+### PDR 1.2: sensor timestamp observability
+
+New pure-Java `SensorTimingMonitor` records counters per sensor type
+(accelerometer, gyroscope, magnetometer, Android rotation-vector, pressure,
+hardware step). Each callback compares its Android monotonic event timestamp
+against the previous high-watermark timestamp **for that sensor** and the
+current `SystemClock.elapsedRealtimeNanos()` callback-arrival time.
+It reports invalid timestamps, duplicates, older-than-high-watermark events,
+IMU intervals >250 ms, callback delivery latency >200 ms, future samples,
+and the longest observed interval/lag. The report is included in the session
+ZIP `metadata.txt` and a concise line appears on the PDR screen. Report
+timestamps are **diagnostics only**, never fed to the odometry estimate.
+
+**Never interpret these counters as dropped-sample counts, actual FIFO
+overflow, guaranteed sample rate, or navigation accuracy.** Sparse step/pressure
+events do not use the IMU gap threshold. Missing sensor callbacks can be
+invisible. Long intervals may be sampling-policy changes, power suspension,
+or true dropped callbacks. Only a timed S21 acquisition benchmark can
+resolve that ambiguity.
+
+Additionally raw accelerometer events timestamped before session START are
+rejected *before* the fallback's rhythm state and the raw trace can consume
+them; the engine and bridge share the same session timestamp gate.
+Android and exported replay ZIP preserve accepted-event ordering.

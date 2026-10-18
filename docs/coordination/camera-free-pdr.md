@@ -78,3 +78,17 @@ Integration SHA consulted: `372c935fc27536d417fa371d79f5f453546ebefa`. Working b
 - Sensitive shared files to change: **none**. Never edit `MainActivity.java`, Manifest, workflows, coordination global, `README.md`, `tools/campaigns/**`, `tools/benchmark/**`, `tools/eval/**`. PR #5 stays draft, menu DATA conflict stays integration-owned.
 - Baseline exact CI `39173832012` at `bf7ee500`: Android JUnit/Robolectric/lint/APK and native schema Java replay successful. No real SIMUL re-evaluation or S21 proof at that SHA.
 - Plan and limits: measure per-sensor timestamps, out-of-order/duplicates, inferred gaps, delivery latency/possible batching and stale callback markers; export as **diagnostic only**, not certified missed-sample or FIFO saturation counts. Test pure Java counters, Android bridging/ZIP persistence, and reject pre-START accel. Preserve the safe DISTANCE ONLY invariant. Update percentages only when an acceptance criterion has demonstrable evidence; CI exact SHA afterwards.
+
+### PDR 1.2 — code handoff pending exact-SHA CI
+
+Module-only changed files: `PdrEngine`, `PdrSensorBridge`, `PdrActivity`,
+`PdrTraceWriter`, new `SensorTimingMonitor`, PDR JUnit/Robolectric tests,
+`docs/PDR_MODULE.md`, `docs/PDR_RELIABILITY_1_1.md`, and this note.
+No shared Android entry points, Manifest, workflows, benchmarks or campaign
+code changed. Inferred long sensor intervals / delayed callbacks are quality
+signals only and cannot prove dropped samples; no S21 measurements made.
+The timestamp diagnostic task should remain **not accepted** until hardware
+qualification shows sampling, buffering and actual interruptions, preserving
+the weighted 42.1% progress score for now. Next: exact SHA GitHub Actions
+(Android JUnit/Robolectric/lint/APK + native-schema fixtures), correct any
+failures, followed by held-out SIMUL / S21 testing by their respective owners.

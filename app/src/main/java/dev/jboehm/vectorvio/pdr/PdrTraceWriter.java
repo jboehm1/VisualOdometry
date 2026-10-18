@@ -64,6 +64,12 @@ public final class PdrTraceWriter {
     public void export(Context ctx,Uri uri,List<PdrEngine.Point> points,
                        PdrEngine.Snapshot snap,String stepMode,String gaitProfile,
                        String headingPolicy) throws IOException {
+        export(ctx,uri,points,snap,stepMode,gaitProfile,headingPolicy,"NO SENSOR TIMING DATA");
+    }
+    /** Optional timestamp diagnostics, never a measured accuracy or dropped-sample count. */
+    public void export(Context ctx,Uri uri,List<PdrEngine.Point> points,
+                       PdrEngine.Snapshot snap,String stepMode,String gaitProfile,
+                       String headingPolicy,String sensorTiming) throws IOException {
         close();
         try(OutputStream dst=ctx.getContentResolver().openOutputStream(uri)){
             if(dst==null)throw new IOException("No output stream");
@@ -89,7 +95,9 @@ public final class PdrTraceWriter {
                     "Step length m: "+snap.stepLengthM+"\n"+
                     "Steps: "+snap.steps+"\n"+
                     "Estimated distance m: "+snap.distanceM+"\n"+
-                    "Steps with no heading: "+snap.stepsWithoutHeading+"\n")
+                    "Steps with no heading: "+snap.stepsWithoutHeading+"\n"+
+                    "Sensor timing diagnostics (observed callbacks only):\n"+
+                    sensorTiming+"\n")
                     .getBytes(StandardCharsets.UTF_8));zip.closeEntry();
             }
         }

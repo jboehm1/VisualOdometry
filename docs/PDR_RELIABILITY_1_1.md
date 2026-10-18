@@ -26,3 +26,16 @@ Use immutable engine commits `f8228aa7acbc453001d623c537bd8d7f0a9bc176` (origina
 For Galaxy S21 physical qualification, log permissions and sensor inventory first, then measured 100/400/1000 m walk and run, stationary + violent shake, pure rotations, pocket/hand swaps, magnet disturbances, GNSS degradation and session interruptions. Compare ZIP `events.csv` → Java `PdrReplay` `path.csv` to the phone export with timestamps, skipped heading gaps and step totals. Report success and failures, not only mean errors.
 
 **Current progress:** 23 tasks, 92 subtasks, **42.1%** accepted weighted milestones, deliberately unchanged (not position accuracy).
+
+## PDR 1.2: diagnostics and stale-callback safety (2026-10-19)
+
+- Added `SensorTimingMonitor` (pure Java), bridge callback clocks and
+  UI/export diagnostics. Per-source counters reject invalid timebase
+  assumptions; long IMU gaps and delayed callback arrivals are observable,
+  but **do not measure FIFO overflow or exact lost samples**.
+- The Android bridge now drops callbacks preceding session START before
+  logging or applying them; the Java acceleration fallback rejects the same
+  stale timestamps before modifying its detector state.
+- Added unit tests for per-source gaps, duplicate/out-of-order/future events,
+  intentional sparse STEP/PRESSURE events, resets and stale acceleration,
+  plus Robolectric export metadata. The timed real-S21 evidence is still missing.

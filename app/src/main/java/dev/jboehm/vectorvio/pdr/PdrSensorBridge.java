@@ -5,6 +5,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.SystemClock;
 
 /**
  * Android-only acquisition adapter. Core estimator has zero Android dependencies.
@@ -20,6 +21,7 @@ public final class PdrSensorBridge implements SensorEventListener {
     private final SensorManager manager;
     private final PdrEngine engine;
     private final Callback callback;
+    private final SensorTimingMonitor timing=new SensorTimingMonitor();
     private final float[] r=new float[9], orientation=new float[3];
     private boolean registered, useStepDetector, accelerometerRegistered, magneticReliable, allowDeviceHeading;
     private long accelerationSamples, rotationSamples, magneticSamples, stepSensorSamples, fallbackSteps;
@@ -54,7 +56,7 @@ public final class PdrSensorBridge implements SensorEventListener {
      * GNSS course is managed independently by PdrActivity.
      */
     public void start(boolean stepPermission,boolean phoneTopForward) {
-        stop();allowDeviceHeading=phoneTopForward;
+        stop();timing.reset();allowDeviceHeading=phoneTopForward;
         if(manager==null){stepMode="NO SENSOR MANAGER";registered=false;return;}
         Sensor detector=stepPermission?manager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR):null;
         // A sensor can be advertised by Android but its listener registration
@@ -98,11 +100,14 @@ public final class PdrSensorBridge implements SensorEventListener {
             + "; rotation vector: " + (has(Sensor.TYPE_ROTATION_VECTOR)?"yes":"no")
             + "; pressure: " + (has(Sensor.TYPE_PRESSURE)?"yes":"no");
     }
+    public String sessionTimingReport(){return timing.detailedReport();}
+    public String sessionTimingSummary(){return timing.summary();}
     public String sessionDiagnostics(){
         return "Sensor samples — accel "+accelerationSamples+"; rotation "+
             rotationSamples+"; magnetic "+magneticSamples+
             "; hardware step "+stepSensorSamples+"; fallback steps "+fallbackSteps+
-            "; magnet "+(magneticReliable?"plausible":"unverified / disturbed");
+            "; magnet "+(magneticReliable?"plausible":"unverified / disturbed")
+            +"\n"+timing.summary();
     }
     public boolean isDeviceHeadingEnabled(){return allowDeviceHeading;}
     public long lastSampleNs(){return latestSampleNs;}
@@ -123,6 +128,19 @@ public final class PdrSensorBridge implements SensorEventListener {
     @Override public void onSensorChanged(SensorEvent e){
         if(!registered || !engine.isRecording())return;
         long t=e.timestamp;int type=e.sensor.getType();
+        if(!engine.isInCurrentSession(t)){
+            timing.beforeSessionCallback();
+            return; // never log buffered samples from before START
+        }
+        switch(type){
+            case Sensor.TYPE_ACCELEROMETER: timing.observe(SensorTimingMonitor.ACCEL,t,SystemClock.elapsedRealtimeNanos());break;
+            case Sensor.TYPE_GYROSCOPE: timing.observe(SensorTimingMonitor.GYRO,t,SystemClock.elapsedRealtimeNanos());break;
+            case Sensor.TYPE_MAGNETIC_FIELD: timing.observe(SensorTimingMonitor.MAGNET,t,SystemClock.elapsedRealtimeNanos());break;
+            case Sensor.TYPE_ROTATION_VECTOR: timing.observe(SensorTimingMonitor.ROTATION,t,SystemClock.elapsedRealtimeNanos());break;
+            case Sensor.TYPE_PRESSURE: timing.observe(SensorTimingMonitor.PRESSURE,t,SystemClock.elapsedRealtimeNanos());break;
+            case Sensor.TYPE_STEP_DETECTOR: timing.observe(SensorTimingMonitor.STEP,t,SystemClock.elapsedRealtimeNanos());break;
+            default:break;
+        }
         if(firstSampleNs==Long.MIN_VALUE)firstSampleNs=t;
         latestSampleNs=Math.max(latestSampleNs,t);
         double x=e.values.length>0?e.values[0]:0;
