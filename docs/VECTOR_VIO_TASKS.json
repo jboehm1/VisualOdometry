@@ -1,5 +1,5 @@
 {
-  "revision": "2026-10-18",
+  "revision": "2026-10-18 / iteration 2",
   "branches": [
     {
       "id": "B1",
@@ -17,33 +17,33 @@
         [
           "B1.2",
           "Ajouter événements synchronisés FPS/qualité/ruptures et annotation de scènes",
-          0,
-          "Instrumentation spécifique non ajoutée",
-          "ARCore expose peu de métriques internes; CSV actuel partiel"
+          85,
+          "Instrumentation Android _tracking_quality.csv à ~1 Hz; analyseur Python avec 3 tests",
+          "Pas de mesures S21 ni observation des micro-coupures <1s"
         ],
         [
           "B1.3",
           "Collecter 3+ répétitions avec trajectoire étalon sur S21",
           0,
-          "Aucune collecte dédiée",
-          "Ne pas tester seul en danger réel; équipement de secours"
+          "Protocole sûr documenté, aucune mesure sur S21",
+          "Téléphone et vérité terrain indépendante requis"
         ],
         [
           "B1.4",
           "Quantifier ATE/RPE/dérive par texture, distance, mouvement",
-          0,
-          "Pas de métrique terrain publiée",
-          "Vérité terrain indépendante nécessaire"
+          30,
+          "Outil quality_report.py calcule fractions tracking, périodes de latence et cadence",
+          "ATE/RPE toujours impossibles sans référence indépendante"
         ],
         [
           "B1.5",
           "Définir règles UI de perte de confiance et dégradation",
-          15,
-          "Principes décrits, UI non branchée",
-          "Pas de covariance ARCore directement disponible"
+          55,
+          "HUD ARCore TRACKING/LOST existant + nouvel état GEO et événements",
+          "Aucune covariance ARCore ni qualification sécurité"
         ]
       ],
-      "progress": 23
+      "progress": 54
     },
     {
       "id": "B2",
@@ -61,30 +61,30 @@
         [
           "B2.2",
           "Implémenter estimateur robuste 2D par segment",
-          70,
-          "Prototype pure Java GeoAlignment ajouté, smoke compilé",
-          "Pas encore lié au flux Android; aucun covariancier crédible"
+          90,
+          "GeoAlignment robuste + GeoFusionTracker connectés à MainActivity Android",
+          "Alignement 2D par segment seulement; biais GPS commun invisible"
         ],
         [
           "B2.3",
           "Tester bruit, gross outlier, mouvement insuffisant et biais commun",
-          65,
-          "Scénarios synthétiques et assertions ajoutés",
-          "Exécution Gradle/CI à vérifier après push; biais non observable"
+          95,
+          "JUnit géolocalisation, sync, biais commun; CI Gradle précédente réussie",
+          "Pas de qualification GNSS terrain"
         ],
         [
           "B2.4",
           "Associer pose et fix par horloge monotone et interpolation bornée",
-          0,
-          "Non connecté au runtime",
-          "GPS 1 Hz vs VIO ~30 Hz, latence, gaps et changement de repère"
+          85,
+          "PoseFixSynchronizer interpolation bornée et vérification timebase dans flux GL + fix GNSS",
+          "Compatibilité clock et latence sur S21 non mesurées"
         ],
         [
           "B2.5",
           "Intégrer à l’export WGS84 avec statut de qualité explicite",
-          0,
-          "Exports actuels séparés",
-          "Éviter correction silencieuse du compteur VIO"
+          80,
+          "_geo_alignment.csv inclus dans SessionBundle ZIP; état explicite et coordonnées candidates",
+          "Export diagnostique non garanti; non injecté dans GPX/suivi"
         ],
         [
           "B2.6",
@@ -94,7 +94,7 @@
           "Corrélations GPS, multipath, GPS systématiquement décalé"
         ]
       ],
-      "progress": 39
+      "progress": 75
     },
     {
       "id": "B3",
@@ -105,40 +105,40 @@
         [
           "B3.1",
           "Auditer Viterbi 12 états et ambiguïtés inter-branches existantes",
-          80,
-          "Moteur et limites documentés dans GPS_NAVIGATION.md",
-          "Synthétique seulement; chemins externes au GPX inconnus"
+          100,
+          "Code RouteMatcher audité: beam Viterbi borné existant, diagnostics ambiguïté",
+          "Sans graphe externe, ne peut connaître les sentiers non-GPX"
         ],
         [
           "B3.2",
           "Définir fusion probabiliste des déplacements VIO dans les candidats GPX",
-          25,
-          "Interfaces et contraintes spécifiées, pas de code",
-          "Heading VIO local et GPX géographique, biais GNSS"
+          45,
+          "GeoFusionTracker mesure un déplacement cohérent, contrat de matching documenté",
+          "Service GPS GPX indépendant non alimenté par VIO pour l’instant"
         ],
         [
           "B3.3",
           "Implémenter N hypothèses et marge de confiance non trompeuse",
-          0,
-          "Non implémenté pour GPS+VIO",
-          "Ne pas écraser AMBIGUOUS par une certitude fictive"
+          55,
+          "Beam 12 candidats GPS déjà existant; reconnaissance VIO non ajoutée à ce beam",
+          "Aucune élimination sûre des branches parallèles"
         ],
         [
           "B3.4",
           "Tester figure-huit, routes parallèles, dénivelé, sortie du GPX",
-          30,
-          "Tests GPS pur existants, pas de tests fusion",
-          "Pas de réseau de sentiers, pas de qualification terrain"
+          55,
+          "Régressions GPS préexistantes en CI + test IntersectionAdvisor",
+          "Cas GPS+VIO fusion non exécutés sur terrain"
         ],
         [
           "B3.5",
           "Alerter aux croisements et demander confirmation si nécessaire",
-          0,
-          "UX GPX existe, pas d’alerte visuelle fusionnée",
-          "Erreurs dangereuses aux bifurcations"
+          75,
+          "GpsRoutesActivity montre le virage GPX à venir avec avertissement; AMBIGUOUS reste visible",
+          "Ce n’est pas une intersection reconnue visuellement"
         ]
       ],
-      "progress": 27
+      "progress": 66
     },
     {
       "id": "B4",
@@ -149,40 +149,40 @@
         [
           "B4.1",
           "Définir baseline OpenCV, segmentation légère et politique événementielle",
-          85,
-          "Comparatif d’approches et critères décrits",
-          "Résultat dépend fortement des données locales"
+          100,
+          "Comparatif et politique VisionTriggerPolicy événementielle, hors caméra",
+          "Aucune réduction de batterie mesurée"
         ],
         [
           "B4.2",
           "Collecter échantillons étiquetés sentiers/sols/neige/carrefours",
-          0,
-          "Aucun corpus terrain validé",
-          "Vie privée et biais de saison/environnement"
+          15,
+          "Catalogue jeux de données GOOSE/TOMD/RUGD et validation de présence",
+          "Aucune séquence annotée téléchargée; licences à vérifier"
         ],
         [
           "B4.3",
           "Prototyper modèle TFLite/NNAPI et baseline classique",
-          0,
-          "Non codé",
-          "Compatibilité délégation S21 à confirmer"
+          40,
+          "TrailAppearanceBaseline pur Java + tests synthétiques; aucun NN quantifié",
+          "Proposal par couleur ≠ segmentation sémantique; hors APK caméra"
         ],
         [
           "B4.4",
           "Bench FPS, ms/frame, RAM, chauffe, Wh/h, précision et rappel",
-          0,
-          "Aucun chiffre mesuré",
-          "Estimation théorique non substituable à test batterie"
+          15,
+          "Baseline compilée, tests fonctionnels; méthodologie benchmark documentée",
+          "Aucune mesure FPS/RAM/thermique ni vérité annotation"
         ],
         [
           "B4.5",
           "Déclencher vision sur faible ambiguïté GPS/embranchement, fallback",
-          0,
-          "Politique proposée seulement",
-          "Impossible de reconnaître un chemin invisible"
+          65,
+          "VisionTriggerPolicy 4s cooldown, 10/min, arrêt caméra indisponible",
+          "Non branché à la caméra ARCore, car pertinence non démontrée"
         ]
       ],
-      "progress": 17
+      "progress": 47
     },
     {
       "id": "B5",
@@ -200,33 +200,33 @@
         [
           "B5.2",
           "Définir PoseSample/Segment/MapSession/RouteGraph",
-          50,
-          "Contrats conceptuels et architecture définis",
-          "Aucune API d’exécution unifiée"
+          65,
+          "Contrats concrets PoseFixSynchronizer / GeoFusionTracker / StoreRoutePlanner",
+          "Pas de PoseSample/TrackingEngine complet"
         ],
         [
           "B5.3",
           "Extraire TrackingEngine/InputSource et adapter ARCore réel",
           0,
-          "Non implémenté",
-          "ARCore lifecycle/GL thread, cadence et backpressure"
+          "Extraction TrackingEngine/InputSource encore absente",
+          "MainActivity gère directement le GL/ARCore"
         ],
         [
           "B5.4",
           "Isoler navigation GeoAlignment/GPX/UI via modèles neutres",
-          20,
-          "GeoAlignment pure Java candidate, pas de wiring",
-          "Ne pas dégrader odomètre/explorateur"
+          80,
+          "GeoFusionTracker pur Java alimenté par MainActivity, planner magasin indépendant",
+          "Flux GPS ROUTES reste séparé du VIO"
         ],
         [
           "B5.5",
           "Tests contrats et non-régression + CI Android",
-          0,
-          "Existing CI pour ancien flux uniquement",
-          "Instrumentation sur téléphone toujours nécessaire"
+          80,
+          "Nouveaux JUnit + Python unittest + Android build/quality tests CI exécutés",
+          "Pas de test instrumenté sur téléphone ni seconde implémentation VIO"
         ]
       ],
-      "progress": 34
+      "progress": 65
     },
     {
       "id": "B6",
@@ -244,33 +244,33 @@
         [
           "B6.2",
           "Modèle magasin/sessions/étagères/POI/graphes versionnés",
-          15,
-          "Schéma conceptuel seulement",
-          "ARCore snapshots ne sont pas des cartes de relocalisation"
+          70,
+          "Graphe spatial Node/Edge/product + persistance texte SharedPreferences",
+          "Pas de carte multi-session versionnée ni relocalisation AR"
         ],
         [
           "B6.3",
           "Créer saisie manuelle rayon + produit et éditeur plan 2D",
-          0,
-          "Non implémenté",
-          "Ergonomie, changements de disposition"
+          80,
+          "StorePlannerActivity : éditeur manuel, vue schématique 2D, liste et sauvegarde locale",
+          "Pas de UX test utilisateur ni capture rayon automatique"
         ],
         [
           "B6.4",
           "Construire graphe de passages et optimiser ordre de liste",
-          0,
-          "Non implémenté",
-          "Aisles et passages praticables à vérifier"
+          90,
+          "StoreRoutePlanner Dijkstra sur arêtes validées + optimisation gloutonne/2-opt + JUnit",
+          "Optimisation heuristique pas preuve d’optimal global"
         ],
         [
           "B6.5",
           "Tester sur vrai petit magasin, puis seulement OCR/code-barres",
           0,
-          "Non testé",
-          "Consentement des tiers et précision multi-visites"
+          "Scénario test terrain détaillé, non exécuté",
+          "Autorisation magasin et utilisateur requis"
         ]
       ],
-      "progress": 23
+      "progress": 68
     },
     {
       "id": "B7",
@@ -288,33 +288,33 @@
         [
           "B7.2",
           "Exploiter RouteHistory sans relier les gaps ou repères incompatibles",
-          25,
-          "Trajectoire segmentée déjà enregistrée, moteur retour absent",
-          "Drift VIO après réinitialisation et orientation dérivante"
+          85,
+          "TraceGuide EXISTAIT déjà : segment continu seulement; nouveaux tests de retour/croisements",
+          "Tracking gaps réinitialisent retour; drift monde inconnu"
         ],
         [
           "B7.3",
           "UX dernier repère fiable, dégradation, confirmation manuelle",
-          0,
-          "Non implémenté",
-          "Absence covariance ARCore; signaux heuristiques"
+          70,
+          "HUD RETURN/REJOIN/RETURN STOPPED existant et visible",
+          "Confusion possible sans validation UX et véritable incertitude"
         ],
         [
           "B7.4",
           "Mode hors ligne/export secours et test perte caméra/batterie",
-          20,
-          "GPS offline/GPX existent, mode secours non développé",
-          "Pas de couverture, GPS peu précis, panne de batterie"
+          70,
+          "Export et récupération GPS/GPX offline existants ; ZIP diagnostics accru",
+          "Pas de « sécurité secours » et géorecalage GPS non validé"
         ],
         [
           "B7.5",
           "Tests sur parcours sûr avec erreurs injectées, échec honnête",
-          0,
-          "Non réalisé",
-          "Ne doit jamais remplacer instruments de montagne"
+          35,
+          "JUnit TraceGuide ajouté; protocole terrain sécurité rédigé",
+          "Aucune campagne réelle ou certification"
         ]
       ],
-      "progress": 29
+      "progress": 72
     },
     {
       "id": "B8",
@@ -326,36 +326,36 @@
           "B8.1",
           "Préserver V1/V2 et intégrer réflexions dans HTML V3",
           100,
-          "Atlas V3 produit localement, V1/V2 conservées",
-          "Modifications locales du navigateur requièrent export JSON"
+          "Atlas HTML V4 préservant toutes sections historiques V1–V3 + journal V4",
+          "Édits navigateur restent locaux jusqu’à export"
         ],
         [
           "B8.2",
           "Produire plan distinct avec avancement par sous-tâche",
           100,
-          "ROADMAP_EXECUTION.md produit",
-          "Avancement mesuré par preuves, pas par temps estimé"
+          "Roadmap séparée à 41 tâches recalculées automatiquement depuis JSON",
+          "Pourcentages descriptifs pas objectifs qualité"
         ],
         [
           "B8.3",
           "Publier code/docs sur branche GitHub dédiée",
           100,
-          "Commits confirmés sur work/slam-roadmap-b1-b2-b8",
-          "CI et revue de code restent à vérifier séparément"
+          "Branche work/slam-roadmap-b1-b2-b8 et PR #3 draft",
+          "Revue humaine et éventuelle fusion restent volontaires"
         ],
         [
           "B8.4",
           "Tests hors-ligne Java du prototype de recalage",
           100,
-          "javac + smoke déterministe exécutés localement",
-          "Ni tests instrumentés ni test de précision réelle"
+          "CI Gradle et tests Python/JUnit + catalogue données vérifié",
+          "CI pas terrain S21"
         ],
         [
           "B8.5",
           "Établir décisions et journal de preuves/limitations",
           100,
-          "Historique et réserves conservés dans Atlas",
-          "Nécessite discipline de mise à jour"
+          "Historique et limites de tous modes conservés et mis à jour",
+          "Maintien systématique à poursuivre"
         ]
       ],
       "progress": 100
