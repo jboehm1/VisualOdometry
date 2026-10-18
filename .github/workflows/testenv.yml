@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: testenv-unique-branch
+  group: testenv-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
