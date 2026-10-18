@@ -1,0 +1,47 @@
+name: Probe EuRoC raw ROSbag2 alternate mirror
+on:
+  push:
+    branches: [feature/real-raw-vio-euroc]
+    paths:
+      - ".github/workflows/raw-euroc-mirror.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --quiet gdown rosbags
+      - name: Fetch independent real V1_01_easy stereo+IMU bag from OpenVINS mirror
+        run: |
+          mkdir -p /tmp/euroc
+          python - <<'PY'
+          import gdown,pathlib,hashlib,os
+          dst="/tmp/euroc/source"
+          result=gdown.download(id="1LFrdiMU6UBjtFfXPHzjJ4L7iDIXcdhvh",output=dst,quiet=False,fuzzy=True)
+          if not result: raise RuntimeError("Source is unavailable")
+          f=pathlib.Path(dst)
+          print("DOWNLOADED", f.stat().st_size, "BYTES", flush=True)
+          h=hashlib.sha256()
+          with f.open("rb") as src:
+            for chunk in iter(lambda:src.read(1024*1024),b""):h.update(chunk)
+          print("SOURCE_SHA256",h.hexdigest(), flush=True)
+          with f.open("rb") as src: print("MAGIC_BYTES",src.read(32),flush=True)
+          PY
+          file /tmp/euroc/source
+          du -h /tmp/euroc/source
+          python - <<'PY'
+          import zipfile,tarfile,pathlib
+          p=pathlib.Path('/tmp/euroc/source')
+          if zipfile.is_zipfile(p):
+            with zipfile.ZipFile(p) as z:
+              print("ZIP_FIRST_FILES",z.namelist()[:30])
+          elif tarfile.is_tarfile(p):
+            with tarfile.open(p) as t:
+              print("TAR_FIRST_FILES",t.getnames()[:30])
+          PY
