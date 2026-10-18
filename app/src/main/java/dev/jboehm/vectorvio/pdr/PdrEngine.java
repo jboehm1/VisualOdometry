@@ -58,7 +58,7 @@ public final class PdrEngine {
     private long sessionStartNs=Long.MIN_VALUE;
     private long lastStepNs=Long.MIN_VALUE, deviceTimeNs=Long.MIN_VALUE, gpsTimeNs=Long.MIN_VALUE;
     private long lastPressureNs=Long.MIN_VALUE;
-    private boolean deviceHeadingAvailable;
+    private boolean deviceHeadingAvailable, gpsCourseAvailable;
     private double deviceHeadingRad, gpsHeadingRad, stepLengthM=.74, distanceM, eastM, northM;
     private double baselinePressureHpa=Double.NaN, elevationM=Double.NaN;
     private double smoothedStepPeriodNs=Double.NaN;
@@ -77,7 +77,8 @@ public final class PdrEngine {
         sessionStartNs=timeNs;
         recording=true; lastStepNs=Long.MIN_VALUE; deviceTimeNs=Long.MIN_VALUE;
         gpsTimeNs=Long.MIN_VALUE; lastPressureNs=Long.MIN_VALUE;
-        deviceHeadingAvailable=false; distanceM=0; eastM=0; northM=0; steps=0;
+        deviceHeadingAvailable=false; gpsCourseAvailable=false;
+        distanceM=0; eastM=0; northM=0; steps=0;
         trajectorySteps=0; stepsWithoutHeading=0;
         elevationM=Double.NaN; baselinePressureHpa=Double.NaN;
         smoothedStepPeriodNs=Double.NaN;
@@ -91,7 +92,7 @@ public final class PdrEngine {
         recording=true;fallback.reset();lastStepNs=Long.MIN_VALUE;
         smoothedStepPeriodNs=Double.NaN;
         deviceTimeNs=Long.MIN_VALUE;gpsTimeNs=Long.MIN_VALUE;
-        deviceHeadingAvailable=false;gapPending=true;
+        deviceHeadingAvailable=false;gpsCourseAvailable=false;gapPending=true;
     }
     public boolean isRecording() { return recording; }
 
@@ -115,11 +116,17 @@ public final class PdrEngine {
     /** GNSS course must first be converted TRUE -> MAGNETIC north by Android adapter. */
     public void gpsCourse(long timeNs, double radians, float speedMps,
                           float horizontalAccuracyM, float bearingAccuracyDeg) {
-        if (!recording || timeNs<sessionStartNs || timeNs<=gpsTimeNs || !Double.isFinite(radians) ||
-            !Float.isFinite(speedMps) || speedMps<1.2f ||
-            !Float.isFinite(horizontalAccuracyM) || horizontalAccuracyM<0f || horizontalAccuracyM>20f ||
-            !Float.isFinite(bearingAccuracyDeg) || bearingAccuracyDeg<0f || bearingAccuracyDeg>25f) return;
-        gpsTimeNs=timeNs; gpsHeadingRad=wrap(radians);
+        if (!recording || timeNs<sessionStartNs || timeNs<=gpsTimeNs) return;
+        // A newer low-quality fix revokes an older accepted course immediately.
+        // It is logged in the trace, so Java replay makes the identical decision.
+        gpsTimeNs=timeNs;
+        if(!Double.isFinite(radians) ||
+           !Float.isFinite(speedMps) || speedMps<1.2f ||
+           !Float.isFinite(horizontalAccuracyM) || horizontalAccuracyM<0f || horizontalAccuracyM>20f ||
+           !Float.isFinite(bearingAccuracyDeg) || bearingAccuracyDeg<0f || bearingAccuracyDeg>25f){
+            gpsCourseAvailable=false;return;
+        }
+        gpsCourseAvailable=true;gpsHeadingRad=wrap(radians);
     }
     public void pressure(long timeNs, double hPa) {
         if(!recording||timeNs<sessionStartNs||timeNs<=lastPressureNs ||
@@ -158,7 +165,7 @@ public final class PdrEngine {
     public Snapshot snapshot(long timeNs){return new Snapshot(this,timeNs);}
     public List<Point> path(){return Collections.unmodifiableList(new ArrayList<>(path));}
     private Heading headingAt(long t) {
-        if(gpsTimeNs!=Long.MIN_VALUE && t>=gpsTimeNs && t-gpsTimeNs<=GNSS_MAX_AGE_NS)
+        if(gpsCourseAvailable && gpsTimeNs!=Long.MIN_VALUE && t>=gpsTimeNs && t-gpsTimeNs<=GNSS_MAX_AGE_NS)
             return new Heading(HeadingSource.GNSS_COURSE,gpsHeadingRad);
         if(deviceHeadingAvailable && deviceTimeNs!=Long.MIN_VALUE && t>=deviceTimeNs && t-deviceTimeNs<=HEADING_MAX_AGE_NS)
             return new Heading(HeadingSource.DEVICE_ASSUMED,deviceHeadingRad);

@@ -1,10 +1,10 @@
 # Suivi — odométrie PDR sans caméra (Galaxy S21)
 
-> **Avancement pondéré : 42.1 %** · 23 tâches / 92 sous-tâches · dernière mise à jour : 2026-10-18.
+> **Avancement pondéré : 42.1 %** · 23 tâches / 92 sous-tâches · dernière mise à jour : 2026-10-19.
 >
 > **Important :** ce pourcentage mesure les *livrables jalonnés* du plan, **pas une précision de localisation de 42.1 %**. Les sous-tâches passent de 0 à 100 % uniquement sur preuve; leur somme pondérée donne le pourcentage de la tâche. Les tâches sont elles-mêmes pondérées, somme des poids = 100. Une réalisation logicielle ne remplace jamais les tests réels du Galaxy S21.
 >
-> Branche `feature/camera-free-pdr` · [PR #5](https://github.com/jboehm1/VisualOdometry/pull/5) · [CI de référence : succès](https://github.com/jboehm1/VisualOdometry/actions/runs/39156725543) · [Documentation technique](PDR_MODULE.md).
+> Branche `feature/camera-free-pdr` · [PR #5](https://github.com/jboehm1/VisualOdometry/pull/5) · [CI de référence : succès](https://github.com/jboehm1/VisualOdometry/actions/runs/39173399005) · [Documentation technique](PDR_MODULE.md).
 >
 > Source modifiable : [PDR_TASKS.json](PDR_TASKS.json). Mise à jour : `python3 tools/pdr/progress.py --write`. Contrôle cohérence : `python3 tools/pdr/progress.py --check`.
 

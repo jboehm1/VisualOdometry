@@ -183,5 +183,14 @@ public final class PdrSensorBridge implements SensorEventListener {
             default:break;
         }
     }
-    @Override public void onAccuracyChanged(Sensor sensor,int accuracy) { }
+    @Override public void onAccuracyChanged(Sensor sensor,int accuracy) {
+        // Sensor accuracy can deteriorate without an immediately following MAG sample.
+        if(registered && sensor!=null &&
+           sensor.getType()==Sensor.TYPE_MAGNETIC_FIELD &&
+           accuracy==SensorManager.SENSOR_STATUS_UNRELIABLE){
+            magneticReliable=false;
+            if(latestSampleNs!=Long.MIN_VALUE)
+                invalidateHeading(latestSampleNs,accuracy);
+        }
+    }
 }

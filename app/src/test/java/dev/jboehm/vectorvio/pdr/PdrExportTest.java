@@ -65,4 +65,37 @@ public final class PdrExportTest {
             }
         }finally{zipFile.delete();}
     }
+
+    @Test public void directionLossIsExportedAsReplayableEventAndPathBreak() throws Exception {
+        Application app=RuntimeEnvironment.getApplication();
+        PdrEngine engine=new PdrEngine();
+        long startNs=1_000_000_000L;
+        engine.start(startNs);
+        PdrTraceWriter writer=new PdrTraceWriter(app);
+        writer.sample("START",startNs,0,0,0,0);
+        writer.sample("STEP_LENGTH",startNs,.74,0,0,0);
+        engine.deviceHeading(startNs,0);
+        writer.sample("HEADING",startNs,0,0,0,3);
+        engine.step(1_500_000_000L);writer.step(1_500_000_000L);
+        assertTrue(engine.invalidateDeviceHeading(1_700_000_000L));
+        writer.sample("HEADING_INVALID",1_700_000_000L,0,0,0,0);
+        engine.step(2_000_000_000L);writer.step(2_000_000_000L);
+        engine.deviceHeading(2_300_000_000L,0);
+        writer.sample("HEADING",2_300_000_000L,0,0,0,3);
+        engine.step(2_500_000_000L);writer.step(2_500_000_000L);
+        File target=new File(app.getCacheDir(),"pdr-heading-"+System.nanoTime()+".zip");
+        try{
+            writer.export(app,Uri.fromFile(target),engine.path(),
+                engine.snapshot(2_500_000_000L),"ACCEL FALLBACK");
+            try(ZipFile zip=new ZipFile(target)){
+                String data=entry(zip,"events.csv");
+                String path=entry(zip,"path.csv");
+                assertTrue(data.contains("1700000000,HEADING_INVALID,"));
+                assertTrue(data.indexOf("HEADING_INVALID")<data.lastIndexOf(",HEADING,"));
+                assertTrue(path.contains(",true\n"));
+                assertEquals(1,engine.snapshot(2_500_000_000L).stepsWithoutHeading);
+                assertEquals(3,engine.snapshot(2_500_000_000L).steps);
+            }
+        }finally{target.delete();}
+    }
 }

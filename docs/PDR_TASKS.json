@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-18",
+  "updated_at": "2026-10-19",
   "source_branch": "feature/camera-free-pdr",
   "reference_ci": {
     "status": "passed",
-    "run_id": 39156725543,
-    "commit": "52f7832dcd630a949c4cd0e1e12f55b3ac208001",
-    "note": "Compilation, lint, tests Java/Python, replay et production APK debug. Aucune preuve terrain."
+    "run_id": 39173399005,
+    "commit": "f4c2f84de7d615080b15bb2771e880ee49e3c174",
+    "note": "PDR 1.1 : jobs schema/replay Java + Robolectric/JUnit, Android lint et debug APK au SHA f4c2f84 ; pas de validation SIMUL du nouvel algorithme ni essai S21. Le jalon 42,1 % n'est pas augmenté sans nouvelle acceptation."
   },
   "progress_policy": {
     "meaning": "Pourcentage de jalons acceptés, pondéré par poids, PAS un indicateur de précision ni une garantie produit.",

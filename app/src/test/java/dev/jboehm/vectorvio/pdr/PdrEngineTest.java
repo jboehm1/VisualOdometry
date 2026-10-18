@@ -111,6 +111,20 @@ public final class PdrEngineTest {
         assertTrue(p.step(2_100_000_000L));
         assertTrue(p.path().get(2).gapBefore);
     }
+    @Test public void lowQualityGnssFixImmediatelyRevokesOldCourse(){
+        PdrEngine p=new PdrEngine();p.start(1);
+        p.gpsCourse(1_000_000_000L,Math.PI/2,2f,5f,5f);
+        assertEquals(PdrEngine.HeadingSource.GNSS_COURSE,p.snapshot(1_500_000_000L).headingSource);
+        p.gpsCourse(2_000_000_000L,Math.PI/2,.2f,5f,5f);
+        assertEquals(PdrEngine.HeadingSource.UNAVAILABLE,p.snapshot(2_100_000_000L).headingSource);
+        assertTrue(p.step(2_200_000_000L));
+        assertEquals(1,p.snapshot(2_200_000_000L).stepsWithoutHeading);
+        // Late buffered strong fix must not restore the invalidated course.
+        p.gpsCourse(1_800_000_000L,0,4f,2f,2f);
+        assertEquals(PdrEngine.HeadingSource.UNAVAILABLE,p.snapshot(2_250_000_000L).headingSource);
+        p.gpsCourse(2_400_000_000L,0,3f,3f,5f);
+        assertEquals(PdrEngine.HeadingSource.GNSS_COURSE,p.snapshot(2_450_000_000L).headingSource);
+    }
     @Test public void badGnssAccuracyAndOutOfOrderPressureAreRejected(){
         PdrEngine p=new PdrEngine();p.start(1);
         p.gpsCourse(1_000_000_000L,0,2f,-1f,5f);
