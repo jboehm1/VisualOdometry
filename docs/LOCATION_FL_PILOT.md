@@ -51,3 +51,24 @@ Official sources:
 - https://developers.google.com/android/reference/com/google/android/gms/common/GoogleApiAvailability
 - https://developers.google.com/android/guides/releases
 - https://developer.android.com/reference/android/location/Location
+
+
+## Local history and offline analyzer
+
+DATA → A/B retains complete tests in app-private storage. From the A/B screen, **MES TESTS · EXPORTER / SUPPRIMER** allows the user to retrieve an older session after reopening the app, export it, or explicitly delete its private coordinates. Deletion refuses unrecognized paths, symlinks, incomplete sessions, or extra unexpected files. There is no automatic cloud sync.
+
+Run the exported ZIP entirely offline:
+
+```bash
+python3 tools/location/analyze.py /path/to/location_ab_....zip --out /tmp/location-ab-report.json
+# Only when stationary with an independently surveyed control point:
+python3 tools/location/analyze.py /path/to/location_ab_....zip \
+  --static-control 48.123456 7.123456 \
+  --reference-note "surveyed static marker: method/date/source" \
+  --out /tmp/stationary-check.json
+```
+
+
+The analyzer validates archive members, counts and timestamps and reports source-specific accepted fixes, update intervals, callback age, stated accuracy, and the mean/p95 pairwise disagreement. **None of these is a position accuracy claim.** Optional static control produces a user-asserted reference error for a **stationary** session only and is never treated as independently verified or a moving trajectory ground truth.
+
+See `tools/tests/test_location_ab_analysis.py` for standalone deterministic contract tests. For moving-truth trajectory ATE/RPE, send synchronized estimates to the dedicated benchmarking project and identify exact engine, timebase, held-out truth source and frame transformations. 
