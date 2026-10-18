@@ -41,6 +41,10 @@ import com.google.ar.core.Pose;
 import com.google.ar.core.Session;
 import com.google.ar.core.TrackingState;
 import dev.jboehm.vectorvio.geo.GeoFusionTracker;
+import dev.jboehm.vectorvio.gps.GpsNavigator;
+import dev.jboehm.vectorvio.gps.GpsRoute;
+import dev.jboehm.vectorvio.gps.RouteRepository;
+import dev.jboehm.vectorvio.gps.IntersectionAdvisor;
 
 import java.io.File;
 import java.util.Locale;
@@ -58,6 +62,11 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private final Odometer odometer = new Odometer();
     private final GeoFusionTracker geoFusion = new GeoFusionTracker();
     private volatile String geoStatus="GEO WAIT";
+    // GPS/VIO live GPX preview belongs to this foreground activity only.
+    // GpsMonitor delivers fixes on the main thread; GL publishes VIO through GeoFusionTracker.
+    private volatile GpsNavigator liveGpxNavigator;
+    private volatile String liveGpxText="";
+    private volatile long lastLiveGpxFixMs;
     private long lastTrackingQualityMs;
     private final AnchoredOdometry anchoredOdometry=new AnchoredOdometry();
     private final TraceGuide traceGuide=new TraceGuide();
@@ -134,8 +143,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         training=new TrainingCapture(this,recorder);
         gps=new GpsMonitor(this,(location,status)->{
             if(odometer.isRecording())recorder.sidecar(recorder.currentFile(),"_gps.csv","wall_time_ms,elapsed_realtime_ns,provider,latitude_deg,longitude_deg,altitude_m,horizontal_accuracy_m,speed_mps,speed_accuracy_mps,bearing_deg",String.format(Locale.US,"%d,%d,%s,%.9f,%.9f,%s,%.3f,%s,%s,%s",location.getTime(),location.getElapsedRealtimeNanos(),location.getProvider(),location.getLatitude(),location.getLongitude(),location.hasAltitude()?Double.toString(location.getAltitude()):"",location.getAccuracy(),location.hasSpeed()?Float.toString(location.getSpeed()):"",location.hasSpeedAccuracy()?Float.toString(location.getSpeedAccuracyMetersPerSecond()):"",location.hasBearing()?Float.toString(location.getBearing()):""));
+            GeoFusionTracker.Report report=null;
             if(odometer.isRecording()) {
-                GeoFusionTracker.Report report=geoFusion.onFix(location.getElapsedRealtimeNanos(),
+                report=geoFusion.onFix(location.getElapsedRealtimeNanos(),
                     location.getLatitude(),location.getLongitude(),location.getAccuracy());
                 switch(report.status){
                     case CANDIDATE:geoStatus=String.format(Locale.US,"GEO CANDIDATE (%.0f m fit, NOT verified)",report.rmsMeters);break;
@@ -151,6 +161,22 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                         report.baselineMeters,report.rmsMeters,
                         report.hasCoordinate()?Double.toString(report.latitude):"",
                         report.hasCoordinate()?Double.toString(report.longitude):""));
+            }
+            GpsNavigator preview=liveGpxNavigator;
+            if(preview!=null&&odometer.isRecording()){
+                GpsNavigator.Fix fix=new GpsNavigator.Fix(location.getLatitude(),
+                    location.getLongitude(),location.getAccuracy(),
+                    location.hasSpeed()?location.getSpeed():Double.NaN,
+                    location.hasBearing()?location.getBearing():Double.NaN,
+                    location.hasAltitude()?location.getAltitude():Double.NaN,
+                    location.getElapsedRealtimeNanos());
+                // Both fixes must have valid VIO pairs in the same live segment.
+                // Invalid / old VIO evidence means GPS-only matching, NEVER forced snapping.
+                double meters=report==null?Double.NaN:report.vioTravelMeters;
+                long prior=report==null?0:report.previousPairedFixNs;
+                preview.updateWithVio(fix,SystemClock.elapsedRealtimeNanos(),meters,prior);
+                lastLiveGpxFixMs=SystemClock.elapsedRealtime();
+                liveGpxText=describeLiveGpx(preview,Double.isFinite(meters)&&prior>0);
             }
             refreshHud();
         });
@@ -298,6 +324,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         long now=SystemClock.elapsedRealtime();
         odometer.start(now);
         geoFusion.reset();geoStatus="GEO WAIT";
+        if(liveGpxNavigator!=null){liveGpxNavigator.joinNearest();liveGpxText="GPX : acquisition après START";lastLiveGpxFixMs=0;}
         recorder.event("START",System.currentTimeMillis());
         recorder.event("LIVE_POWER_"+frameScheduler.mode().id+"_VIEW_"+frameScheduler.fps()+"_TRACK_TARGET_30",System.currentTimeMillis());
         recorder.event("DISTANCE_ANCHOR_RELATIVE_V4_NO_DEADBAND",System.currentTimeMillis());
@@ -344,8 +371,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private void powerHelp(){new AlertDialog.Builder(this).setTitle("Power · limits")
         .setMessage("Profiles change presentation only: camera preview, overlay preparation and HUD refresh. Tracking/odometry, map capture and frame metadata keep a 30 updates/s target in every profile. The actual rate can be lower if the device is busy; the HUD reports received pose cadence. No new pose-distance filter is applied.\n\nARCore opens the camera itself at a 30 FPS target and retains its internal tracking. Display at 5 FPS does not mean camera capture at 5 FPS. In Hold mode, press the image for a 30 FPS view; release for 5. The same latest-frame GL pipeline is used at every display rate.\n\nFor maximum autonomy, GPS ROUTES avoids the camera; COLLECT ONLY records video without live mapping. Battery savings require measurement on your phone.").setPositiveButton("OK",null).show();}
     private void dataMenu(){
-        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return"),"Unknown floor ribbon: "+(estimatedGround?"ESTIMATED — disable":"HIDDEN — enable height estimate"),"GPS ROUTES — import GPX / follow / record","COURSES — plan manuel hors ligne"};
+        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return"),"Unknown floor ribbon: "+(estimatedGround?"ESTIMATED — disable":"HIDDEN — enable height estimate"),"GPS ROUTES — import GPX / follow / record","COURSES — plan manuel hors ligne","GPX + VIO EN DIRECT — expérimental"};
         new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
+            if(i==10){configureLiveGpx();return;}
             if(i==9){startActivity(new Intent(this,StorePlannerActivity.class));return;}
             if(i==8){startActivity(new Intent(this,GpsRoutesActivity.class));return;}
             if(i==7){estimatedGround=!estimatedGround;getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("estimated_ground",estimatedGround).apply();return;}
@@ -365,6 +393,108 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             }
             if(i==3)new AlertDialog.Builder(this).setTitle("Full camera frame · local data").setMessage("The reticle only selects the POI hit-test target. Cyan/violet polygons are detected planes, clipped for display; they do not crop the camera input. ARCore processes its camera stream.\n\nVIO speed measures motion relative to the viewed environment. Looking at a car interior can give near-zero VIO while the car moves: GPS ground speed is separate and is not silently fused.\n\nCSV: poses + diagnostic IMU. Dataset ZIP adds video parts only if armed, frame timestamps/intrinsics, device metadata and GPS fixes if enabled. ARCore poses are estimates, not training ground truth; camera/IMU offset and extrinsics need calibration. Simulation CSV is generated truth, not the estimated map or real footage.").setPositiveButton("OK",null).show();
         }).show();
+    }
+
+
+    /** Diagnostic-only GPS+VIO overlay in LIVE camera mode; no background service. */
+    private String currentGuide(){
+        if(returnTraceRequested||guideText.startsWith("RETURN STOPPED"))return guideText;
+        if(liveGpxNavigator!=null){
+            if(lastLiveGpxFixMs<=0 || SystemClock.elapsedRealtime()-lastLiveGpxFixMs>5_000L)
+                return "GPX PREVIEW · fix GPS absent/périmé, navigation suspendue";
+            return liveGpxText;
+        }
+        return guideText;
+    }
+
+    private String describeLiveGpx(GpsNavigator nav,boolean pairedVio){
+        final GpsNavigator.Status state=nav.status;
+        String quality=pairedVio?" · déplacement VIO disponible":" · GPS seul";
+        switch(state){
+            case FOLLOWING:{
+                String answer=String.format(Locale.FRANCE,"GPX estimé · reste %.0f m%s",
+                    Math.max(0,nav.route.length-nav.progress),quality);
+                // A bend on GPX is never proof of a real physical intersection.
+                IntersectionAdvisor.Hint bend=IntersectionAdvisor.upcoming(nav.route,nav.progress,12);
+                if(bend!=null)answer+=String.format(Locale.FRANCE," · GPX tourne dans %.0f m",bend.metersAhead);
+                return answer;
+            }
+            case TO_START:return "GPX : rejoindre le départ · GPS non confirmé";
+            case AMBIGUOUS:return "GPX AMBIGU : vérifier/choisir le chemin sur le terrain";
+            case POOR_ACCURACY:return "GPX : GPS trop imprécis, guidage suspendu";
+            case REACQUIRE:return "GPX : reprise de GPS en cours, guidage suspendu";
+            case STALE:return "GPX : ancien fix, guidage suspendu";
+            case OUTLIER:return "GPX : saut GPS rejeté";
+            case OFF_ROUTE:return "GPX : HORS PARCOURS ESTIMÉ, vérifier le terrain";
+            case ARRIVED:return "GPX : proximité de fin estimée, non certifiée";
+            default:return "GPX : recherche de position";
+        }
+    }
+
+    private void configureLiveGpx(){
+        if(liveGpxNavigator!=null){
+            new AlertDialog.Builder(this).setTitle("GPX + VIO · aperçu")
+                .setMessage("Aperçu premier plan uniquement. Suivi GPS avec déplacement relatif VIO si apparié. Aucune reconnaissance physique de chemin, ni guidage de secours. Changer de trace réinitialise la progression.")
+                .setPositiveButton("CHANGER DE TRACE",(d,w)->chooseLiveGpx())
+                .setNeutralButton("DÉSACTIVER",(d,w)->{liveGpxNavigator=null;liveGpxText="";lastLiveGpxFixMs=0;refreshHud();})
+                .setNegativeButton("ANNULER",null).show();
+        } else chooseLiveGpx();
+    }
+    private void chooseLiveGpx(){
+        if(GpsNavigationService.running){
+            Toast.makeText(this,"Arrêter d'abord le service GPS ROUTES indépendant",Toast.LENGTH_LONG).show();
+            return;
+        }
+        mapIo.execute(()->{
+            RouteRepository repo=new RouteRepository(this);
+            java.util.List<String> ids=repo.list();
+            String[] names=new String[ids.size()];
+            for(int i=0;i<names.length;i++)names[i]=repo.label(ids.get(i));
+            runOnUiThread(()->{
+                if(isFinishing()||isDestroyed())return;
+                if(ids.isEmpty()){
+                    new AlertDialog.Builder(this).setTitle("Aucune trace GPX importée")
+                        .setMessage("Importer d'abord une trace dans DATA → GPS ROUTES, puis revenir activer GPX + VIO. L'aperçu ne lance pas la caméra en arrière-plan.")
+                        .setPositiveButton("OUVRIR GPS ROUTES",(d,w)->startActivity(new Intent(this,GpsRoutesActivity.class)))
+                        .setNegativeButton("ANNULER",null).show();
+                    return;
+                }
+                new AlertDialog.Builder(this).setTitle("Sélectionner GPX pour LIVE (expérimental)")
+                    .setItems(names,(d,index)->loadLiveGpx(repo,ids.get(index)))
+                    .setNegativeButton("ANNULER",null).show();
+            });
+        });
+    }
+    private void loadLiveGpx(RouteRepository repo,String id){
+        mapIo.execute(()->{
+            try{
+                java.util.List<GpsRoute> routes=repo.read(id);
+                runOnUiThread(()->{
+                    if(isFinishing()||isDestroyed())return;
+                    String[] choices=new String[routes.size()];
+                    for(int i=0;i<routes.size();i++)choices[i]=routes.get(i).name+
+                        String.format(Locale.FRANCE," · %.2f km",routes.get(i).length/1000.);
+                    new AlertDialog.Builder(this).setTitle("Segment GPX continu (aucun raccord inventé)")
+                        .setItems(choices,(d,index)->enableLiveGpx(routes.get(index)))
+                        .setNegativeButton("ANNULER",null).show();
+                });
+            }catch(Exception e){runOnUiThread(()->Toast.makeText(this,
+                "Lecture GPX impossible : "+e.getMessage(),Toast.LENGTH_LONG).show());}
+        });
+    }
+    private void enableLiveGpx(GpsRoute route){
+        GpsNavigator nav=new GpsNavigator(route);nav.joinNearest();
+        liveGpxNavigator=nav;lastLiveGpxFixMs=0;
+        liveGpxText="GPX : en attente du premier fix GPS";
+        if(!gps.enabled){
+            if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||
+                checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED){
+                gps.enabled=true;gps.start();
+            }else requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_REQUEST);
+        }
+        Toast.makeText(this,"GPX + VIO : test uniquement. Ambiguïté et pannes suspendent le guidage.",Toast.LENGTH_LONG).show();
+        refreshHud();
     }
 
     private void stopTraceGuide(){
@@ -651,6 +781,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
 
     private void refreshHud() {
         hud.update(odometer.snapshot(SystemClock.elapsedRealtime()),trackingLabel,message,markerCount);
+        hud.updateGuide(currentGuide());
         hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.enabled?gps.status+" · "+geoStatus:gps.status);
     }
     @Override protected void onNewIntent(Intent intent){
@@ -743,6 +874,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         frameScheduler.stop();boostPointer=-1;updatePowerLabel();
         imu.stop();
         gps.stopUpdates();
+        if(liveGpxNavigator!=null){liveGpxNavigator.joinNearest();liveGpxText="GPX : retour au premier fix après reprise";lastLiveGpxFixMs=0;}
         geoFusion.reset();geoStatus="GEO WAIT";
         long now=SystemClock.elapsedRealtime();
         if(odometer.snapshot(now).recording){
@@ -968,7 +1100,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 Odometer.Snapshot snap=odometer.snapshot(now);
                 String currentTracking=trackingLabel,currentMessage=message;
                 int marks=markerCount;
-                runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(guideText);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.enabled?gps.status+" · "+geoStatus:gps.status);});
+                runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(currentGuide());hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.enabled?gps.status+" · "+geoStatus:gps.status);});
             }
         } catch(Exception ex) {
             trackingLabel="TRACK LOST";
