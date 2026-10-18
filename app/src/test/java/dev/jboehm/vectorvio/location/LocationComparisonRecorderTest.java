@@ -5,6 +5,7 @@ import org.junit.rules.TemporaryFolder;
 import static org.junit.Assert.*;
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.util.zip.ZipFile;
 
 public class LocationComparisonRecorderTest {
@@ -26,10 +27,10 @@ public class LocationComparisonRecorderTest {
             recorder.finish("USER_STOP",p.snapshot(),1700000000200L);
             assertEquals(2,recorder.rows());
         }
-        String raw=Files.readString(new File(dir,"fixes.csv").toPath());
+        String raw=new String(Files.readAllBytes(new File(dir,"fixes.csv").toPath()),StandardCharsets.UTF_8);
         assertTrue(raw.contains("GPS_PROVIDER"));assertTrue(raw.contains("GOOGLE_FUSED"));
-        assertTrue(Files.readString(new File(dir,"pairs.csv").toPath()).contains("disagreement_m"));
-        String metadata=Files.readString(new File(dir,"metadata.json").toPath());
+        assertTrue(new String(Files.readAllBytes(new File(dir,"pairs.csv").toPath()),StandardCharsets.UTF_8).contains("disagreement_m"));
+        String metadata=new String(Files.readAllBytes(new File(dir,"metadata.json").toPath()),StandardCharsets.UTF_8);
         assertTrue(metadata.contains("NOT_AVAILABLE"));assertTrue(metadata.contains("USER_STOP"));
         File archive=new File(folder.getRoot(),"export.zip");
         try(OutputStream out=new FileOutputStream(archive)){LocationComparisonRecorder.exportZip(dir,out);}
@@ -53,7 +54,7 @@ public class LocationComparisonRecorderTest {
             dir=recorder.directory();
             recorder.finish("USER_STOP",new LocationPairer().snapshot(),1700000000100L);
         }
-        String json=Files.readString(new File(dir,"metadata.json").toPath());
+        String json=new String(Files.readAllBytes(new File(dir,"metadata.json").toPath()),StandardCharsets.UTF_8);
         assertTrue(json.contains("S21 \\\"quoted\\\""));
     }
 }
