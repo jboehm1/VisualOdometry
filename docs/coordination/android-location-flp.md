@@ -34,3 +34,32 @@ Date : 18 octobre 2026. **Chantier indépendant « comparaison Android FLP ».**
 Implémenter et tester le pilote GNSS–FLP sur cette branche, rendre le mode accessible par DATA et les sessions exportables, puis PR en brouillon contre `feature/slam-explorer`. Ne pas fusionner automatiquement la PR tant que les conflits PDR/B1–B8 ne sont pas résolus et que le comparateur n'est pas testé physiquement.
 
 **Handoff attendu :** SHA, statut CI et tests effectivement réussis, limites sur S21 (GPS direct/FLP dérivés, batterie, permissions, lifecycle), liste exacte des fichiers partagés, prochaine intégration.
+
+
+## Handoff du pilote Android GPS ↔ FLP — livraison codée et testée
+
+**SHA fonctionnel testé : `04ad04e3036a734243e4d9f24cfb9778a697912c`**. Développement sur `feature/android-flp-comparison`, PR brouillon **#11** : https://github.com/jboehm1/VisualOdometry/pull/11. Depuis le relevé initial, `feature/slam-explorer` a avancé à `5f0105effd4fb2fb66b7d23620189c9605576de7` (campagnes VIO raw et workflows sans modification des fichiers A/B communs). **Ne pas écraser cette évolution lors d'une intégration.**
+
+### Périmètre livré
+- Nouveau contrôleur Android `LocationComparisonActivity` via DATA ; GPS direct et FLP collectés indépendamment, au premier plan uniquement, précision fine obligatoire, Google Play Services exigé ; session fermée quand l'écran disparaît.
+- Noyau `location/LocationSample` / `LocationPairer` : appariement monotone un-à-un sans extrapolation, invalidation des fix imprécis/périmés/mock/dupliqués, traces brutes conservées et séparées des paires.
+- `LocationComparisonRecorder` : fichiers privés fixes/paires/métadonnées et export ZIP explicite ; `LocationComparisonRepository` : retrouver/exporter/supprimer les sessions finalisées sans agir hors du dossier autorisé.
+- `tools/location/analyze.py` : diagnostic hors ligne du taux et délai des positions, de l'écart GNSS↔FLP ; aucun écart traité comme vérité terrain absolue. Contrôle immobile **déclaré par l'utilisateur** uniquement, jamais certifié.
+- Documentation : `docs/LOCATION_FL_PILOT.md` ; tests Java/Robolectric + Python dédiés.
+
+### Fichiers partagés effectivement modifiés
+- `app/src/main/java/dev/jboehm/vectorvio/MainActivity.java` — une entrée DATA supplémentaire avec dispatch sur étiquette et verrouillage quand VIO enregistre.
+- `app/src/main/AndroidManifest.xml` — nouvelle Activity non exportée.
+- `app/build.gradle` — dépendance Play Services Location 21.4.0.
+Aucun changement dans `GpsNavigationService`, le moteur GPX, les algorithmes VIO/ARCore, la collection caméra/IMU ou le PDR. **Les futures fusions avec PDR, B1–B8 et replay doivent préserver toutes les actions DATA, Activity et permissions, et tester l'APK réellement réunie.**
+
+### Preuves effectives sur le SHA fonctionnel
+- GitHub Actions Android **#39171501819 — success** : `testDebugUnitTest`, `lintDebug`, `assembleDebug`, `assembleRelease`, GPS regression, deux scènes de replay trois tours. Rapport Android **129 tests, zéro échec** ; ZIP APK debug artefact **12152429209**.
+- Trois campagnes **#39171501774 — success** : contrôles A/B/C du workflow existant. Leur succès ne prouve ni une exécution physique S21 de ce nouveau comparateur, ni une précision GNSS–FLP.
+- Analyseur Python : **6 tests dédiés**, plus les autres tests hôte de `tools/tests`, réussis dans le workflow.
+- Liens CI : https://github.com/jboehm1/VisualOdometry/actions/runs/39171501819 ; https://github.com/jboehm1/VisualOdometry/actions/runs/39171501774 .
+
+### Limites et prochaine étape
+Le **pilote A/B logiciel est opérationnel selon la CI**, mais les souscriptions des deux providers, cadence réelle, autorisations Google Play Services, utilisation batterie, comportement écran verrouillé et précision doivent encore être vérifiés sur un appareil physique. Pas de promesse d'amélioration de précision ni de fusion GPS/VIO/PDR validée ; aucun appareil n'a été commandé à distance.
+
+**Décision développement :** prendre d'abord une série comparative GNSS vs FLP sur S21 (immobilité, parcours mesuré, forêt, tunnel, course), calculer les écarts à une référence externe réellement indépendante et les pertes de signal, puis seulement choisir les seuils/source de localisation à intégrer dans l'odométrie adaptative. Laisser PR #11 séparée tant que l'APK et les menus de l'ensemble multi-branches ne sont pas validés.
