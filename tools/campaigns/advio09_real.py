@@ -135,7 +135,7 @@ def main():
             "external_vision_imu_estimator_score":arcore,
             "ours_java_pdr_not_tested_on_this_sequence":True,
             "external_pose_is_not_our_android_app":True}
-    (args.out/"report.json").write_text(json.dumps(report,indent=2)+"\\n")
+    (args.out/"report.json").write_text(json.dumps(report,indent=2)+"\n")
     # Raw personal video is not published or kept in CI outputs.
     video.unlink(missing_ok=True)
     zipped.unlink(missing_ok=True)
