@@ -52,3 +52,68 @@ def read_real_imu_camera(path,seconds=22,skip=8,every=5):
                 frames.append((t,cv2.resize(image,None,fx=.5,fy=.5)))
     if len(frames)<25 or len(gyro)<220:raise ValueError("Too few genuine observations")
     return frames,gyro
+
+
+def infer(bag,calib,out,seconds=22,skip=8):
+    K,D,Rbc=calibration(calib)
+    K[:2,:]*=.5
+    images,gyro=read_real_imu_camera(bag,seconds,skip)
+    Rimu=np.eye(3);Rfirst=None;last=None;j=0;used=0
+    pos=np.zeros(3);old=None;good=0;bad=0;inliers=0;poses=[]
+    for timestamp,image in images:
+        while j<len(gyro) and gyro[j][0]<=timestamp:
+            ts,w=gyro[j]
+            if last is not None:
+                dt=(ts-last)*1e-9
+                if not 0<dt<.2:raise ValueError("IMU time gap or reversal")
+                d,_=cv2.Rodrigues(w*dt)
+                Rimu=Rimu@d
+                used+=1
+            last=ts;j+=1
+        if Rfirst is None:Rfirst=Rimu.copy()
+        Rcamera=Rbc.T@Rfirst.T@Rimu@Rbc
+        if old is not None:
+            p=cv2.goodFeaturesToTrack(old,maxCorners=750,qualityLevel=.018,minDistance=7)
+            if p is not None and len(p)>30:
+                q,mask,_=cv2.calcOpticalFlowPyrLK(old,image,p,None)
+                if q is not None and mask is not None:
+                    aa=p.reshape(-1,2)[mask.ravel()==1]
+                    bb=q.reshape(-1,2)[mask.ravel()==1]
+                    if len(aa)>30:
+                        aa=cv2.undistortPoints(aa.reshape(-1,1,2),K,D,P=K).reshape(-1,2)
+                        bb=cv2.undistortPoints(bb.reshape(-1,1,2),K,D,P=K).reshape(-1,2)
+                        E,m=cv2.findEssentialMat(aa,bb,K,method=cv2.RANSAC,threshold=1.5)
+                        if E is not None and E.shape==(3,3):
+                            n,visR,tvec,_=cv2.recoverPose(E,aa,bb,K,mask=m)
+                            if n>=12:
+                                pos-=Rcamera@tvec.flatten()
+                                good+=1;inliers+=int(n)
+                            else:bad+=1
+                        else:bad+=1
+                    else:bad+=1
+                else:bad+=1
+            else:bad+=1
+        poses.append((timestamp,pos.copy(),Rcamera.copy()))
+        old=image
+    if good<8 or inliers<160 or used<100:
+        raise ValueError("Vision+IMU baseline did not get enough tracked data")
+    from scipy.spatial.transform import Rotation
+    out.mkdir(parents=True,exist_ok=True)
+    poses_file=out/"estimate_unscaled.tum"
+    with poses_file.open("w") as dest:
+        for t,p,R in poses:
+            q=Rotation.from_matrix(R).as_quat()
+            dest.write(f"{t*1e-9:.9f} "+" ".join(f"{float(v):.9f}" for v in (*p,*q))+"\n")
+    result={
+      "engine":"research_monocular_visual_directions_with_gyro_orientation",
+      "actual_images_processed":len(images),"raw_imu_gyro_samples":len(gyro),
+      "gyro_integrated_samples":used,"visual_essential_pose_updates":good,
+      "visual_ransac_inliers":inliers,"visual_rejections":bad,
+      "calibration_sha256":hashlib.sha256(Path(calib).read_bytes()).hexdigest(),
+      "metric_translation_scale_known":False,
+      "camera_images_and_imu_both_influence_pose":True,
+      "estimator":"research_baseline_not_ANDROID_ARCore_or_OpenVINS",
+      "pose_output":str(poses_file),
+    }
+    (out/"inference.json").write_text(json.dumps(result,indent=2)+"\n")
+    return result
