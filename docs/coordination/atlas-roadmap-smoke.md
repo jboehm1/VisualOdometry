@@ -29,3 +29,16 @@
 - PR **documentation seule** depuis `docs/atlas-v5-roadmap-smoke` vers `feature/slam-explorer`, tests de structure/JS HTML + validation JSON ; après revue CI, intégration documentaire sur branche Android active. **Ne pas fusionner automatiquement les chantiers PDR, B1–B8 ou FLP dans cette opération.**
 
 **Prochaine étape** : créer la feuille de route centrale, l’Atlas V5, vérifier les liens/sections/syntaxe, publier PR, puis faire découvrir le document depuis la branche par défaut sans déplacer ou modifier la base historique 2019.
+
+
+## Handoff final — livrables et preuves
+
+- **PR documentaire #15 fusionnée** le 19/10/2026 vers `feature/slam-explorer`, commit de fusion **`4a7a174062e8e3a8f0a99512e45559c1efc74229`**. Aucun fichier Android, PDR, GPS, GPX, ARCore, manifeste ou workflow modifié.
+- **SHA testé de la PR : `46b268385c788568de582bef3e504bcb8692fa4a`** ; **CI GitHub Actions #39173702587 = SUCCESS** : Python (dont contrats Atlas/roadmap), Gradle JUnit, lint, APK debug+release, régressions GPS et trois tours des deux simulations. Ce SHA du PR précède uniquement la fusion Git et la présente note documentaire ; ces vérifications ne qualifient pas les fonctions non fusionnées.
+- **QA visuelle hors réseau** : Chrome/Playwright, affichages **1440×900 et 390×844**, 19 sections, sept cartes idées par défaut, absence d'erreur JavaScript et absence de défilement horizontal global en mobile ; dialogue d'édition testé (ouverture/annulation). Syntaxe script contrôlée par `node --check`.
+- `master` par défaut reste l'archive historique, avec **un nouveau README de portail seulement**, commit `b2aa387a07d2ede143d05e2fb43709cb950f2a93`, pointant vers l'Atlas V5 et la feuille de route **actifs** sur `feature/slam-explorer`. La feuille de route n'est pas dupliquée sur `master`, ce qui évite deux documents divergeants.
+- **Source de vérité centrale désormais** : `docs/ROADMAP_CENTRAL.md` + `docs/ROADMAP_CENTRAL.json` sur `feature/slam-explorer`; Atlas `docs/VECTOR_VIO_ATLAS_INTERACTIF_v5.html` à consulter à côté. Les **41 tâches B1–B8** d'origine et leur pourcentage historique (68 %) restent sur la branche B1–B8, liés depuis les nouveaux documents.
+- **Travaux ultérieurs :** intégrer les PR fonctionnelles #3 (B1–B8), #5 (PDR), #11 (GPS↔FLP) et les campagnes de test dans un ordre contrôlé ; menu DATA et manifeste cumulés, Git SHAs actuels à revérifier, tests **sur la même APK combinée**, collecte réelle S21 et vérité terrain indépendante.
+- **Scénario pompier :** usage de recherche uniquement ; aucune revendication d'utilisation en intervention réelle ou de suivi fiable en fumée. Les études exigeraient matériel adapté et expertise sécurité/ secours, après mesures contrôlées non dangereuses.
+
+Le projet global demeure **non qualifié sur le terrain**, malgré la finalisation du présent chantier Atlas/roadmap.
