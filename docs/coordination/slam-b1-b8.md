@@ -49,3 +49,14 @@ Le document de coordination central est un **instantané daté** et ne garantit 
 - Fonction : enveloppe de provenance canonique des évaluations, nom réel du moteur, configuration et SHA, séparation référence indépendante/données synthétiques, refus des résultats numériques non finis. Les trois évaluateurs peuvent conserver leurs résultats structurés imbriqués sous `metrics` sans être combinés ou assimilés à la précision terrain. Un manifeste **déclare** la provenance sans la vérifier : le résultat conserve `qualified_for_safety_navigation=false`.
 - Revue et CI : PR **#8**, base `work/slam-roadmap-b1-b2-b8` (PR brouillon), tests en cours au moment de la première soumission. Le PR #3 ne change pas de base automatiquement et les conflits entre chantiers ne sont pas résolus par ce lot.
 - **Prochain jalon** : vérifier la CI au *dernier* commit de PR #8, relever les résultats exacts, préparer un rapport machine-readable sur les jeux réels obtenus *uniquement après téléchargement et acceptation des licences*, puis livrer ce module au responsable de l'intégration combinée. Ne pas fusionner automatiquement.
+
+
+## Validation complète de ce lot V5 (SHA `6b0488f9090fcdd8bde6dca2d5825fcc6bc638d3`)
+
+**Exécution GitHub Actions #39161146409 : `success`**, au SHA exact ci-dessus (avant la présente note) : 34 tests Python standard library, dont 11 tests du contrat de provenance, **tous réussis** ; `gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease` réussi ; régression GPS réussie ; trois tours des deux scènes de simulation (développement + sens inverse retenu) réussis ; APK debug et rapports disponibles dans les artefacts de cette exécution. Lien : https://github.com/jboehm1/VisualOdometry/actions/runs/39161146409.
+
+**Limite de preuve :** il s'agit d'une CI de la branche V5 *héritant* du chantier B1–B8. Aucun test manuel S21, aucune campagne indépendante EuRoC/TUM/ADVIO achevée ici ; aucune exécution combinée avec les changements PDR/replay simultanés. Les 11 tests de provenance vérifient la **forme et les garde-fous du rapport**, pas la précision des mesures.
+
+**Fichiers modifiés exclusivement par V5**, vérifiés par comparaison à `work/slam-roadmap-b1-b2-b8` : `docs/coordination/slam-b1-b8.md`, `tools/eval/README.md`, `tools/eval/examples/{manifest-fixture,metrics-fixture}.json`, `tools/eval/provenance.py`, `tools/tests/test_benchmark_provenance.py`. Aucun fichier partagé d'intégration n'a été modifié dans le diff V5. La branche B1–B8 d'origine peut toujours entrer en conflit avec les autres chantiers — à traiter par un intégrateur.
+
+**Sortie attendue :** le lot V5 peut être intégré dans **sa propre branche B1–B8** après contrôle CI au SHA final ; **ne pas intégrer automatiquement B1–B8 à `feature/slam-explorer`**. Au moment de l'intégration multiprojets, réexaminer les têtes des branches et lancer la CI de l'APK réellement fusionnée.
