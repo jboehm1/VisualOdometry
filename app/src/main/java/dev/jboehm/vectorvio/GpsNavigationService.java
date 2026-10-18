@@ -74,7 +74,7 @@ public final class GpsNavigationService extends Service implements LocationListe
         publish(true);
     }catch(Exception e){message="Erreur : "+e.getMessage();if(nav==null&&journal==null)stopNavigation();else publish(true);}}
     private void saveTrack(){
-        if(journal==null)return;try{journal.close();journal=null;List<GpsRoute> routes=GpsTrackJournal.recover(new File(getFilesDir(),"gps_recording.journal"));String saved=new RouteRepository(this).save(routes);new File(getFilesDir(),"gps_recording.journal").delete();message="Promenade sauvegardée : "+new RouteRepository(this).label(saved);}
+        if(journal==null)return;try{journal.close();journal=null;List<GpsRoute> routes=GpsTrackJournal.recover(new File(getFilesDir(),"gps_recording.journal"));String saved=new RouteRepository(this).save(routes);new RouteRepository(this).archiveJournal(saved,new File(getFilesDir(),"gps_recording.journal"));message="Promenade sauvegardée : "+new RouteRepository(this).label(saved);}
         catch(Exception e){journal=null;message="Enregistrement conservé à récupérer : "+e.getMessage();}
     }
     private final Runnable tick=new Runnable(){public void run(){if(stopping||owner!=GpsNavigationService.this)return;long now=SystemClock.elapsedRealtimeNanos();if(nav!=null)nav.tick(now);

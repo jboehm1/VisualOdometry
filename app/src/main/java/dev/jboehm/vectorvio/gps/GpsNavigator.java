@@ -31,7 +31,7 @@ public final class GpsNavigator {
             double stepTime=reacquireFix==null?1:Math.max(.001,(f.ns-reacquireFix.ns)*1e-9);
             double movement=reacquireFix==null?0:Geo.distance(reacquireFix.lat,reacquireFix.lon,f.lat,f.lon);
             GpsRoute.Match candidate=matcher.update(route,f.lat,f.lon,f.accuracy,Math.max(0,progress-reacquireRadius),Math.min(route.length,progress+reacquireRadius),progress,movement,stepTime,Double.NaN);
-            reacquireFix=f;
+            reacquireFix=f;offDistance=candidate.distance;
             if(!candidate.ambiguous&&f.accuracy<=15&&candidate.distance+f.accuracy<20){
                 if(reacquireCount++==0)reacquireSince=f.ns;
                 if(reacquireCount>=3&&f.ns-reacquireSince>=2_000_000_000L){
@@ -42,9 +42,7 @@ public final class GpsNavigator {
             status=candidate.ambiguous?Status.AMBIGUOUS:Status.REACQUIRE;return false;
         }
         double travel=accepted==null?0:Geo.distance(accepted.lat,accepted.lon,f.lat,f.lon);
-        boolean speedConflict=accepted!=null&&Double.isFinite(f.speed)&&Double.isFinite(accepted.speed)
-            &&travel>((f.speed+accepted.speed)*.5*dt+Math.max(20,3*(accepted.accuracy+f.accuracy))+3*dt*dt);
-        if(accepted!=null&&(travel>80*dt+3*(accepted.accuracy+f.accuracy)||speedConflict)){
+        if(!GpsFixRules.plausible(accepted,f)){
             status=Status.OUTLIER;matcher.clear();return false;
         }
         if(!initialized&&!join){

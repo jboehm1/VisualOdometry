@@ -56,7 +56,7 @@ jobs:
       - name: GPS matching regression with noisy parallel paths and dense routes
         run: |
           mkdir -p app/build/reports/gps
-          bash tools/gps/run.sh > app/build/reports/gps/summary.json
+          bash tools/gps/run.sh app/build/reports/gps/trajectory.csv > app/build/reports/gps/summary.json
           cat app/build/reports/gps/summary.json
       - name: Execute three continuous laps on development and held-out reverse scenes
         run: |

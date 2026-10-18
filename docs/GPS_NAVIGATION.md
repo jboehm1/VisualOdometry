@@ -51,10 +51,9 @@ Progression sauvegardée périodiquement et à l'arrêt, puis reprise explicite 
 
 GPX 1.0/1.1 ou namespace vide compatible, trk/trkseg et rte/rtept. DTD/entités externes interdites ; nombres non finis/hors plage rejetés. Limites : 12 MiB, 50000 points par import, 256 segments, profondeur XML 32 ; noms et textes bornés. Les segments valides sont sélectionnés explicitement, pas raccordés en silence. Copies canoniques privées à identifiants UUID, écritures AtomicFile, chemin externe interdit. Bibliothèque bornée à 200 fichiers et quota de stockage. Route active et progression ne sont pas recalées dans le repère AR.
 
-## Validation en cours
+## Validation automatisée et limites
 
-Première passe locale : 9 tests passent (parser/roundtrip, entrées malveillantes, budget points, géodésie/antiméridien/pôle, bruit, écart/récupération, boucle/retour parallèle, interruption, arrivée, journal tronqué). Tests Android parser/stockage/écran/service ajoutés ; état CI à vérifier au commit exact. Autres scénarios et mesures de coût à exécuter avant livraison.
-
+Le parseur/stockage/écran/service sont vérifiés sous Robolectric, avec rendu Android natif de scénarios synthétiques. Les tests du moteur et le benchmark déterministe sont exécutés en CI. La validation matérielle reste à effectuer.
 Le code est une implémentation testable, pas une certification de navigation. Validation dehors nécessaire : S21 précis/approximatif, couvert forestier, bifurcations rapprochées, routes parallèles, pertes réseau/GPS, écran verrouillé, changement d'app, notification STOP, récupération après arrêt et batterie. Les tests synthétiques ne prouvent pas que le bon sentier est reconnu en forêt.
 
 ## Sources primaires
@@ -73,3 +72,19 @@ Le code est une implémentation testable, pas une certification de navigation. V
 - Route dense 50000 points, 1000 fixes séquentiels : ~0,09 s sur hôte lors de la mesure locale (hors construction du modèle), pas un benchmark Android/batterie. Le matching s'effectue sur un worker à cadence GPS ; la vue dessine au plus environ 6000 points. Les points originaux et le GPX ne sont pas décimés par l'affichage.
 - Ajout de tests sur fixes futurs/invalides, précision qui devient périmée, sens inverse, reprise après plusieurs fixes et saut isolé. Un contrôle supplémentaire utilise la vitesse GPS déclarée exploitable pour rejeter un déplacement incompatible avec celle-ci.
 - Script déterministe tools/gps/run.sh ajouté à CI ; JSON de synthèse archivé avec les résultats, sans vidéo/position utilisateur privée.
+
+## Troisième passe : conservation et interface
+
+- Interface compacte : DÉMARRER/ARRÊTER GPS, PARCOURS, REJOINDRE et OPTIONS. Les actions de bibliothèque, import/export et récupération sont regroupées dans PARCOURS ; les actions d’enregistrement et de cadrage dans OPTIONS.
+- Import SAF sur worker avec annulation explicite et échéance de 30 s. L’annulation du fournisseur externe reste au mieux de ses capacités ; l’interface ne bloque pas en attente de son I/O.
+- Journal V2 : lignes R de positions reçues (latitude, longitude, altitude disponible, temps monotone ns, précision, vitesse/cap retenus par les contrôles de qualité), puis lignes P des points admis dans le GPX dérivé et B pour les ruptures. Les mesures écartées du GPX restent dans R. Les anciens journaux V1 restent récupérables.
+- Après sauvegarde, le journal source est conservé à côté du GPX et exportable explicitement via PARCOURS → exporter le journal GPS. Les champs vitesse/cap ont déjà été contrôlés par le service ; ce journal ne constitue pas un dump complet de tous les champs Android Location. Les vidéos et IMU restent dans les exports de capture séparés.
+- Le GPX exporté est canonique : géométrie, noms et altitude disponible. Il ne conserve pas les extensions, timestamps et toutes les métadonnées du document original.
+- Tests supplémentaires indépendants de la boucle initiale : figure huit, deux épingles et zigzag, chacun dans les deux sens, dix graines, soit 60 runs. Pire RMSE de progression 8,592559 m, aucun échec au seuil de régression de 25 m. Avec les 30 runs initiaux, 90 runs synthétiques passent. Cela ne mesure pas une précision terrain.
+- Les contrôles de continuité sont communs au guidage et au GPX dérivé ; ils ne suppriment pas les lignes R et ne touchent pas les poses VIO.
+
+## Extensions caméra et marche sans caméra
+
+Non implémentées dans cette livraison : segmentation visuelle des sentiers, reconnaissance de lieux géographiques, fusion GPS/VIO et navigation pédestre par pas. Une segmentation peut proposer des zones visuellement praticables sans prouver leur identité géographique. Le recalage GPS demande une transformation géographique et un modèle d’incertitude ; une direction visuelle seule ne suffit pas.
+
+Sans caméra, GPS et cap de déplacement permettent déjà ce suivi GPX. Un futur compteur de pas Android, selon capteurs/permissions disponibles, pourrait fournir pas et distance estimée avec longueur de pas calibrée. L’orientation du téléphone n’est pas forcément celle de la marche. Pendant une perte GPS, toute position calculée par pas/IMU doit porter une incertitude croissante et rester distincte des positions mesurées ; le podomètre ne convient pas à estimer les kilomètres à vélo ou en voiture.

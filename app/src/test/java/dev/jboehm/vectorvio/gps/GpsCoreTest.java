@@ -66,4 +66,13 @@ public class GpsCoreTest {
             List<GpsRoute> r=GpsTrackJournal.recover(f);assertEquals(2,r.size());assertEquals(2,r.get(0).length,.01);assertEquals(2,r.get(1).length,.01);
         }finally{f.delete();}
     }
+    @Test public void rawPoorFixIsKeptWhileDerivedGpxHasExplicitGaps()throws Exception{
+        File f=Files.createTempFile("gpsraw",".txt").toFile();try{
+            try(GpsTrackJournal j=new GpsTrackJournal(f)){
+                j.append(fix(0,0,5,0),1_000_000_000L);j.append(fix(2,0,5,1),2_000_000_000L);
+                assertFalse(j.append(fix(4,0,100,2),3_000_000_000L));j.append(fix(6,0,5,3),4_000_000_000L);j.append(fix(8,0,5,4),5_000_000_000L);
+            }
+            String text=new String(Files.readAllBytes(f.toPath()),StandardCharsets.UTF_8);assertTrue(text.contains(",100.0,"));assertEquals(2,GpsTrackJournal.recover(f).size());
+        }finally{f.delete();}
+    }
 }

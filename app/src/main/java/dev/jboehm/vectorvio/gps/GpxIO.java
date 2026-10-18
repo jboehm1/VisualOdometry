@@ -19,7 +19,7 @@ public final class GpxIO {
             if(p.getDepth()>32)throw new IOException("GPX nesting too deep");
             if(event==XmlPullParser.START_TAG){
                 String tag=p.getName();int d=p.getDepth();
-                if(d==1){if(!tag.equals("gpx")||!ns(p.getNamespace()))throw new IOException("Expected GPX 1.0/1.1");root=1;rootNs=p.getNamespace();}
+                if(d==1){if(!tag.equals("gpx")||!ns(p.getNamespace()))throw new IOException("Expected GPX 1.0/1.1");String version=p.getAttributeValue(null,"version");if(version!=null&&!version.equals("1.0")&&!version.equals("1.1"))throw new IOException("Unsupported GPX version");root=1;rootNs=p.getNamespace();}
                 if(!Objects.equals(rootNs,p.getNamespace()))continue;
                 if(d==2&&(tag.equals("trk")||tag.equals("rte"))){container=d;name="Parcours";if(tag.equals("rte")){points=new ArrayList<>();segment=d;}}
                 else if(container==2&&d==3&&tag.equals("trkseg")){if(points!=null)throw new IOException("Nested segment");points=new ArrayList<>();segment=d;}

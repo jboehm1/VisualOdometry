@@ -45,4 +45,15 @@ public class GpsAndroidTest {
             c.get().onStartCommand(new Intent(app,GpsNavigationService.class).setAction(GpsNavigationService.STOP),0,2);h.getLooper().getThread().join(5000);shadowOf(Looper.getMainLooper()).idle();assertFalse(GpsNavigationService.running);assertFalse(GpsNavigationService.latest.running);
         }finally{c.destroy();repository.delete(id);GpsNavigationService.running=false;}
     }
+    @Test public void documentImportCopiesGeometryWithoutAutomaticallyStartingGps()throws Exception{
+        Application app=RuntimeEnvironment.getApplication();GpsNavigationService.running=false;
+        java.io.File source=new java.io.File(app.getCacheDir(),"test-route.gpx");try(java.io.OutputStream out=new java.io.FileOutputStream(source)){GpxIO.write(Collections.singletonList(route()),out);}
+        ActivityController<GpsRoutesActivity> c=Robolectric.buildActivity(GpsRoutesActivity.class).create().start().resume();String imported=null;
+        try{
+            c.get().onActivityResult(101,android.app.Activity.RESULT_OK,new Intent().setData(android.net.Uri.fromFile(source)));
+            Field f=GpsRoutesActivity.class.getDeclaredField("io");f.setAccessible(true);java.util.concurrent.ExecutorService executor=(java.util.concurrent.ExecutorService)f.get(c.get());
+            for(int pass=0;pass<3;pass++){executor.submit(()->{}).get(5,TimeUnit.SECONDS);shadowOf(Looper.getMainLooper()).idle();}
+            Field id=GpsRoutesActivity.class.getDeclaredField("routeId");id.setAccessible(true);imported=(String)id.get(c.get());assertNotNull(imported);assertEquals("Route & test",new RouteRepository(app).read(imported).get(0).name);assertNull(shadowOf(c.get()).getNextStartedService());
+        }finally{c.pause().stop().destroy();source.delete();if(imported!=null)new RouteRepository(app).delete(imported);}
+    }
 }
