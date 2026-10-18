@@ -17,6 +17,7 @@ import android.content.SharedPreferences;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.ViewGroup;
@@ -32,6 +33,8 @@ import android.widget.Toast;
 
 import com.google.ar.core.ArCoreApk;
 import com.google.ar.core.Camera;
+import com.google.ar.core.CameraConfig;
+import com.google.ar.core.CameraConfigFilter;
 import com.google.ar.core.Config;
 import com.google.ar.core.Frame;
 import com.google.ar.core.Pose;
@@ -58,6 +61,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile String guideText="";
     private GLSurfaceView surface;
     private HudView hud;
+    private LiveFrameScheduler frameScheduler;
+    private TextView powerButton;
+    private int boostPointer=-1;
     private ImuMonitor imu;
     private final SceneMapper mapper=new SceneMapper();
     private volatile boolean estimatedGround;
@@ -135,7 +141,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         surface.setEGLContextClientVersion(2);
         surface.setPreserveEGLContextOnPause(true);
         surface.setRenderer(this);
-        surface.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+        surface.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+        frameScheduler=new LiveFrameScheduler(new android.os.Handler(getMainLooper()),surface::requestRender);
+        frameScheduler.setMode(LiveFrameScheduler.Mode.from(preferences.getString("live_power","full")));
+        surface.setOnTouchListener(this::powerTouch);
         root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
 
         hud=new HudView(this);
@@ -170,6 +179,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         FrameLayout.LayoutParams modeLayout=new FrameLayout.LayoutParams(-1,dp(40),Gravity.TOP);
         modeLayout.topMargin=dp(72);modeLayout.leftMargin=dp(12);modeLayout.rightMargin=dp(12);
         root.addView(modes,modeLayout);
+        powerButton=action("",0xBB102D39,Color.WHITE);powerButton.setTextSize(10);
+        FrameLayout.LayoutParams powerLayout=new FrameLayout.LayoutParams(dp(164),dp(32),Gravity.TOP|Gravity.RIGHT);
+        powerLayout.topMargin=dp(146);powerLayout.rightMargin=dp(12);
+        root.addView(powerButton,powerLayout);powerButton.setOnClickListener(v->powerMenu());updatePowerLabel();
         layers.setOnClickListener(v->{hud.cycleLayers();preferences.edit().putInt("overlay_layers",hud.layers()).apply();});
         layers.setOnLongClickListener(v->{
             new AlertDialog.Builder(this).setTitle("Explore your local map")
@@ -253,6 +266,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         long now=SystemClock.elapsedRealtime();
         odometer.start(now);
         recorder.event("START",System.currentTimeMillis());
+        recorder.event("LIVE_POWER_"+frameScheduler.mode().id+"_TARGET_"+frameScheduler.fps(),System.currentTimeMillis());
         recorder.event("DISTANCE_ANCHOR_RELATIVE_V4_NO_DEADBAND",System.currentTimeMillis());
         recordButton.setText("PAUSE");
         recordButton.setContentDescription("Pause recording");
@@ -263,6 +277,39 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         refreshHud();
     }
 
+    private void updatePowerLabel(){
+        if(powerButton==null)return;
+        String label=frameScheduler.mode()==LiveFrameScheduler.Mode.HOLD
+            ?(frameScheduler.pressed()?"HOLD · 30 UPDATES/S":"HOLD VIEW · 5 → 30/S")
+            :"POWER · "+frameScheduler.fps()+" UPDATES/S";
+        powerButton.setText(label);
+        powerButton.setContentDescription(label+". Choose live processing rate. Hold the camera image to boost in hold mode.");
+    }
+    private boolean powerTouch(View view,MotionEvent event){
+        if(frameScheduler.mode()!=LiveFrameScheduler.Mode.HOLD)return false;
+        boolean previous=frameScheduler.pressed();
+        int action=event.getActionMasked();
+        if(action==MotionEvent.ACTION_DOWN){boostPointer=event.getPointerId(0);frameScheduler.setPressed(true);}
+        else if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_CANCEL||
+            (action==MotionEvent.ACTION_POINTER_UP&&event.getPointerId(event.getActionIndex())==boostPointer)){
+            boostPointer=-1;frameScheduler.setPressed(false);if(action==MotionEvent.ACTION_UP)view.performClick();
+        }
+        if(previous!=frameScheduler.pressed())updatePowerLabel();return true;
+    }
+    @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);if(!focused&&frameScheduler!=null){boostPointer=-1;frameScheduler.setPressed(false);updatePowerLabel();}}
+    private void powerMenu(){
+        String[] choices={"Full · 30 updates/s","Balanced · 15 updates/s","Very low · 5 updates/s","Hold camera image · 5 → 30 updates/s"};
+        new AlertDialog.Builder(this).setTitle("Live power profile")
+            .setSingleChoiceItems(choices,frameScheduler.mode().ordinal(),(dialog,index)->{
+                frameScheduler.setMode(LiveFrameScheduler.Mode.values()[index]);boostPointer=-1;
+                getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putString("live_power",frameScheduler.mode().id).apply();
+                recorder.event("LIVE_POWER_"+frameScheduler.mode().id,System.currentTimeMillis());updatePowerLabel();dialog.dismiss();
+            })
+            .setNeutralButton("HOW IT WORKS",(d,w)->powerHelp())
+            .setPositiveButton("CLOSE",null).show();
+    }
+    private void powerHelp(){new AlertDialog.Builder(this).setTitle("Power · limits")
+        .setMessage("Controls this app's image processing and display requests. ARCore camera and internal tracking remain active, normally at 30 FPS. Low modes sample fewer poses and can miss curved or fast motion; they do not preserve identical distance/map detail. IMU sampling is unchanged. ARCore MP4 recording keeps its own camera cadence; frame metadata follows app updates.\n\nIn Hold mode, keep a finger on the camera image for 30 updates/s; release to return to 5. Controls do not boost. For maximum autonomy, use GPS ROUTES without camera or COLLECT ONLY for video without mapping.").setPositiveButton("OK",null).show();}
     private void dataMenu(){
         String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return"),"Unknown floor ribbon: "+(estimatedGround?"ESTIMATED — disable":"HIDDEN — enable height estimate"),"GPS ROUTES — import GPX / follow / record"};
         new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
@@ -609,6 +656,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     return;
                 }
                 Session created=new Session(this);
+                java.util.List<CameraConfig> cameras=created.getSupportedCameraConfigs(
+                    new CameraConfigFilter(created).setTargetFps(java.util.EnumSet.of(CameraConfig.TargetFps.TARGET_FPS_30)));
+                if(!cameras.isEmpty())created.setCameraConfig(cameras.get(0));
                 Config config=new Config(created);
                 config.setPlaneFindingMode(Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL);
                 config.setLightEstimationMode(Config.LightEstimationMode.DISABLED);
@@ -621,6 +671,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             arSession.resume();
             surface.onResume();
             rendererRunning=true;
+            frameScheduler.start();
             message="Move slowly, looking at textured static objects";
             if(recordingStartPending)beginRecording();
         } catch(Exception e) {
@@ -655,6 +706,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
     }
     @Override protected void onPause() {
+        frameScheduler.stop();boostPointer=-1;updatePowerLabel();
         imu.stop();
         gps.stopUpdates();
         long now=SystemClock.elapsedRealtime();

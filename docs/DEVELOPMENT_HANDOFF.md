@@ -1,3 +1,7 @@
+## Mise à jour 0.9.0-alpha : énergie
+
+Voir [POWER_PROFILES.md](POWER_PROFILES.md). LiveFrameScheduler isole la politique de cadence Full/15/5/Hold ; CaptureProfile et le sélecteur de plage gèrent Ultra WALK avec repli annoncé. Tests de transitions, geste/menu et limites caméra. Aucune mesure batterie physique ni garantie de qualité identique en basse cadence.
+
 # VECTOR VIO — Handover complet
 
 État au 18 octobre 2026. Ce document remplace l'ancien handover 0.1.

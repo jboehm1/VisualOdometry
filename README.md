@@ -1,3 +1,5 @@
+**0.9.0-alpha — profils de consommation :** [POWER / maintien 5→30 et collecte Ultra](docs/POWER_PROFILES.md). Cadence app distincte de la caméra ARCore ; compromis de qualité explicités.
+
 > GPS/GPX 0.8 : **DATA → GPS ROUTES** (également depuis WALK). Import/export et bibliothèque hors ligne, suivi GPS avec précision/ambiguïté, sens inverse, enregistrement/récupération de promenades et service écran éteint. Voir [contrat et validation GPS](docs/GPS_NAVIGATION.md). Matching limité au parcours importé ; aucun réseau de sentiers ni calcul routier intégré. Tests automatisés ne remplacent pas la qualification terrain.
 
 # VECTOR VIO — an Android visual–inertial odometer

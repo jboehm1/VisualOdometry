@@ -24,9 +24,9 @@ public final class CollectionActivity extends Activity {
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(24,40,24,24);root.setBackgroundColor(0xFF0B1822);
         root.addView(text("WALK · screen-off capture",22));
         root.addView(text("Video + IMU + optional GPS, without ARCore, preview or mapping. Start here, then lock the phone. Unlock and open VECTOR or its notification to return to this controller; recording continues.",15));
-        profile=new Spinner(this);ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Complete · 720p30 · ≈1.35 GB/h video","Light · 720p15 · ≈0.68 GB/h video","Detail · 1080p30 · ≈2.7 GB/h video"});profile.setAdapter(adapter);
-        profile.setSelection(getPreferences(MODE_PRIVATE).getInt("profile",0));root.addView(profile);
-        root.addView(text("All profiles request IMU 200 Hz and GPS 1 Hz. Light reduces video frame rate and bitrate, so fast motion/detail may be less useful. Batching keeps original sensor timestamps and values. No microphone. Battery savings and screen-off reliability need a test on your phone.",14));
+        profile=new Spinner(this);ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Complete · 720p30 · ≈1.35 GB/h video","Light · 720p15 · ≈0.68 GB/h video","Detail · 1080p30 · ≈2.7 GB/h video","Ultra · 480p5 requested · ≈0.20 GB/h video"});profile.setAdapter(adapter);
+        profile.setSelection(Math.max(0,Math.min(3,getPreferences(MODE_PRIVATE).getInt("profile",0))));root.addView(profile);
+        root.addView(text("Ultra requests a 5 FPS camera; if unsupported, the lowest supported cadence up to 30 FPS is used and reported in status/metadata. All profiles request IMU 200 Hz and GPS 1 Hz. Light reduces video frame rate and bitrate, so fast motion/detail may be less useful. Batching keeps original sensor timestamps and values. No microphone. Battery savings and screen-off reliability need a test on your phone.",14));
         root.addView(text("Live AR and screen-off recording use the same camera. Switching to AR finalizes this capture and starts a new tracking segment; no map is computed while the screen is off. Video part changes may have gaps. Do not cover the lens if you need useful images.",14));
         status=text("Stopped",16);root.addView(status);
         button(root,"START SCREEN-OFF CAPTURE",this::permissions);
@@ -48,7 +48,7 @@ public final class CollectionActivity extends Activity {
     private void start(){if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED){Toast.makeText(this,"Camera permission required",Toast.LENGTH_LONG).show();return;}
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){Toast.makeText(this,"Allow notifications for capture status and STOP",Toast.LENGTH_LONG).show();return;}
         int selected=profile.getSelectedItemPosition();getPreferences(MODE_PRIVATE).edit().putInt("profile",selected).apply();
-        String id=selected==1?"light":selected==2?"detail":"full";
+        String id=selected==3?"ultra":selected==1?"light":selected==2?"detail":"full";
         try{startForegroundService(new Intent(this,CollectionService.class).putExtra("profile",id));}catch(Exception e){Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show();}}
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){super.onRequestPermissionsResult(request,permissions,grants);if(request==91)start();}
     @Override public void onResume(){super.onResume();main.post(refresh);}
