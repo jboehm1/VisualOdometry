@@ -53,6 +53,11 @@ jobs:
         run: python3 -m unittest discover -s tools/tests -v
       - name: Unit tests and installable APK
         run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
+      - name: GPS matching regression with noisy parallel paths and dense routes
+        run: |
+          mkdir -p app/build/reports/gps
+          bash tools/gps/run.sh > app/build/reports/gps/summary.json
+          cat app/build/reports/gps/summary.json
       - name: Execute three continuous laps on development and held-out reverse scenes
         run: |
           ./tools/simulation/run.sh app/build/reports/replay-a 3 default 15 1
@@ -63,7 +68,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: measured-replay-results
-          path: app/build/reports/replay-*/
+          path: |
+            app/build/reports/replay-*/
+            app/build/reports/gps/
           retention-days: 14
           if-no-files-found: ignore
       - name: Upload APK (debug-signed, for sideloading only)

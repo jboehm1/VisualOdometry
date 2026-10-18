@@ -26,7 +26,10 @@ public final class GpsRoute {
         }}
         length=along[n-1];if(length<.1)throw new IllegalArgumentException("Route has no measurable length");
     }
-    public static String cleanName(String s){if(s==null||s.trim().isEmpty())return "Parcours";return s.replaceAll("[\\p{Cntrl}]"," ").trim().substring(0,Math.min(120,s.replaceAll("[\\p{Cntrl}]"," ").trim().length()));}
+    public static String cleanName(String s){
+        if(s==null)return "Parcours";String clean=s.replaceAll("[\\p{Cntrl}]"," ").trim();
+        return clean.isEmpty()?"Parcours":clean.substring(0,Math.min(120,clean.length()));
+    }
     public GpsRoute reverse(){ArrayList<Point> p=new ArrayList<>(points);Collections.reverse(p);return new GpsRoute(name+" · retour",p);}
     public Point at(double s){
         s=Math.max(0,Math.min(length,s));int i=Arrays.binarySearch(along,s);if(i>=0)return points.get(i);i=Math.max(1,-i-1);

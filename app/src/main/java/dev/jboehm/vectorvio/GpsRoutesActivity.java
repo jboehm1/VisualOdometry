@@ -19,25 +19,27 @@ public final class GpsRoutesActivity extends Activity {
     private RouteRepository repository;private GpsRoute route;private String routeId;private TextView title,status;private CheckBox reverse,vibrate;private GpsRouteView map;
     private boolean importing;private String pendingAction;private boolean pendingResume;
     private final Runnable refresh=new Runnable(){public void run(){GpsNavigationService.State s=GpsNavigationService.latest;
-        reverse.setEnabled(!GpsNavigationService.running);
+        reverse.setEnabled(!GpsNavigationService.running);vibrate.setEnabled(!GpsNavigationService.running);
+        if(GpsNavigationService.running){reverse.setChecked(GpsNavigationService.activeReverse);vibrate.setChecked(GpsNavigationService.activeVibration);}
         if(s.running&&s.route!=null){map.setRoute(s.route);title.setText(s.route.name);}else if(route!=null){map.setRoute(reverse.isChecked()?previewReverse():route);title.setText(route.name);}
         map.setState(s);if(!importing)status.setText(describe(s));main.postDelayed(this,1000);
     }};
     private GpsRoute reversed;
     private GpsRoute previewReverse(){if(reversed==null)reversed=route.reverse();return reversed;}
-    @Override public void onCreate(Bundle b){super.onCreate(b);repository=new RouteRepository(this);routeId=getPreferences(MODE_PRIVATE).getString("route",null);
+    @Override public void onCreate(Bundle b){super.onCreate(b);repository=new RouteRepository(this);if(b!=null){pendingAction=b.getString("pending_action");pendingResume=b.getBoolean("pending_resume");}routeId=getPreferences(MODE_PRIVATE).getString("route",null);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(12),dp(8),dp(12),dp(8));root.setBackgroundColor(0xff0b1722);
         title=text("PARCOURS GPS",20);root.addView(title);
         map=new GpsRouteView(this);root.addView(map,new LinearLayout.LayoutParams(-1,0,1));map.setMinimumHeight(dp(180));map.setSelection(this::selectProgress);
         status=text("Importer un GPX ou enregistrer une promenade",13);root.addView(status);
-        LinearLayout toggles=new LinearLayout(this);reverse=new CheckBox(this);reverse.setText("Sens inverse");reverse.setTextColor(Color.WHITE);reverse.setOnCheckedChangeListener((v,c)->{if(route!=null)map.setRoute(c?previewReverse():route);});toggles.addView(reverse);
-        vibrate=new CheckBox(this);vibrate.setText("Vibration écart");vibrate.setTextColor(Color.WHITE);toggles.addView(vibrate);root.addView(toggles);
+        LinearLayout toggles=new LinearLayout(this);reverse=new CheckBox(this);reverse.setText("Sens inverse");reverse.setTextColor(Color.WHITE);reverse.setChecked(getPreferences(MODE_PRIVATE).getBoolean("reverse",false));reverse.setOnCheckedChangeListener((v,c)->{getPreferences(MODE_PRIVATE).edit().putBoolean("reverse",c).apply();if(route!=null)map.setRoute(c?previewReverse():route);});toggles.addView(reverse);
+        vibrate=new CheckBox(this);vibrate.setText("Vibration écart");vibrate.setTextColor(Color.WHITE);vibrate.setChecked(getPreferences(MODE_PRIVATE).getBoolean("vibrate",false));vibrate.setOnCheckedChangeListener((v,c)->getPreferences(MODE_PRIVATE).edit().putBoolean("vibrate",c).apply());toggles.addView(vibrate);root.addView(toggles);
         LinearLayout controls=new LinearLayout(this);controls.setOrientation(LinearLayout.VERTICAL);
         row(controls,"IMPORT GPX",this::importGpx,"MES PARCOURS",this::chooseRoute);
         row(controls,"DÉPART",()->start(GpsNavigationService.START,false),"REPRENDRE",()->start(GpsNavigationService.START,true));
         row(controls,"REJOINDRE TRACE",()->command(GpsNavigationService.JOIN),"ARRÊTER GPS",()->command(GpsNavigationService.STOP));
         row(controls,"ENREGISTRER",()->start(GpsNavigationService.RECORD,false),"SAUVER PROMENADE",()->command(GpsNavigationService.SAVE));
         row(controls,"EXPORT GPX",this::exportGpx,"AJUSTER VUE",map::fit);
+        row(controls,"MA POSITION",map::centerOnFix,"RÉGLAGES GPS",()->startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)));
         row(controls,"RÉCUPÉRER TRACE",this::recover,"AIDE",this::help);
         ScrollView buttons=new ScrollView(this);buttons.addView(controls);root.addView(buttons,new LinearLayout.LayoutParams(-1,dp(225)));setContentView(root);
         if(routeId!=null)load(routeId);
@@ -55,7 +57,7 @@ public final class GpsRoutesActivity extends Activity {
         new AlertDialog.Builder(this).setTitle("Choisir un segment continu (aucune liaison inventée)").setItems(labels,(d,i)->store(routes.get(i))).setNegativeButton("Annuler",null).show();
     }
     private void store(GpsRoute r){importing=true;io.execute(()->{try{String id=repository.save(Collections.singletonList(r));main.post(()->{importing=false;setRoute(id,r);});}catch(Exception e){error(e);}});}
-    private void setRoute(String id,GpsRoute r){routeId=id;route=r;reversed=null;getPreferences(MODE_PRIVATE).edit().putString("route",id).apply();map.setRoute(reverse.isChecked()?previewReverse():route);title.setText(r.name);status.setText(String.format(Locale.FRANCE,"%.2f km · %d points · appui long pour choisir la reprise",r.length/1000,r.points.size()));}
+    private void setRoute(String id,GpsRoute r){if(isFinishing()||isDestroyed())return;routeId=id;route=r;reversed=null;getPreferences(MODE_PRIVATE).edit().putString("route",id).apply();map.setRoute(reverse.isChecked()?previewReverse():route);title.setText(r.name);status.setText(String.format(Locale.FRANCE,"%.2f km · %d points · appui long pour choisir la reprise",r.length/1000,r.points.size()));}
     private void exportGpx(){if(routeId==null){toast("Choisir un parcours");return;}startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/gpx+xml").putExtra(Intent.EXTRA_TITLE,"vector_parcours.gpx"),102);}
     @Override public void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;android.net.Uri uri=data.getData();
         importing=true;status.setText(request==101?"Import GPX…":"Export GPX…");final String id=routeId;
@@ -90,7 +92,7 @@ public final class GpsRoutesActivity extends Activity {
     private String describe(GpsNavigationService.State s){
         if(!s.running){if(!s.message.isEmpty())return s.message;return route==null?"Importer un GPX ou enregistrer une promenade":String.format(Locale.FRANCE,"%.2f km · prêt · Départ ou Reprendre",route.length/1000);}
         String label;
-        switch(s.status){case TO_START:label="REJOINDRE LE DÉPART";break;case FOLLOWING:label=s.route==null?"ENREGISTREMENT GPS":"SUIVI DU PARCOURS";break;case OFF_ROUTE:label="HORS PARCOURS — rejoindre la trace";break;case AMBIGUOUS:label="BRANCHE AMBIGUË — appui long pour confirmer";break;case POOR_ACCURACY:label="GPS IMPRÉCIS — guidage suspendu";break;case STALE:label="POSITION PÉRIMÉE — guidage suspendu";break;case REACQUIRE:label="GPS RETROUVÉ — confirmer la reprise";break;case OUTLIER:label="SAUT GPS REJETÉ";break;case ARRIVED:label="ZONE D’ARRIVÉE ESTIMÉE";break;default:label="RECHERCHE GPS";}
+        switch(s.status){case TO_START:label="REJOINDRE LE DÉPART";break;case FOLLOWING:label=s.route==null?"ENREGISTREMENT GPS":"SUIVI ESTIMÉ DU PARCOURS";break;case OFF_ROUTE:label="HORS PARCOURS — rejoindre la trace";break;case AMBIGUOUS:label="BRANCHE AMBIGUË — appui long pour confirmer";break;case POOR_ACCURACY:label="GPS IMPRÉCIS — guidage suspendu";break;case STALE:label="POSITION PÉRIMÉE — guidage suspendu";break;case REACQUIRE:label="GPS RETROUVÉ — vérification de la reprise";break;case OUTLIER:label="SAUT GPS REJETÉ";break;case ARRIVED:label="ZONE D’ARRIVÉE ESTIMÉE";break;default:label="RECHERCHE GPS";}
         String detail=s.fix==null?"":Double.isFinite(s.fix.accuracy)?String.format(Locale.FRANCE,"GPS ±%.0f m",s.fix.accuracy):"Précision GPS inconnue";
         if(s.route!=null){detail+=String.format(Locale.FRANCE," · reste %.0f m",Math.max(0,s.route.length-s.progress));if(Double.isFinite(s.off))detail+=String.format(Locale.FRANCE," · écart %.0f m",s.off);}
         if(Double.isFinite(s.bearing)&&(s.status==GpsNavigator.Status.FOLLOWING||s.status==GpsNavigator.Status.OFF_ROUTE||s.status==GpsNavigator.Status.TO_START))detail+=String.format(Locale.FRANCE,"\nCible %.0f° nord vrai",s.bearing);
@@ -102,5 +104,6 @@ public final class GpsRoutesActivity extends Activity {
     @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==103)startAllowed();}
     @Override public void onResume(){super.onResume();main.post(refresh);}
     @Override public void onPause(){main.removeCallbacks(refresh);super.onPause();}
+    @Override public void onSaveInstanceState(Bundle b){b.putString("pending_action",pendingAction);b.putBoolean("pending_resume",pendingResume);super.onSaveInstanceState(b);}
     @Override public void onDestroy(){io.shutdown();super.onDestroy();}
 }

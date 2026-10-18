@@ -16,6 +16,10 @@ Le contrôleur CollectionActivity reprend une capture existante au retour écran
 
 Ruban désormais limité aux surfaces détectées par défaut ; les zones sans sol créent des ruptures visuelles (NO FLOOR / FLOOR PARTIAL), pas une hauteur caméra moins 1,5 m imposée. Ancien mode approximatif réactivable dans DATA -> Unknown floor ribbon, marqué FLOOR EST. Normale complète du plan utilisée pour la hauteur lorsque disponible. Le terrain extérieur irrégulier/Depth n'est pas implémenté ; les surfaces restent géométriques sans reconnaissance de sol. Voir CAPTURE_FORMAT.md. Les anciennes descriptions du fallback automatique ci-dessous sont historiques.
 
+## Actualisation : GPS / GPX 0.8
+
+Voir GPS_NAVIGATION.md : import/export GPX, bibliothèque privée, guidage GPS indépendant avec service écran éteint, matching séquentiel multi-candidats sur le parcours importé, précision/ambiguïté/écart/reprise, vue hors ligne, enregistrement et récupération de promenades. Entrée DATA -> GPS ROUTES ou depuis WALK. Version 0.8.0-alpha / code 8. Les anciennes mentions « GPX absent » ci-dessous sont historiques. Pas de réseau routier OSM, de fond cartographique ou de moteur de calcul d'itinéraire ; reconnaître un chemin voisin absent du GPX n'est pas implémenté. Aucun mélange avec le repère AR ou les mètres VIO. Validation synthétique et Android automatisée documentée au SHA livré ; terrain S21 et signature de production restent des limites explicites.
+
 ## 1. Reprendre le projet
 
 - Dépôt : https://github.com/jboehm1/VisualOdometry

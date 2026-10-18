@@ -5,6 +5,8 @@ import java.util.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner.class)
+@org.robolectric.annotation.Config(sdk=28)
 public class GpsCoreTest {
     private GpsRoute.Point p(double x,double y){return new GpsRoute.Point(Math.toDegrees(y/Geo.R),Math.toDegrees(x/Geo.R),Double.NaN);}
     private GpsRoute line(){return new GpsRoute("Test",Arrays.asList(p(0,0),p(500,0)));}
@@ -43,7 +45,7 @@ public class GpsCoreTest {
     @Test public void loopDoesNotArriveAtStartOrJumpAcrossParallelReturn(){
         GpsRoute r=new GpsRoute("loop",Arrays.asList(p(0,0),p(300,0),p(300,20),p(0,20),p(0,0)));
         GpsNavigator n=new GpsNavigator(r);for(int t=0;t<=100;t++)update(n,2*t,14,15,t);
-        assertTrue(n.progress<250);assertTrue(n.status!=GpsNavigator.Status.ARRIVED);
+        assertTrue(n.progress>170);assertTrue(n.progress<250);assertTrue(n.status!=GpsNavigator.Status.ARRIVED);
         GpsNavigator join=new GpsNavigator(r);join.joinNearest();update(join,150,10,10,0);assertEquals(GpsNavigator.Status.AMBIGUOUS,join.status);
     }
     @Test public void staleAndOutOfOrderFixesCannotAdvanceAndLongGapNeedsConfirmation(){

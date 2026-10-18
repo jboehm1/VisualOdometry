@@ -35,11 +35,11 @@ Vue hors ligne de la trace, pas de fond de carte. Zoom/pan, double appui pour aj
 
 ## Qualité GPS et événements
 
-Horloge monotone Sensor/Location elapsedRealtime ; fix futur, périmé (>5 s), coordonnées invalides et timestamps non monotones ne peuvent pas avancer. Précision >30 m : progression suspendue. Saut dépassant 80 m/s plus marge d'incertitude rejeté. Interruption >15 s : reprise explicite, pas de progression inventée. Seuils d'ingénierie à qualifier sur terrain, pas des garanties probabilistes.
+Horloge monotone Sensor/Location elapsedRealtime ; fix futur, périmé (>5 s), coordonnées invalides et timestamps non monotones ne peuvent pas avancer. Précision >30 m : progression suspendue. Saut dépassant 80 m/s plus marge d'incertitude rejeté. Interruption >15 s : progression gelée puis réacquisition ; reprise automatique uniquement après plusieurs nouvelles positions proches et non ambiguës (précision ≤15 m). Sinon reprise explicite. Aucun trajet manquant n’est inventé. Seuils d'ingénierie à qualifier sur terrain, pas des garanties probabilistes.
 
 Écart : distance brute au segment suivi distincte du point recalé. Confirmation hors parcours après plusieurs fixes dont distance moins précision dépasse 20 m ; retour avec hystérésis quand distance plus précision est inférieure à 20 m. Vibration optionnelle, limitée à une fois/minute, uniquement en état hors parcours confirmé. Pas d'alerte affirmative sur un GPS trop imprécis.
 
-Arrivée : progression proche de la fin ET proximité de l'extrémité tenant compte de la précision, confirmées sur plusieurs fixes. Un parcours fermé ne doit pas annoncer l'arrivée dès le départ.
+Arrivée : progression proche de la fin ET proximité de l'extrémité dans une zone estimée de 10–20 m selon la précision, confirmées sur plusieurs fixes. Un parcours fermé ne doit pas annoncer l'arrivée dès le départ.
 
 ## Android, énergie et vie privée
 
@@ -64,3 +64,12 @@ Le code est une implémentation testable, pas une certification de navigation. V
 - Services de localisation : https://developer.android.com/develop/background-work/services/fgs/service-types
 - Newson/Krumm, principe de matching par séquence : https://www.microsoft.com/research/publication/hidden-markov-map-matching-noise-sparseness/
 - GraphHopper, implémentation sur réseau routier à distinguer de notre polyline : https://github.com/graphhopper/map-matching
+
+## Deuxième passe de validation
+
+- Le test de départ bruité a été renforcé : la progression doit réellement avancer, pas simplement éviter une mauvaise arrivée. Correction de la condition d'entrée près du départ.
+- Le parseur est testé dans le runtime Android via Robolectric ; l'ancien test JUnit seul appelait un stub Android. Sur hôte, un KXml indépendant a aussi vérifié l'import/les rejets. Le flag optionnel process-docdecl n'est modifié que si actif ; les événements DOCDECL restent toujours rejetés.
+- 30 graines de bruit, boucle de 850 m avec branches parallèles séparées de 25 m et biais de 7 m sur la moitié des runs : aucun échec au seuil de régression de 20 m RMSE de progression ; pire RMSE observée 6,211456 m. Ces chiffres décrivent cette construction synthétique, pas une précision annoncée du téléphone.
+- Route dense 50000 points, 1000 fixes séquentiels : ~0,09 s sur hôte lors de la mesure locale (hors construction du modèle), pas un benchmark Android/batterie. Le matching s'effectue sur un worker à cadence GPS ; la vue dessine au plus environ 6000 points. Les points originaux et le GPX ne sont pas décimés par l'affichage.
+- Ajout de tests sur fixes futurs/invalides, précision qui devient périmée, sens inverse, reprise après plusieurs fixes et saut isolé. Un contrôle supplémentaire utilise la vitesse GPS déclarée exploitable pour rejeter un déplacement incompatible avec celle-ci.
+- Script déterministe tools/gps/run.sh ajouté à CI ; JSON de synthèse archivé avec les résultats, sans vidéo/position utilisateur privée.

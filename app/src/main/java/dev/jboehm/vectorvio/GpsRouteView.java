@@ -23,6 +23,7 @@ public final class GpsRouteView extends View {
         midX=(lx+hx)/2;midY=(ly+hy)/2;span=Math.max(50,Math.max(hx-lx,hy-ly));invalidate();
     }
     void setState(GpsNavigationService.State s){state=s;invalidate();}
+    void centerOnFix(){if(state!=null&&state.fix!=null){panX=(float)((midX-gx(state.fix.lon))*factor());panY=(float)((midY-gy(state.fix.lat))*factor());invalidate();}}
     void fit(){zoom=1;panX=panY=0;invalidate();}
     private float factor(){return (float)(Math.max(1,Math.min(getWidth()-60,getHeight()-80))/span*zoom);}
     private float sx(double a){return (float)(getWidth()/2.0+panX+(a-midX)*factor());}
@@ -37,15 +38,31 @@ public final class GpsRouteView extends View {
             path.reset();int stride=Math.max(1,(x.length+5999)/6000);
             for(int i=0;i<x.length;i+=stride){if(i==0)path.moveTo(sx(x[i]),sy(y[i]));else path.lineTo(sx(x[i]),sy(y[i]));}path.lineTo(sx(x[x.length-1]),sy(y[y.length-1]));
             paint.setColor(0xff6ee6d6);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(3*density);paint.setStrokeCap(Paint.Cap.ROUND);paint.setStrokeJoin(Paint.Join.ROUND);c.drawPath(path,paint);
-            dot(c,sx(x[0]),sy(y[0]),0xffa8f0a4,6*density);dot(c,sx(x[x.length-1]),sy(y[y.length-1]),0xffffa8bb,6*density);
+            dot(c,sx(x[0]),sy(y[0]),0xffa8f0a4,6*density);
+            if(Geo.distance(route.points.get(0).lat,route.points.get(0).lon,route.points.get(route.points.size()-1).lat,route.points.get(route.points.size()-1).lon)<2){
+                paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(2*density);paint.setColor(0xffffa8bb);c.drawCircle(sx(x[0]),sy(y[0]),10*density,paint);text(c,"D/A",sx(x[0])+12*density,sy(y[0]),0xffe5eff5,10);
+            }else dot(c,sx(x[x.length-1]),sy(y[y.length-1]),0xffffa8bb,6*density);
             double interval=route.length>100000?5000:1000;float lastX=-10000,lastY=-10000;
             for(int i=1;i<=80&&i*interval<route.length;i++){GpsRoute.Point p=route.at(i*interval);float px=sx(gx(p.lon)),py=sy(gy(p.lat));if(Math.hypot(px-lastX,py-lastY)<60*density)continue;if(px<10||px>getWidth()-60||py<35||py>getHeight()-30)continue;dot(c,px,py,0xffffd17b,3*density);text(c,String.format(Locale.FRANCE,"%.0f km",i*interval/1000),px+5*density,py-5*density,0xffffd17b,10);lastX=px;lastY=py;}
             if(state!=null&&state.route==route&&state.running&&state.status==GpsNavigator.Status.FOLLOWING){GpsRoute.Point p=route.at(state.progress);dot(c,sx(gx(p.lon)),sy(gy(p.lat)),0xffffd17b,5*density);}
         }
-        if(state!=null&&state.fix!=null){GpsNavigator.Fix f=state.fix;boolean fresh=state.running&&android.os.SystemClock.elapsedRealtimeNanos()-f.ns<=5_000_000_000L;
+        if(state!=null&&state.fix!=null){GpsNavigator.Fix f=state.fix;long age=android.os.SystemClock.elapsedRealtimeNanos()-f.ns;boolean fresh=state.running&&age>=0&&age<=5_000_000_000L;
             if(route==null){lat0=f.lat;lon0=f.lon;cos=Math.max(.00001,Math.cos(Math.toRadians(lat0)));midX=midY=0;span=200;}
             float px=sx(gx(f.lon)),py=sy(gy(f.lat));if(Double.isFinite(f.accuracy)&&f.accuracy>0){paint.setStyle(Paint.Style.FILL);paint.setColor(fresh?0x244d9fff:0x24888888);c.drawCircle(px,py,(float)Math.min(100000,f.accuracy*factor()),paint);}
+            if(fresh&&Double.isFinite(f.bearing)&&f.speed>=1){
+                double heading=Math.toRadians(f.bearing);Path arrow=new Path();
+                arrow.moveTo(px+(float)Math.sin(heading)*19*density,py-(float)Math.cos(heading)*19*density);
+                arrow.lineTo(px+(float)Math.sin(heading+2.5)*9*density,py-(float)Math.cos(heading+2.5)*9*density);
+                arrow.lineTo(px+(float)Math.sin(heading-2.5)*9*density,py-(float)Math.cos(heading-2.5)*9*density);arrow.close();paint.setStyle(Paint.Style.FILL);paint.setColor(0xff61aaff);c.drawPath(arrow,paint);
+            }
             dot(c,px,py,fresh?0xff61aaff:0xff929da7,6*density);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(2*density);paint.setColor(Color.WHITE);c.drawCircle(px,py,7*density,paint);
+        }
+        if(route!=null&&factor()>0){
+            double budget=80*density/factor(),unit=Math.pow(10,Math.floor(Math.log10(Math.max(.001,budget))));
+            double metres=(budget/unit>=5?5:budget/unit>=2?2:1)*unit;
+            float left=12*density,bottom=getHeight()-40*density;
+            paint.setColor(0xffb6c8d4);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(2*density);c.drawLine(left,bottom,left+(float)(metres*factor()),bottom,paint);
+            text(c,String.format(Locale.FRANCE,"≈ %.0f m",metres),left,bottom-6*density,0xffb6c8d4,10);
         }
         text(c,"Trace hors ligne · sans fond cartographique",12*density,getHeight()-12*density,0xff9db0bf,10);
     }

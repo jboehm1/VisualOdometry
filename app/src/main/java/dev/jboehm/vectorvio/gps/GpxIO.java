@@ -9,7 +9,7 @@ public final class GpxIO {
     private static boolean ns(String s){return s==null||s.isEmpty()||s.equals("http://www.topografix.com/GPX/1/1")||s.equals("http://www.topografix.com/GPX/1/0");}
     public static List<GpsRoute> read(InputStream source)throws Exception{
         InputStream input=new FilterInputStream(source){int count;public int read()throws IOException{int n=super.read();if(n>=0&&++count>MAX_BYTES)throw new IOException("GPX exceeds 12 MiB");return n;}public int read(byte[] b,int off,int len)throws IOException{int n=in.read(b,off,len);if(n>0&&(count+=n)>MAX_BYTES)throw new IOException("GPX exceeds 12 MiB");return n;}};
-        XmlPullParserFactory factory=XmlPullParserFactory.newInstance();factory.setNamespaceAware(true);XmlPullParser p=factory.newPullParser();p.setFeature(XmlPullParser.FEATURE_PROCESS_DOCDECL,false);p.setInput(input,null);
+        XmlPullParserFactory factory=XmlPullParserFactory.newInstance();factory.setNamespaceAware(true);XmlPullParser p=factory.newPullParser();if(p.getFeature(XmlPullParser.FEATURE_PROCESS_DOCDECL)){p.setFeature(XmlPullParser.FEATURE_PROCESS_DOCDECL,false);if(p.getFeature(XmlPullParser.FEATURE_PROCESS_DOCDECL))throw new IOException("Unsafe XML parser");}p.setInput(input,null);
         ArrayList<GpsRoute> routes=new ArrayList<>();ArrayList<GpsRoute.Point> points=null;
         String name="Parcours",rootNs=null;int root=0,container=0,segment=0,pointDepth=0,count=0;double lat=0,lon=0,ele=Double.NaN;
         String capture=null;StringBuilder text=new StringBuilder();int textDepth=0;
