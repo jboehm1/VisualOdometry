@@ -1,0 +1,80 @@
+name: Modular test environment / offline proof
+
+on:
+  push:
+    branches:
+      - feature/testenv-modular-v2
+      - feature/slam-explorer
+    paths:
+      - 'tools/testenv/**'
+      - 'testenv.py'
+      - '.github/workflows/testenv.yml'
+      - 'tools/campaigns/unified.py'
+      - 'tools/campaigns/imu_pdr.py'
+      - 'tools/campaigns/make_inertial_fixture.py'
+  pull_request:
+    paths:
+      - 'tools/testenv/**'
+      - 'testenv.py'
+      - '.github/workflows/testenv.yml'
+      - 'tools/campaigns/unified.py'
+      - 'tools/campaigns/imu_pdr.py'
+      - 'tools/campaigns/make_inertial_fixture.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testenv-unique-branch
+  cancel-in-progress: true
+
+jobs:
+  no-network:
+    name: Contracts and actual Python execution on deterministic fixture
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Strict suite and artifact tests
+        run: python -m unittest discover -s tools/testenv/tests -p 'test_*.py' -v
+      - name: No-side-effects plan
+        run: |
+          python testenv.py plan --suite tools/testenv/suites/smoke.json
+          python testenv.py plan --suite tools/testenv/suites/real-public.json
+      - name: Execute synthetic fixture through existing Python engine
+        run: |
+          python testenv.py run --suite tools/testenv/suites/smoke.json --out campaign_results/testenv_smoke
+          python testenv.py run --suite tools/testenv/suites/smoke.json --out campaign_results/testenv_smoke --resume
+      - name: Assert cross-run evidence, history and no raw replay upload
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('campaign_results/testenv_smoke')
+          runs=sorted((root/'runs').glob('*/summary.json'))
+          assert len(runs)==2, runs
+          report=json.loads(runs[-1].read_text())
+          assert report['status']=='PASS' and report['counts']['PASS']==1
+          assert report['cases'][0]['actual_estimator_executed']
+          assert report['cases'][0]['reference_used_to_score'] is False
+          assert report['cases'][0].get('input_kind')=='SYNTHETIC' or 'reused_from' in report['cases'][0]
+          assert 'Execution history' in (root/'index.html').read_text()
+          assert not list(root.glob('runs/*/cases/*/engine'))
+          PY
+      - name: Upload only small summaries and the offline dashboard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testenv-offline-history
+          path: |
+            campaign_results/testenv_smoke/index.html
+            campaign_results/testenv_smoke/latest.json
+            campaign_results/testenv_smoke/runs/*/summary.json
+            campaign_results/testenv_smoke/runs/*/cases/*/case.json
+            campaign_results/testenv_smoke/runs/*/cases/*/report.json
+          if-no-files-found: ignore
+          retention-days: 30
