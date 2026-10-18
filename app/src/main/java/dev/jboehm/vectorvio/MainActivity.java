@@ -343,6 +343,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
             // Stable semantic dispatch: do not claim DATA index 9/10 shared with PDR, courses or replay.
             if("GPS ↔ FUSED — Android location A/B (experimental)".equals(choices[i])){
+                if(odometer.isRecording()){
+                    Toast.makeText(this,"PAUSE first; comparison must not interrupt live VIO",Toast.LENGTH_LONG).show();
+                    return;
+                }
                 startActivity(new Intent(this,LocationComparisonActivity.class));return;
             }
             if(i==9){playbackPicker();return;}
