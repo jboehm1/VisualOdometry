@@ -17,6 +17,8 @@ public final class LocationComparisonRepository {
     public List<File> listFinalized(){
         File[] candidates=root.listFiles();
         if(candidates==null)return Collections.emptyList();
+        // Sort before enforcing the scan cap: older historical sessions never hide newest ones.
+        Arrays.sort(candidates,(a,b)->b.getName().compareTo(a.getName()));
         ArrayList<File> result=new ArrayList<>();
         for(File dir:candidates){
             if(result.size()>=MAX_ENTRIES)break;
