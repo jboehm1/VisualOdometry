@@ -56,3 +56,55 @@
 5. Ouvrir une PR isolée vers `feature/slam-explorer` après relecture de son nouveau HEAD ; vérifier CI au SHA combiné. **Ne pas fusionner à l'aveugle** le chantier PDR ou B1–B8.
 
 **Handoff :** Cette note n'atteste ni surveillance asynchrone d'autres conversations ni tests réels complets. Elle consigne seulement ce qui a été lu, prévu et poussé par ce chantier.
+
+## Mise à jour — preuves de tests sur données pédestres **réelles** (18 octobre 2026)
+
+**Branche :** `feature/validation-java-pdr-bridge` ; **SHA de base toujours vérifié :**
+`6c8f54f38af868195c8580a5c0c64c9999a6878f`.
+
+La suite `tools/campaigns/simul_real.py` est désormais réellement exécutée dans
+[GitHub Actions run #39162292672](https://github.com/jboehm1/VisualOdometry/actions/runs/39162292672), **PASS**.
+Le runner télécharge les CSV IMU originaux du vrai dataset SIMUL (source figée
+`ee7eb4e89bf33a17cafb4268207b802773427493`), et compile les classes du
+vrai moteur PDR Java de l'autre branche au commit
+`f8228aa7acbc453001d623c537bd8d7f0a9bc176`.
+L'outil Java `tools/campaigns/java/PdrStepTrace.java` instrumente uniquement les
+timestamps de pas acceptés par **la même** méthode `PdrEngine.acceleration` ;
+il ne remplace ni ne réécrit le moteur.
+
+**Preuve produite :** 3 participants, 29 563 instants capteurs, 9 placements
+corps × séquence, annotations de pas indépendantes des entrées moteur. F1 par
+intervalles observé de **0,797 à 0,974**. Surestimation du comptage en poche
+arrière jusqu'à **+43,7 %** ; détecteur à améliorer avant qualification.
+Ces résultats ne mesurent **ni trajectoire 2D, ni erreur métrique de distance,
+ni précision ARCore du Galaxy S21**. Détail dans
+`docs/campaigns/REAL_SIMUL_JAVA_PDR_20261018.md`.
+
+Le petit rapport JSON, **sans données brutes**, est archivé également dans
+`SLAM_BENCHMARKS/04_REPORTS` du compte Drive vérifié :
+https://drive.google.com/file/d/1wkbHUY19Iut2r6qe3zpgIwPVCYpZtCTh/view
+
+### Fichiers finalement concernés
+
+- **Créés par ce chantier :** `tools/campaigns/android_pdr_bridge.py`,
+  `tools/campaigns/simul_real.py`, `tools/campaigns/java/PdrStepTrace.java`,
+  `tools/campaigns/tests/test_android_pdr_bridge.py`,
+  `tools/campaigns/README_JAVA_PDR.md`,
+  `docs/campaigns/REAL_SIMUL_JAVA_PDR_20261018.md`,
+  `docs/coordination/validation-java-pdr-bridge.md` et
+  **`.github/workflows/real-pedestrian-java.yml` (nouveau workflow dédié)**.
+- **Fichiers partagés Android non modifiés :** `MainActivity.java`,
+  `AndroidManifest.xml`, menus DATA, `PdrEngine.java`,
+  `PdrReplay.java`, `docs/DEVELOPMENT_COORDINATION.md`
+  et workflows préexistants. Seul le **nouveau** workflow CI est ajouté ;
+  les définitions CI historiques sont préservées.
+- La PR #7 reste isolée et ne prétend pas intégrer le module Java Android
+  ni les tâches B1–B8 ; ces chantiers doivent conserver leur propre branche.
+
+### Prochaine étape
+
+Après que tous les jobs CI du **SHA final** ont réussi, fusionner cette
+passerelle autonome dans `feature/slam-explorer` (jamais en force, et sans
+fusionner aveuglément la branche PDR). Réévaluer plus de personnes et la
+course, puis collecter la preuve réelle du S21 avec capteurs STEP_DETECTOR,
+références indépendantes et rapports d'erreur métrique.
