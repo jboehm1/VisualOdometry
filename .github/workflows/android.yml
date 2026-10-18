@@ -53,6 +53,11 @@ jobs:
         run: python3 -m unittest discover -s tools/tests -v
       - name: Unit tests and installable APK
         run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
+      - name: Pure Java camera-free PDR replay
+        run: |
+          mkdir -p app/build/reports/pdr
+          bash tools/pdr/run.sh > app/build/reports/pdr/synthetic.json
+          python3 tools/pdr/check_fixture.py app/build/reports/pdr/synthetic.json
       - name: GPS matching regression with noisy parallel paths and dense routes
         run: |
           mkdir -p app/build/reports/gps
@@ -71,6 +76,7 @@ jobs:
           path: |
             app/build/reports/replay-*/
             app/build/reports/gps/
+            app/build/reports/pdr/
           retention-days: 14
           if-no-files-found: ignore
       - name: Upload APK (debug-signed, for sideloading only)

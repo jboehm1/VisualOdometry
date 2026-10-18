@@ -1,0 +1,261 @@
+package dev.jboehm.vectorvio.pdr;
+
+import android.Manifest;
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
+import android.content.Intent;
+import android.view.Gravity;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+import android.text.InputType;
+import java.util.Locale;
+
+/**
+ * Fully on-device, foreground-only walking/running PDR screen.
+ * Camera permission is never requested; ARCore is never initialized.
+ * Backgrounding terminates the measurement segment instead of inventing movement.
+ */
+public final class PdrActivity extends Activity {
+    private static final int ACTIVITY_REQUEST=711,LOCATION_REQUEST=712,EXPORT_REQUEST=713;
+    private final PdrEngine engine=new PdrEngine();
+    private final Handler ui=new Handler(Looper.getMainLooper());
+    private PdrSensorBridge bridge;
+    private PdrTraceWriter writer;
+    private PdrTrailView trail;
+    private TextView numbers,status,details;
+    private Button start,finish,export,gpsButton,stepLengthButton;
+    private LocationManager gps;
+    private boolean gpsOn,exportReady,autoStopped;
+    private String note="READY";
+    private final Runnable tick=new Runnable(){
+        @Override public void run(){render();ui.postDelayed(this,350);}
+    };
+    private final LocationListener locationListener=new LocationListener(){
+        @Override public void onLocationChanged(Location loc){
+            if(!engine.isRecording()||!loc.hasBearing()||!loc.hasSpeed()||
+               !loc.hasBearingAccuracy()||!loc.hasAccuracy())return;
+            float bearingAccuracy=loc.getBearingAccuracyDegrees();
+            engine.gpsCourse(loc.getElapsedRealtimeNanos(),Math.toRadians(loc.getBearing()),
+                loc.getSpeed(),loc.getAccuracy(),bearingAccuracy);
+            log("GPS_COURSE",loc.getElapsedRealtimeNanos(),Math.toRadians(loc.getBearing()),
+                loc.getSpeed(),loc.getAccuracy(),0);
+        }
+        @Override public void onProviderEnabled(String s){}
+        @Override public void onProviderDisabled(String s){}
+        @Override public void onStatusChanged(String s,int status,Bundle b){}
+    };
+
+    @Override public void onCreate(Bundle b){
+        super.onCreate(b);
+        getWindow().setStatusBarColor(0xFF0A2530);
+        getWindow().setNavigationBarColor(0xFF0A2530);
+        gps=(LocationManager)getSystemService(Context.LOCATION_SERVICE);
+        bridge=new PdrSensorBridge(this,engine,new PdrSensorBridge.Callback(){
+            @Override public void sample(String type,long t,double x,double y,double z,int accuracy){
+                log(type,t,x,y,z,accuracy);
+            }
+            @Override public void step(long t){if(writer!=null)writer.step(t);}
+        });
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);
+        LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setBackgroundColor(0xFF0A1B24);
+        int margin=dp(14);layout.setPadding(margin,dp(20),margin,margin);
+        TextView title=text("PDR · CAMERA FREE",25,0xFF71F5D7);
+        layout.addView(title);
+        TextView subtitle=text("Live distance from steps. Local path only when direction is available.",13,0xFFADC7D2);
+        layout.addView(subtitle);
+        numbers=text("0.00 m  ·  0 steps",27,Color.WHITE);numbers.setPadding(0,dp(16),0,dp(10));layout.addView(numbers);
+        status=text("READY",15,0xFFE3D28B);layout.addView(status);
+        trail=new PdrTrailView(this);
+        LinearLayout.LayoutParams chart=new LinearLayout.LayoutParams(-1,dp(270));
+        chart.topMargin=dp(16);chart.bottomMargin=dp(16);
+        layout.addView(trail,chart);
+        details=text("Tap START to begin.",14,0xFFBFD2DA);
+        layout.addView(details);
+        LinearLayout primary=new LinearLayout(this);
+        start=button("START",primary);finish=button("STOP",primary);
+        layout.addView(primary);
+        LinearLayout secondary=new LinearLayout(this);
+        gpsButton=button("GNSS ASSIST OFF",secondary);
+        stepLengthButton=button("STEP 0.74 m",secondary);
+        layout.addView(secondary);
+        LinearLayout bottom=new LinearLayout(this);
+        export=button("EXPORT ZIP",bottom);
+        Button back=button("BACK",bottom);
+        layout.addView(bottom);
+        TextView notice=text("PDR distance = step count × calibrated step length. "
+            +"Trajectory assumes phone TOP points forward unless GNSS course is valid. "
+            +"Pocket movement and turns can make the path wrong. No guaranteed accuracy. "
+            +"No camera. Tracking stops when this screen is closed or backgrounded.",13,0xFF85A2AC);
+        notice.setPadding(0,dp(16),0,0);layout.addView(notice);
+        scroll.addView(layout);setContentView(scroll);
+        start.setOnClickListener(v->startSession());
+        finish.setOnClickListener(v->finishSession(false));
+        export.setOnClickListener(v->exportZip());
+        gpsButton.setOnClickListener(v->toggleGps());
+        stepLengthButton.setOnClickListener(v->editStepLength());
+        back.setOnClickListener(v->finish());
+        render();
+    }
+    private int dp(float n){return Math.round(n*getResources().getDisplayMetrics().density);}
+    private TextView text(String s,int sp,int color){
+        TextView v=new TextView(this);v.setText(s);v.setTextSize(sp);v.setTextColor(color);
+        v.setGravity(Gravity.CENTER_VERTICAL);return v;
+    }
+    private Button button(String name,LinearLayout parent){
+        Button b=new Button(this);b.setText(name);b.setTextSize(12);b.setAllCaps(false);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(54),1);
+        p.setMargins(0,dp(8),dp(8),0);parent.addView(b,p);return b;
+    }
+    /** Foreground-only; old data is exported before another recording overwrites it. */
+    void startSession(){
+        if(engine.isRecording())return;
+        if(exportReady){
+            new AlertDialog.Builder(this).setTitle("Replace last session?")
+              .setMessage("Export the previous ZIP before starting a new session.")
+              .setNegativeButton("CANCEL",null)
+              .setPositiveButton("DISCARD & START",(d,w)->{exportReady=false;openNewSession();})
+              .show();return;
+        }
+        openNewSession();
+    }
+    private void openNewSession(){
+        try {writer=new PdrTraceWriter(this);}
+        catch(Exception e){note="Cannot start trace: "+e.getMessage();render();return;}
+        engine.start(SystemClock.elapsedRealtimeNanos());
+        bridge.start(stepPermissionGranted());
+        autoStopped=false;exportReady=false;note="RECORDING";
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if(gpsOn)startGps();
+        ui.removeCallbacks(tick);ui.post(tick);
+        if(android.os.Build.VERSION.SDK_INT>=29 && !stepPermissionGranted())
+            requestPermissions(new String[]{Manifest.permission.ACTIVITY_RECOGNITION},ACTIVITY_REQUEST);
+        render();
+    }
+    private boolean stepPermissionGranted(){
+        return android.os.Build.VERSION.SDK_INT<29 ||
+            checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION)==PackageManager.PERMISSION_GRANTED;
+    }
+    private void log(String type,long t,double x,double y,double z,int accuracy){
+        if(writer==null)return;
+        try{writer.sample(type,t,x,y,z,accuracy);}
+        catch(RuntimeException e){note="STORAGE ERROR; STOPPED";finishSession(true);}
+    }
+    private void finishSession(boolean background){
+        if(!engine.isRecording())return;
+        bridge.stop();stopGps();
+        engine.pause();
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        try{if(writer!=null)writer.close();exportReady=writer!=null;}
+        catch(Exception e){note="Trace error: "+e.getMessage();exportReady=false;}
+        if(!note.startsWith("Trace error")&&!note.startsWith("STORAGE ERROR"))
+            note=background?"STOPPED · screen backgrounded":"COMPLETE · export ZIP";
+        autoStopped=background;
+        ui.removeCallbacks(tick);render();
+    }
+    private void editStepLength(){
+        if(engine.isRecording()){
+            Toast.makeText(this,"Stop first to change calibration",Toast.LENGTH_LONG).show();return;
+        }
+        EditText input=new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        input.setText(String.format(Locale.US,"%.3f",engine.snapshot(SystemClock.elapsedRealtimeNanos()).stepLengthM));
+        new AlertDialog.Builder(this).setTitle("Step length in metres")
+          .setMessage("Calibrate on a measured 100 m walk: 100 / detected steps. "
+             +"Use separate values for walking and running.")
+          .setView(input).setNegativeButton("CANCEL",null)
+          .setPositiveButton("APPLY",(d,w)->{
+              try{engine.setStepLengthMeters(Double.parseDouble(input.getText().toString()));}
+              catch(Exception e){Toast.makeText(this,"Use 0.35–1.8 metres",Toast.LENGTH_LONG).show();}
+              render();
+          }).show();
+    }
+    private void toggleGps(){
+        if(gpsOn){gpsOn=false;stopGps();render();return;}
+        if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){
+            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION},LOCATION_REQUEST);
+            return;
+        }
+        gpsOn=true;if(engine.isRecording())startGps();render();
+    }
+    private void startGps(){
+        if(!gpsOn||gps==null)return;
+        if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)return;
+        try{gps.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000,0,locationListener);}
+        catch(Exception e){note="GNSS unavailable: "+e.getMessage();}
+    }
+    private void stopGps(){
+        if(gps!=null)try{gps.removeUpdates(locationListener);}catch(SecurityException ignored){}
+    }
+    private void exportZip(){
+        if(!exportReady||writer==null){Toast.makeText(this,"Stop recording before exporting",Toast.LENGTH_SHORT).show();return;}
+        Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("application/zip");
+        i.putExtra(Intent.EXTRA_TITLE,"vector-pdr-"+System.currentTimeMillis()+".zip");
+        startActivityForResult(i,EXPORT_REQUEST);
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data){
+        super.onActivityResult(request,result,data);
+        if(request!=EXPORT_REQUEST||result!=RESULT_OK||data==null||data.getData()==null)return;
+        try{
+            writer.export(this,data.getData(),engine.path(),engine.snapshot(SystemClock.elapsedRealtimeNanos()),bridge.stepMode());
+            Toast.makeText(this,"PDR ZIP exported",Toast.LENGTH_LONG).show();
+        }catch(Exception e){new AlertDialog.Builder(this).setMessage("Export failed: "+e.getMessage())
+               .setPositiveButton("OK",null).show();}
+    }
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
+        super.onRequestPermissionsResult(request,permissions,results);
+        if(request==LOCATION_REQUEST){if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED){
+            gpsOn=true;if(engine.isRecording())startGps();
+        }render();}
+        if(request==ACTIVITY_REQUEST&&engine.isRecording()){
+            bridge.start(stepPermissionGranted());render();
+        }
+    }
+    private void render(){
+        if(numbers==null)return;
+        PdrEngine.Snapshot s=engine.snapshot(SystemClock.elapsedRealtimeNanos());
+        numbers.setText(String.format(Locale.US,"%.2f m   ·   %d steps",s.distanceM,s.steps));
+        status.setText(note);
+        gpsButton.setText(gpsOn?"GNSS ASSIST ON":"GNSS ASSIST OFF");
+        stepLengthButton.setText(String.format(Locale.US,"STEP %.2f m",s.stepLengthM));
+        start.setEnabled(!s.recording);finish.setEnabled(s.recording);export.setEnabled(exportReady);
+        details.setText(String.format(Locale.US,
+            "Steps: %s\nDirection: %s%s\nLocal EN (m): %.1f, %.1f\n"
+           +"Steps with missing direction: %d / %d\nElevation change (pressure): %s\n"
+           +"GNSS: %s (course only)\nNote: device heading is not body heading.",
+            bridge.stepMode(),s.headingSource.name(),
+            Double.isFinite(s.headingDeg)?String.format(Locale.US," (%.0f°)",s.headingDeg):"",
+            s.eastM,s.northM,s.stepsWithoutHeading,s.steps,
+            Double.isFinite(s.elevationM)?String.format(Locale.US,"%.1f m (uncalibrated)",s.elevationM):"unknown",
+            gpsOn?"requested":"off"));
+        trail.setPath(engine.path());
+    }
+    @Override protected void onPause(){
+        finishSession(true);
+        super.onPause();
+    }
+    @Override protected void onDestroy(){
+        ui.removeCallbacks(tick);stopGps();bridge.stop();
+        if(writer!=null)try{writer.close();}catch(Exception ignored){}
+        super.onDestroy();
+    }
+}

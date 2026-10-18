@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -21,6 +22,7 @@
         <meta-data android:name="com.google.ar.core" android:value="optional" />
         <service android:name=".GpsNavigationService" android:exported="false" android:foregroundServiceType="location" />
         <activity android:name=".GpsRoutesActivity" android:exported="false" />
+        <activity android:name=".pdr.PdrActivity" android:exported="false" android:screenOrientation="portrait" />
         <service android:name=".CollectionService" android:exported="false" android:foregroundServiceType="camera|location" />
         <activity android:name=".CollectionActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".SimulationActivity" android:screenOrientation="portrait" android:exported="false" />
