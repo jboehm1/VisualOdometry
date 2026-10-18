@@ -194,8 +194,8 @@
       "name": "Datasets, validation A/B/C et benchmark métrique",
       "owner_branch": "feature/three-validation-campaigns + feature/slam-explorer + work/slam-roadmap-b1-b2-b8",
       "priority": "P0",
-      "stage": "Several benchmark and testenv PRs already merged into integration (#4/#6/#7/#9/#10/#12/#14/#16); hardware and full datasets not qualified",
-      "evidence": "Campagnes A/B/C et scripts, provenance normalisée V5 B1–B8; PR #14 de benchmark ADVIO-09 ouverte. PR #14 ADVIO09 and PR #16 modular testenv already merged, not open.",
+      "stage": "Several benchmark and testenv PRs already merged into integration (#4/#6/#7/#9/#10/#12/#14/#16); hardware and full datasets not qualified; PR #18 smartphone dataset suites also merged concurrently",
+      "evidence": "Campagnes A/B/C et scripts, provenance normalisée V5 B1–B8; PR #14 de benchmark ADVIO-09 ouverte. PR #14 ADVIO09 and PR #16 modular testenv already merged, not open. PR #18 merged at a9683c4.",
       "risks": "Dataset catalogué ≠ acquis/rejoué ; baseline PDR Python ≠ Java; EuRoC non joué directement par ARCore Android.",
       "tasks": [
         {
@@ -318,6 +318,14 @@
     "combined_android_ci_after_11_merge": "pending_validation_via_docs_branch",
     "audit_document": "docs/coordination/git-consolidation-20261019.md",
     "smoke_research_branch_mutating": true,
-    "checked_at": "2026-10-19"
+    "checked_at": "2026-10-19",
+    "newly_merged_during_review": [
+      {
+        "pr": 18,
+        "merge_commit": "a9683c47452c00f48c68527dc8d92f6fd3c00d82",
+        "scope": "Real smartphone ADVIO-09 + Mobile-GVIO suites in modular testenv"
+      }
+    ],
+    "pr19": "Temporary coordination PR, close by merge after CI; not an independent Android feature."
   }
 }
