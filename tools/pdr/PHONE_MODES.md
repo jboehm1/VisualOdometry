@@ -26,3 +26,5 @@ not the meaning of those replayed events:
 This note is in the module-specific tools directory so its code changes
 under GitHub Actions can be checked without editing shared workflows. All
 performance claims on a physical Galaxy S21 remain unverified.
+
+**Host-testing note (Robolectric):** the PDR START control refuses to open a session if neither the hardware step detector nor accelerometer is available. Robolectric normally exposes no sensors by default. `PdrAndroidTest` installs a simulated accelerometer with `ShadowSensorManager.addSensor(ShadowSensor.newInstance(Sensor.TYPE_ACCELEROMETER))` before asserting a successful START. The absent-sensor behavior is deliberate; do not bypass it simply to make a simulator pass.
