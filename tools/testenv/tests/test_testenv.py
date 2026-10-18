@@ -137,6 +137,17 @@ class SuiteContracts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unknown --only"):
             runner.execute(self.suite, out, only={"walkk"})
 
+    def test_large_engine_logs_are_bounded_in_memory_and_report(self):
+        code = ("import sys; "
+                "sys.stdout.write('A'*1000000+'GOOD_END'); "
+                "sys.stderr.write('B'*1000000+'BAD_END')")
+        rc, out, err = runner._subprocess([sys.executable, "-c", code], 10, self.root)
+        self.assertEqual(rc, 0)
+        self.assertLessEqual(len(out), 16000)
+        self.assertLessEqual(len(err), 16000)
+        self.assertTrue(out.endswith("GOOD_END"))
+        self.assertTrue(err.endswith("BAD_END"))
+
     def test_dashboard_escapes_untrusted_metrics_and_errors(self):
         out = self.root / "html"
         target = out / "runs" / "20261018T102000Z-abcdefab"
