@@ -6,7 +6,7 @@ import java.util.List;
 
 /**
  * Camera-independent pedestrian dead reckoning. All times use elapsedRealtimeNanos.
- * The 2D coordinates are local East/North METRES, NOT geographical coordinates.
+ * The 2D coordinates are LOCAL MAGNETIC EAST/NORTH-like metres, NOT geographic coordinates.
  * Distance remains available without heading; never invent a 2D position in that case.
  *
  * A heading supplied by Android's rotation vector describes the PHONE, not necessarily
@@ -72,7 +72,7 @@ public final class PdrEngine {
         if (!recording||timeNs<=deviceTimeNs||!Double.isFinite(radians)) return;
         deviceTimeNs=timeNs; deviceHeadingRad=wrap(radians);
     }
-    /** Only high-quality course-over-ground: NEVER treat GPS position as PDR distance. */
+    /** GNSS course must first be converted TRUE -> MAGNETIC north by Android adapter. */
     public void gpsCourse(long timeNs, double radians, float speedMps,
                           float horizontalAccuracyM, float bearingAccuracyDeg) {
         if (!recording || timeNs<=gpsTimeNs || !Double.isFinite(radians) ||

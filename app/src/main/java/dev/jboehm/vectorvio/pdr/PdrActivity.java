@@ -8,6 +8,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
+import android.hardware.GeomagneticField;
 import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -52,10 +53,17 @@ public final class PdrActivity extends Activity {
             if(!engine.isRecording()||!loc.hasBearing()||!loc.hasSpeed()||
                !loc.hasBearingAccuracy()||!loc.hasAccuracy())return;
             float bearingAccuracy=loc.getBearingAccuracyDegrees();
-            engine.gpsCourse(loc.getElapsedRealtimeNanos(),Math.toRadians(loc.getBearing()),
+            // Android rotation-vector azimuth is magnetic north; GNSS bearing is
+            // true north. Convert GNSS course into the same MAGNETIC frame.
+            // Otherwise every switch in heading source injects declination error.
+            GeomagneticField geomagnetic=new GeomagneticField(
+                (float)loc.getLatitude(),(float)loc.getLongitude(),
+                loc.hasAltitude()?(float)loc.getAltitude():0f,loc.getTime());
+            double magneticCourse=Math.toRadians(loc.getBearing()-geomagnetic.getDeclination());
+            engine.gpsCourse(loc.getElapsedRealtimeNanos(),magneticCourse,
                 loc.getSpeed(),loc.getAccuracy(),bearingAccuracy);
             if(writer!=null) {
-                try{writer.gpsCourse(loc.getElapsedRealtimeNanos(),Math.toRadians(loc.getBearing()),
+                try{writer.gpsCourse(loc.getElapsedRealtimeNanos(),magneticCourse,
                     loc.getSpeed(),loc.getAccuracy(),bearingAccuracy);}
                 catch(RuntimeException e){note="STORAGE ERROR; STOPPED";finishSession(true);}
             }

@@ -70,7 +70,7 @@ public final class PdrTraceWriter {
                 zip.closeEntry();
                 zip.putNextEntry(new ZipEntry("metadata.txt"));
                 zip.write(("VECTOR VIO PDR, no camera\n"+
-                    "Coordinate frame: local east/north metres (not georeferenced).\n"+
+                    "Coordinate frame: local magnetic north/east-like metres (not WGS84).\n"+
                     "Timestamps: Android elapsedRealtimeNanos since boot.\n"+
                     "Distance: detected steps times configured step length; not ground truth.\n"+
                     "Heading: GNSS course if valid, else DEVICE TOP assumed walking forward.\n"+

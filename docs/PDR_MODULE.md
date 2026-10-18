@@ -34,7 +34,7 @@ Graph:
 - Device coordinates: Android sensor axes. Engine heading: radians clockwise from
   magnetic/Android north. Output trajectory is **local East/North metres**. No path line is drawn across missing-heading gaps.
 - **No global georeferencing and no certified position accuracy.**
-- GNSS bearing is accepted only if speed >=1.2 m/s, horizontal accuracy <=20 m,
+- GNSS true bearing is converted to magnetic bearing using Android GeomagneticField and then accepted only if speed >=1.2 m/s, horizontal accuracy <=20 m,
   reported bearing accuracy <=25°, and recently sampled. GNSS fix positions do not
   adjust the PDR distance or silently warp the trajectory.
 - When no heading exists, the engine still counts distance but labels steps
@@ -158,3 +158,6 @@ benchmarks are a separate reproducible job on local WSL / research runner.
    GNSS course quality validation.
 
 Raw rotation vector events include quaternion w in raw_sensors.csv for future research. Missing-heading gaps are flagged in path.csv.
+
+### Magnetic vs geographical heading
+Android rotation-vector azimuth is relative to magnetic north while GNSS course is relative to true north. The Android activity converts a GNSS fix to magnetic course via GeomagneticField before fusion. Path coordinates remain locally aligned to magnetic north and are not global WGS84 ENU. A future georeferencing adapter must explicitly transform frames using calibrated declination; do not mix magnetic and true azimuth directly.
