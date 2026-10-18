@@ -54,6 +54,12 @@ public class GeoAlignmentTest {
         assertEquals(lat(40),projected[0],0.00001);
         assertEquals(lon(40),projected[1],0.00001);
     }
+    @Test public void highReportedGpsNoiseNeedsMuchLongerTravel(){
+        GeoAlignment a=new GeoAlignment();
+        for(int i=0;i<8;i++)a.add(1,(i+1)*1_000_000_000L,i*3,0,lat(0),lon(i*3),12);
+        assertEquals(GeoAlignment.State.NEED_BASELINE,a.estimate().state);
+        assertNull(a.estimate().project(0,0));
+    }
     private GeoAlignment track(boolean outlier){
         GeoAlignment a=new GeoAlignment();
         double angle=Math.toRadians(31);
