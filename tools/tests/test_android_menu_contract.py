@@ -16,13 +16,22 @@ class AndroidModeContractTest(unittest.TestCase):
                                 MANIFEST.read_text(encoding="utf-8"))
         self.assertTrue(result["pass"],result["missing"])
         self.assertEqual("STATIC_ONLY_NOT_UI_TESTED",result["source"])
-        self.assertFalse(result["modes"]["PDR"]["ok"])
-        self.assertFalse(result["modes"]["COURSES"]["ok"])
+        # New modes may be legitimately integrated later; never fail just
+        # because PDR or COURSES has become available.
 
     def test_missing_required_mode_fails_explicitly(self):
-        actual=MAIN.read_text(encoding="utf-8")
+        # Synthetic three-mode source must continue to fail the five-mode gate
+        # even after real PDR and COURSES are integrated in MainActivity.
+        synthetic='''void dataMenu(){
+            String[] choices={"GPS ROUTES — import GPX / follow / record",
+              "ARCORE REPLAY — evaluate saved video with same odometer",
+              "GPS ↔ FUSED — Android location A/B (experimental)"};
+            startActivity(new Intent(this,GpsRoutesActivity.class));
+            playbackPicker();
+            startActivity(new Intent(this,LocationComparisonActivity.class));
+        }'''
         manifest=MANIFEST.read_text(encoding="utf-8")
-        result=contract.inspect(actual,manifest,required=contract.TARGET_COMBINED)
+        result=contract.inspect(synthetic,manifest,required=contract.TARGET_COMBINED)
         self.assertFalse(result["pass"])
         self.assertIn("PDR",result["missing"])
         self.assertIn("COURSES",result["missing"])
