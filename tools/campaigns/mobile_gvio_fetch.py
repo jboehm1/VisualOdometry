@@ -32,3 +32,27 @@ def get_data(out):
             raise ValueError("Download checksum mismatch")
         result["archives"][name]=dict(bytes=total,md5=md5)
         print("PINNED_ARCHIVE_VERIFIED",name,total,flush=True)
+
+        with zipfile.ZipFile(filename) as bundle:
+            for member in bundle.infolist():
+                name_in_archive=member.filename
+                if name=="Indoor-2.zip" and name_in_archive.endswith(("/indoor_2.bag","/ground_truth.txt")):
+                    if member.file_size>4_000_000_000:raise ValueError("Oversized uncompressed source member")
+                    dest=out/Path(name_in_archive).name
+                    with bundle.open(member) as src,dest.open("wb") as dst:
+                        shutil.copyfileobj(src,dst)
+                    print("DATASET_MEMBER",dest.name,member.file_size,flush=True)
+                elif name=="calib.zip" and name_in_archive.endswith("/orbslam3.yaml"):
+                    with bundle.open(member) as src,(out/"orbslam3.yaml").open("wb") as dst:
+                        shutil.copyfileobj(src,dst)
+        filename.unlink()
+    for name in ("indoor_2.bag","ground_truth.txt","orbslam3.yaml"):
+        if not (out/name).is_file():raise ValueError("Missing original input "+name)
+    (out/"provenance.json").write_text(json.dumps(result,indent=2)+"\n")
+    return result
+
+if __name__=="__main__":
+    p=argparse.ArgumentParser()
+    p.add_argument("--out",type=Path,required=True)
+    opts=p.parse_args()
+    get_data(opts.out)
