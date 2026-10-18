@@ -1,3 +1,5 @@
+**🌐 Pilotage central VECTOR VIO (Android)** : [Atlas interactif V5 — GPS/FLP, brouillard et fumée dense/pompiers (R&D)](docs/VECTOR_VIO_ATLAS_INTERACTIF_v5.html) · [Feuille de route centrale de tous les chantiers](docs/ROADMAP_CENTRAL.md) · [Suivi JSON](docs/ROADMAP_CENTRAL.json). **La branche par défaut `master` reste l'archive 2019 ; `feature/slam-explorer` est l'intégration Android actuelle.**
+
 **Développements parallèles :** lire [la coordination commune](docs/DEVELOPMENT_COORDINATION.md) avant de toucher aux fichiers partagés ; état des branches, conflits reproduits et ordre d’intégration.
 
 **0.10.0-alpha — traitement découplé du rendu :** [VIEW 5/15/30, maintien pour accélérer et course](docs/POWER_PROFILES.md). Tous les profils visent 30 lectures de poses/s ; la caméra ARCore reste à une cible de 30 FPS.

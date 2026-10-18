@@ -1,0 +1,285 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-19",
+  "source_of_truth": "feature/slam-explorer:docs/ROADMAP_CENTRAL.md",
+  "branch_notes": {
+    "default_github_branch": "master — archive 2019, non utilisée pour intégration Android",
+    "android_integration": "feature/slam-explorer",
+    "work_branches": "PR #3 B1–B8 ; PR #5 PDR ; PR #11 Android FLP"
+  },
+  "statuses": [
+    "NON_FAIT",
+    "PARTIEL",
+    "PROTOTYPE",
+    "RECHERCHE",
+    "EN_COURS",
+    "DOCUMENTE",
+    "A_TESTER_TERRAIN",
+    "BLOQUE_TERRAIN",
+    "BLOQUE_INTEGRATION",
+    "BLOQUE_VALIDATION",
+    "LOGICIEL_VALIDE"
+  ],
+  "qualification": {
+    "ci_not_field_truth": true,
+    "smoke_firefighter_operational_use_permitted": false,
+    "precision_certified": false
+  },
+  "tracks": [
+    {
+      "id": "CORE",
+      "name": "Application Android / exploration",
+      "owner_branch": "feature/slam-explorer",
+      "priority": "P0",
+      "stage": "Intégration partielle vérifiée",
+      "evidence": "Odomètre ARCore, HUD, carte, GPS ROUTES, capture et replay déjà présents sur branche intégration.",
+      "risks": "Précision/course/S21, régimes thermiques et comportement multi-modules non validés.",
+      "tasks": [
+        {
+          "id": "C01",
+          "name": "Préserver 30 poses/s visées indépendamment de VIEW 5/15/30",
+          "priority": "P0",
+          "state": "EN_COURS",
+          "acceptance": "Revue invariants + métriques cadence en marche/course et vérité terrain."
+        },
+        {
+          "id": "C02",
+          "name": "Unifier menu DATA sans collision d'indices PDR/replay/courses/FLP",
+          "priority": "P0",
+          "state": "BLOQUE_INTEGRATION",
+          "acceptance": "Tous les sous-écrans accessibles et actions correctes dans une seule APK."
+        },
+        {
+          "id": "C03",
+          "name": "Tester l'APK réellement réunie et la compatibilité des exports",
+          "priority": "P0",
+          "state": "NON_FAIT",
+          "acceptance": "CI GitHub sur SHA intégré, smoke Android de chaque mode, ZIP valides."
+        }
+      ]
+    },
+    {
+      "id": "B1B8",
+      "name": "GPS↔VIO, GPX, vision exploratoire, courses, retour",
+      "owner_branch": "work/slam-roadmap-b1-b2-b8",
+      "priority": "P0",
+      "stage": "Fonctions développées sur branche séparée, PR #3 en brouillon",
+      "evidence": "41 tâches sources détaillées ; progression indicative interne de 68 % au 18/10, non recalculée après nouvelles branches.",
+      "risks": "Certains prototypes ne sont pas liés à la caméra/au service GPS ; code non intégré avec PDR et replay.",
+      "tasks": [
+        {
+          "id": "B01",
+          "name": "Garder les 41 sous-tâches B1…B8 comme backlog de référence détaillé",
+          "priority": "P1",
+          "state": "DOCUMENTE",
+          "acceptance": "Référence versionnée intacte ; aucune tâche masquée par le résumé inter-chantiers."
+        },
+        {
+          "id": "B02",
+          "name": "Synchroniser GNSS/ARCore et vérifier drift/timebase sur S21",
+          "priority": "P0",
+          "state": "A_TESTER_TERRAIN",
+          "acceptance": "Fixes appariés, resets documentés, pas de saut de segment et écart au contrôle indépendant."
+        },
+        {
+          "id": "B03",
+          "name": "Raccordement conservateur GPX+VIO avec abstention",
+          "priority": "P1",
+          "state": "PARTIEL",
+          "acceptance": "Figure-huit, sentiers parallèles, horloge décalée, GPS multipath, incertitude visible."
+        },
+        {
+          "id": "B04",
+          "name": "Évaluer chemin visuel sur images réelles avec masques annotés",
+          "priority": "P2",
+          "state": "PROTOTYPE",
+          "acceptance": "IoU/rappel, hors de l'échantillon d'entraînement, budget réel énergie/latence."
+        },
+        {
+          "id": "B05",
+          "name": "Contrôler retour sans recoller les trous de suivi",
+          "priority": "P1",
+          "state": "PARTIEL",
+          "acceptance": "Retour interrompu explicitement en absence de repère commun ; aucune promesse secours."
+        },
+        {
+          "id": "B06",
+          "name": "Tests magasin et confort d'édition des rayons",
+          "priority": "P2",
+          "state": "PARTIEL",
+          "acceptance": "Test pratique offline, corrections d'allées sans données privées involontaires."
+        }
+      ]
+    },
+    {
+      "id": "PDR",
+      "name": "Sans caméra / inertiel seulement",
+      "owner_branch": "feature/camera-free-pdr",
+      "priority": "P1",
+      "stage": "Moteur Java/Android et replay sur branche séparée, PR #5",
+      "evidence": "Moteur PDR Android, acquisition, écran, export ZIP et replay moteur commun; historique CI sur la branche.",
+      "risks": "PDR Python de campagne est différent du moteur Java ; pas de calibration course/rampement/fixation appareil.",
+      "tasks": [
+        {
+          "id": "P01",
+          "name": "Vérifier la cadence et le moteur exact Java sur téléphone",
+          "priority": "P1",
+          "state": "A_TESTER_TERRAIN",
+          "acceptance": "Préciser orientation corps/téléphone, port en poche, immobilité et marche."
+        },
+        {
+          "id": "P02",
+          "name": "Quantifier la dérive en sortie de tunnel/indoors",
+          "priority": "P1",
+          "state": "NON_FAIT",
+          "acceptance": "Tests 3 parcours et dérives p50/p95 de position/longueur, référence indépendante."
+        },
+        {
+          "id": "P03",
+          "name": "Étudier mouvements atypiques : escaliers, rampement, charge portée",
+          "priority": "P2",
+          "state": "RECHERCHE",
+          "acceptance": "Conserver abstention et échec explicite lorsqu'une marche à pas n'est pas reconnaissable."
+        }
+      ]
+    },
+    {
+      "id": "FLP",
+      "name": "A/B localisation Android GNSS natif vs Google FLP",
+      "owner_branch": "feature/android-flp-comparison",
+      "priority": "P0",
+      "stage": "Pilote Android implémenté et CI verte sur SHA fonctionnel, PR #11 ouverte",
+      "evidence": "129 tests Android, Lint/APK et campagnes existantes au SHA 04ad04e ; raw/paired CSV, analyse Python offline, ZIP local.",
+      "risks": "Les deux sources partagent potentiellement le GNSS; désaccord ≠ précision, mesures physiques et batterie manquantes.",
+      "tasks": [
+        {
+          "id": "F01",
+          "name": "Collecter GNSS_PROVIDER et FLP en parallèle, sans modifier la navigation",
+          "priority": "P0",
+          "state": "LOGICIEL_VALIDE",
+          "acceptance": "Captures privées distinctes, horodatages, refus des fixes périmés ; CI du module."
+        },
+        {
+          "id": "F02",
+          "name": "Test stationnaire extérieur 5 min sur S21",
+          "priority": "P0",
+          "state": "NON_FAIT",
+          "acceptance": "Jitter, fraîcheur, couverture et latences des deux sources par même fenêtre."
+        },
+        {
+          "id": "F03",
+          "name": "Parcours mesuré ouvert, forêt, canyon urbain et retour après tunnel",
+          "priority": "P0",
+          "state": "NON_FAIT",
+          "acceptance": "Erreur de position à référence indépendante + taux de réussite/absence; 3 répétitions."
+        },
+        {
+          "id": "F04",
+          "name": "Comparer séparément la consommation GPS seul/FLP seul/simultanés",
+          "priority": "P1",
+          "state": "NON_FAIT",
+          "acceptance": "mAh/Wh ou puissance contrôlée, chauffe et fréquence des demandes documentées."
+        },
+        {
+          "id": "F05",
+          "name": "Décider conserver GNSS, FLP ou double-source selon critères",
+          "priority": "P1",
+          "state": "BLOQUE_TERRAIN",
+          "acceptance": "Décision et seuils fondés sur courbes, pas sur un simple accord des sources."
+        }
+      ]
+    },
+    {
+      "id": "LAB",
+      "name": "Datasets, validation A/B/C et benchmark métrique",
+      "owner_branch": "feature/three-validation-campaigns + feature/slam-explorer + work/slam-roadmap-b1-b2-b8",
+      "priority": "P0",
+      "stage": "Infrastructure et campagnes CI présentes, couverture réelle incomplète",
+      "evidence": "Campagnes A/B/C et scripts, provenance normalisée V5 B1–B8; PR #14 de benchmark ADVIO-09 ouverte.",
+      "risks": "Dataset catalogué ≠ acquis/rejoué ; baseline PDR Python ≠ Java; EuRoC non joué directement par ARCore Android.",
+      "tasks": [
+        {
+          "id": "T01",
+          "name": "Vérifier dataset réellement téléchargé, licence et calibration",
+          "priority": "P0",
+          "state": "EN_COURS",
+          "acceptance": "Chemins locaux, hashes, formats, provenance, aucune donnée vérité terrain injectée."
+        },
+        {
+          "id": "T02",
+          "name": "Mesurer ATE/RPE/couverture avec moteur et vérité indépendants",
+          "priority": "P0",
+          "state": "PARTIEL",
+          "acceptance": "Segment/timebase identifiés ; métriques à chaque échec; pas d'optimisation d'échelle cachée."
+        },
+        {
+          "id": "T03",
+          "name": "Rejouer PDR Java réel, distinguer la baseline Python",
+          "priority": "P0",
+          "state": "NON_FAIT",
+          "acceptance": "Même séquence IMU, même version moteur, logs et mesures comparables explicitement."
+        },
+        {
+          "id": "T04",
+          "name": "Tester vraie vidéo ARCore S21 avec le même moteur",
+          "priority": "P0",
+          "state": "A_TESTER_TERRAIN",
+          "acceptance": "Données capture réelles, horloges, CSV, reprise, EOF, export, erreurs propres."
+        }
+      ]
+    },
+    {
+      "id": "SMOKE",
+      "name": "Fumée dense / pompier : recherche non sécuritaire",
+      "owner_branch": "R&D futur, aucun moteur pompier déclaré",
+      "priority": "P2 (recherche) / P0 (interdire les promesses de sécurité)",
+      "stage": "Cas d'usage documenté ; aucun système qualifié ni essai réel",
+      "evidence": "Références NIST sur localisation secours en fumée, GNSS non fiable indoor et capteurs complémentaires.",
+      "risks": "Erreur de position potentiellement mortelle ; visibilité nulle, repères modifiés, chaleur, communications rompues, étage ambigu.",
+      "tasks": [
+        {
+          "id": "S01",
+          "name": "Définir modes de défaillance fumée dense, obscurité et environnement mouvant",
+          "priority": "P0",
+          "state": "DOCUMENTE",
+          "acceptance": "Matrice perte GNSS/RGB/PDR, escaliers, portes fermées, rampement, gants et chaleur."
+        },
+        {
+          "id": "S02",
+          "name": "Protocole laboratoire : fumée artificielle NON dangereuse, sans flamme et supervision",
+          "priority": "P1",
+          "state": "NON_FAIT",
+          "acceptance": "Accord site et opérateurs, protocole de sécurité, parcours de contrôle indépendant."
+        },
+        {
+          "id": "S03",
+          "name": "Bench 3D inertiel porté sur équipements, rampement/escaliers",
+          "priority": "P2",
+          "state": "NON_FAIT",
+          "acceptance": "Erreur par étage, temps depuis dernier recalage, abandon si erreur inconnue."
+        },
+        {
+          "id": "S04",
+          "name": "Étude matériels externes IR thermique, UWB/balises, radar et barométrie",
+          "priority": "P2",
+          "state": "RECHERCHE",
+          "acceptance": "Compatibilité, coûts, essais spécifiques; aucun support n'est supposé intégré au Galaxy S21."
+        },
+        {
+          "id": "S05",
+          "name": "Détection de l'échec sûre : abstention, incertitude, capteurs morts, lien rompu",
+          "priority": "P0",
+          "state": "NON_FAIT",
+          "acceptance": "Interface indique POSITION INCONNUE et interdit tout guidage présenté comme fiable."
+        },
+        {
+          "id": "S06",
+          "name": "Validation indépendante et revue spécialistes secours avant tout usage d'intervention",
+          "priority": "P0",
+          "state": "BLOQUE_VALIDATION",
+          "acceptance": "Essais comparatifs avec professionnels/organisme qualifié ; pas de revendication secours à court terme."
+        }
+      ]
+    }
+  ]
+}
