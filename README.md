@@ -1,3 +1,7 @@
+> **Experimental development (PR #3, not merged):** DATA → COURSES opens a manual offline supermarket plan with an aisle-graph walk optimizer. Live AR tracking with optional GPS now logs a *candidate* geographic alignment in `_geo_alignment.csv` (only when camera/GNSS clock pairing is plausible). `_tracking_quality.csv` supports tracking diagnostics. This does **not** geo-register GPX navigation, validate fog operation or certify accuracy. Semantic segmentation is a headless no-ML prototype, not a feature of the live camera.
+
+[Visual Atlas V4](docs/VECTOR_VIO_ATLAS_INTERACTIF_v4.html) · [Execution roadmap](docs/ROADMAP_EXECUTION.md) · [Datasets and acceptance](docs/EXPERIMENTS_AND_ACCEPTANCE.md).
+
 **0.10.0-alpha — traitement découplé du rendu :** [VIEW 5/15/30, maintien pour accélérer et course](docs/POWER_PROFILES.md). Tous les profils visent 30 lectures de poses/s ; la caméra ARCore reste à une cible de 30 FPS.
 
 **0.9.0-alpha — profils de consommation :** [POWER / maintien 5→30 et collecte Ultra](docs/POWER_PROFILES.md). Cadence app distincte de la caméra ARCore ; compromis de qualité explicités.
