@@ -1,0 +1,8 @@
+# Raw EuRoC vision + IMU pilot coordination
+
+- Reviewed Git SHA: `372c935fc27536d417fa371d79f5f453546ebefa`, branch `feature/slam-explorer`, including `AGENTS.md` and `docs/DEVELOPMENT_COORDINATION.md`.
+- Work branch: `feature/real-raw-vio-euroc`, isolated; `master` is the old historical branch and must remain untouched.
+- Scope: build and prove one **real recorded raw-image plus synchronized IMU** benchmark (EuRoC), with independent trajectory reference and conservative output claims. Preserve the previous successful Java PDR SIMUL campaign unchanged.
+- Shared files involved: NONE of `MainActivity.java`, `AndroidManifest.xml`, DATA menu, legacy workflows, Java PDR, existing benchmark adapters. Add only new `tools/campaigns/raw_stereo_imu.py`, isolated downloader/workflow, tests, docs and this note. If a preexisting CLI must be touched later, coordinate review and maintain backwards compatibility.
+- Important concurrency: existing PDR and roadmap branches conflict in Android UI. This task will not merge their code, nor claim Linux runs ARCore. Device frame vs camera frame, body/camera extrinsics, ground truth leakage, and gyro integration must be explicitly tested. No trajectory accuracy claim from merely indexed images, fake images or published estimated poses.
+- Immediate next: confirm download source and license, execute actual camera frame decoding, track 3D image features using stereo calibration and metric depth, use real synchronized gyroscope to influence pose, then score against real reference. Stop/fail closed if truth or calibration is insufficient. Run exact-SHA CI before merge.
