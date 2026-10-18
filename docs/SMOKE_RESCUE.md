@@ -159,3 +159,19 @@ The source index indicates channels and counts, NOT successful sensor-message de
 Follow-on **canonical Test Environment V2** integration: dataset ID \`upo_smoke\`, engine \`radar-sensor-audit\`, CLI \`python benchmark.py plan --dataset upo_smoke --engine radar-sensor-audit\`, and strict \`tools/testenv/suites/smoke-upo7-real.json\`. The central suite requires the ORIGINAL bag at \`campaign_results/smoke-upo7/experiment_7.bag\` and uses its SHA in benchmark output; it never substitutes sensor indexing for a radar SLAM estimate. Dedicated 2.18GB Action workflow downloads an ephemeral licensed original, runs V2 and uploads only metric summaries/HTML. Full central V2 exact-head CI evidence to be recorded separately from the initial real sensor job.
 
 **What remains before positioning/obstacle performance**: validate ROS /tf_static geometry and sensor axes; only then register LiDAR reference geometry and quantify radar ↔ LiDAR nearest-surface agreement by distance, time and smoke condition. Run at least one radar-only odometry estimator on raw cloud/doppler/IMU (no /ground_truth as input), score tracked-segment ATE/RPE against independent marker frames where actually independent, report abstention/coverage. Hold out other smoke levels and repeat environments. Thermal requires a different dataset or later benign physical test. No performance statement about actual rescue readiness from these numbers.
+
+
+## 9. VERIFIED canonical Test Environment V2 run on actual UPO (2026-10-19)
+
+**SUCCESS** at source SHA \`d92e86f7f1bed31e3fed9dce252e86912defe4a9\`, [original real-data workflow 39178059836](https://github.com/jboehm1/VisualOdometry/actions/runs/39178059836), retained small artifact **12154344457** (only JSON/HTML report; original 2,183,007,782-byte CC-BY-NC-SA ROS bag is deleted afterwards).
+
+The workflow really:
+1. Installed pinned \`rosbags==0.11.4\` and passed **20** smoke module unit tests.
+2. Downloaded and checked exact original 2,183,007,782-byte \`experiment_7.bag\` (not a canned fixture).
+3. Called \`python -m tools.testenv.cli plan\` and \`run\` with versioned \`smoke-upo7-real.json\`, using canonical \`upo_smoke/radar-sensor-audit\` engine.
+4. Passed contract gates verifying **781 left radar**, **750 right radar**, **600 LiDAR** original \`PointCloud2\` messages and **479 published (marker/odometry-smoothed) pose reference** samples over the selected first 60 seconds, no false odometry or GT score.
+5. Recorded hashed original + input/code/suite provenance, normalised report and TestEnv V2 HTML dashboard. Report exported as an artifact without the copyrighted bag.
+
+**Measured result summary**: left radar median **3** returns/scan at **19.6004 Hz** during **39.795s** of activity; right radar median **2** at **18.8215 Hz** during **39.795s**; LiDAR median **31,647** points at **10.0018 Hz** during **59.889s**; time coverage within ±100ms of reference **79.6415% left / 79.2% right**; reference reports **479** poses. Zero published empty-cloud scans does **NOT** prove it detects obstacles continuously: driver may omit empty messages. Extremely sparse radar scenes are a warning that a single low-cost radar is unlikely to yield photorealistic 3D structures without tracking, temporal accumulation and fusion.
+
+**What this success does NOT prove**: position/heading accuracy (ATE/RPE), physical obstacle detection recall, free-space safety, smoke density comparisons, thermal fusion, wearable device feasibility, or firefighter readiness. Current score is *actual sensor observability + reference timestamp coverage*, not full VECTOR VIO algorithm performance. True SLAM benchmark requires TF calibration, an estimator blind to pose truth, independent test GT and other smoke sequences.
