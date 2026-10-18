@@ -55,9 +55,15 @@ public final class PdrTraceWriter {
         if(eventOut!=null){eventOut.close();eventOut=null;}
         if(rawOut!=null){rawOut.close();rawOut=null;}
     }
-    /** Call only after close(): export replayable events, raw sensors and metric path. */
+    /** Old signature retained for the existing file-format and Robolectric tests. */
     public void export(Context ctx,Uri uri,List<PdrEngine.Point> points,
                        PdrEngine.Snapshot snap,String stepMode) throws IOException {
+        export(ctx,uri,points,snap,stepMode,"UNSPECIFIED","UNSPECIFIED");
+    }
+    /** Call only after close(): export replayable events, raw sensors and metric path. */
+    public void export(Context ctx,Uri uri,List<PdrEngine.Point> points,
+                       PdrEngine.Snapshot snap,String stepMode,String gaitProfile,
+                       String headingPolicy) throws IOException {
         close();
         try(OutputStream dst=ctx.getContentResolver().openOutputStream(uri)){
             if(dst==null)throw new IOException("No output stream");
@@ -78,6 +84,8 @@ public final class PdrTraceWriter {
                     "GNSS is NOT used to calculate PDR distance; no position fix applied.\n"+
                     "Pressure altitude: relative, weather drift possible.\n"+
                     "Step mode: "+stepMode+"\n"+
+                    "Gait profile: "+gaitProfile+"\n"+
+                    "Direction policy: "+headingPolicy+"\n"+
                     "Step length m: "+snap.stepLengthM+"\n"+
                     "Steps: "+snap.steps+"\n"+
                     "Estimated distance m: "+snap.distanceM+"\n"+

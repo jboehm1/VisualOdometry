@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Location;
@@ -40,11 +41,17 @@ public final class PdrActivity extends Activity {
     private PdrSensorBridge bridge;
     private PdrTraceWriter writer;
     private PdrTrailView trail;
-    private TextView numbers,status,details;
+    private TextView numbers,status,details,sensors;
     private Button start,finish,export,gpsButton,stepLengthButton;
+    private Button gaitButton,headingButton,calibrationButton;
     private LocationManager gps;
     private boolean gpsOn,exportReady,autoStopped;
     private boolean activityPermissionRequested;
+    private boolean runningMode,phoneTopForward,recordedRunning,recordedPhoneTopForward;
+    private SharedPreferences preferences;
+    private PdrEngine.Snapshot completedSnapshot;
+    private java.util.List<PdrEngine.Point> completedPath;
+    private String recordedStepMode="NOT STARTED";
     private String note="READY";
     private final Runnable tick=new Runnable(){
         @Override public void run(){render();ui.postDelayed(this,350);}
@@ -79,6 +86,10 @@ public final class PdrActivity extends Activity {
         getWindow().setStatusBarColor(0xFF0A2530);
         getWindow().setNavigationBarColor(0xFF0A2530);
         gps=(LocationManager)getSystemService(Context.LOCATION_SERVICE);
+        preferences=getSharedPreferences("camera_free_pdr",Context.MODE_PRIVATE);
+        runningMode=preferences.getBoolean("running_profile",false);
+        phoneTopForward=preferences.getBoolean("allow_device_heading",false);
+        engine.setStepLengthMeters(savedStride(runningMode));
         bridge=new PdrSensorBridge(this,engine,new PdrSensorBridge.Callback(){
             @Override public void sample(String type,long t,double x,double y,double z,int accuracy){
                 log(type,t,x,y,z,accuracy);
@@ -106,6 +117,9 @@ public final class PdrActivity extends Activity {
         layout.addView(trail,chart);
         details=text("Tap START to begin.",14,0xFFBFD2DA);
         layout.addView(details);
+        sensors=text(bridge.sensorInventory(stepPermissionGranted()),12,0xFF91ADBA);
+        sensors.setPadding(0,dp(8),0,dp(8));
+        layout.addView(sensors);
         LinearLayout primary=new LinearLayout(this);
         start=button("START",primary);finish=button("STOP",primary);
         layout.addView(primary);
@@ -113,14 +127,23 @@ public final class PdrActivity extends Activity {
         gpsButton=button("GNSS ASSIST OFF",secondary);
         stepLengthButton=button("STEP 0.74 m",secondary);
         layout.addView(secondary);
+        LinearLayout options=new LinearLayout(this);
+        gaitButton=button("WALK",options);
+        headingButton=button("DISTANCE ONLY",options);
+        layout.addView(options);
+        LinearLayout calibrateRow=new LinearLayout(this);
+        calibrationButton=button("CALIBRATE LAST SESSION",calibrateRow);
+        layout.addView(calibrateRow);
         LinearLayout bottom=new LinearLayout(this);
         export=button("EXPORT ZIP",bottom);
         Button back=button("BACK",bottom);
         layout.addView(bottom);
-        TextView notice=text("PDR distance = step count × calibrated step length. "
-            +"Trajectory assumes phone TOP points forward unless GNSS course is valid. "
-            +"Use the phone nearly level, screen up, top pointing forward; pocket movement and turns can make the path wrong. No guaranteed accuracy. "
-            +"No camera. Tracking stops when this screen is closed or backgrounded.",13,0xFF85A2AC);
+        TextView notice=text("Distance uses counted steps and the selected manual stride calibration. "
+            +"DISTANCE ONLY is the safe default: no device yaw is treated as your travel direction. "
+            +"PHONE FORWARD is experimental: hold screen facing up within 45° of level, top edge forward. "
+            +"Valid GNSS course can supply direction in either mode. "
+            +"Running has an independent calibrated step length, not a learned running model. "
+            +"No camera; no accuracy guarantee; this screen must stay in the foreground.",13,0xFF85A2AC);
         notice.setPadding(0,dp(16),0,0);layout.addView(notice);
         scroll.addView(layout);setContentView(scroll);
         start.setOnClickListener(v->startSession());
@@ -128,6 +151,9 @@ public final class PdrActivity extends Activity {
         export.setOnClickListener(v->exportZip());
         gpsButton.setOnClickListener(v->toggleGps());
         stepLengthButton.setOnClickListener(v->editStepLength());
+        gaitButton.setOnClickListener(v->toggleGait());
+        headingButton.setOnClickListener(v->togglePhoneHeading());
+        calibrationButton.setOnClickListener(v->calibrateLastSession());
         back.setOnClickListener(v->finish());
         render();
     }
@@ -140,6 +166,62 @@ public final class PdrActivity extends Activity {
         Button b=new Button(this);b.setText(name);b.setTextSize(12);b.setAllCaps(false);
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(54),1);
         p.setMargins(0,dp(8),dp(8),0);parent.addView(b,p);return b;
+    }
+    private double savedStride(boolean running){
+        float stored=preferences.getFloat(running?"running_stride_m":"walking_stride_m",
+                            running?1.05f:.74f);
+        return Float.isFinite(stored) && stored>=.35f && stored<=1.8f
+            ? stored : (running?1.05:.74);
+    }
+    private void saveStride(boolean running,double distance){
+        preferences.edit().putFloat(running?"running_stride_m":"walking_stride_m",
+                                   (float)distance).apply();
+        if(runningMode==running)engine.setStepLengthMeters(distance);
+    }
+    private void toggleGait(){
+        if(engine.isRecording())return;
+        runningMode=!runningMode;
+        preferences.edit().putBoolean("running_profile",runningMode).apply();
+        engine.setStepLengthMeters(savedStride(runningMode));
+        render();
+    }
+    private void togglePhoneHeading(){
+        if(engine.isRecording())return;
+        phoneTopForward=!phoneTopForward;
+        preferences.edit().putBoolean("allow_device_heading",phoneTopForward).apply();
+        render();
+    }
+    private void calibrateLastSession(){
+        if(engine.isRecording())return;
+        if(completedSnapshot==null || completedSnapshot.steps<5){
+            Toast.makeText(this,"Record at least 5 detected steps, then STOP.",
+                           Toast.LENGTH_LONG).show();return;
+        }
+        EditText measured=new EditText(this);
+        measured.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        measured.setSingleLine(true);
+        measured.setText("100");
+        new AlertDialog.Builder(this).setTitle("Calibrate "+
+            (recordedRunning?"RUN":"WALK")+" — "+completedSnapshot.steps+" steps")
+            .setMessage("Enter independently measured distance walked DURING the last session (metres). "
+               +"The result is saved for future "+(recordedRunning?"RUN":"WALK")+" sessions. "
+               +"Do not use an unverified estimated GPS or PDR distance.")
+            .setView(measured).setNegativeButton("CANCEL",null)
+            .setPositiveButton("CALIBRATE",(dialog,which)->{
+                try{
+                    double length=PdrCalibration.calibratedStepLength(
+                        Double.parseDouble(measured.getText().toString()),
+                        completedSnapshot.steps);
+                    saveStride(recordedRunning,length);
+                    note=String.format(Locale.US,"%s calibrated: %.3f m per step (NEXT sessions)",
+                        recordedRunning?"RUN":"WALK",length);
+                }catch(Exception ex){
+                    new AlertDialog.Builder(this).setMessage(
+                        "Calibration rejected: "+ex.getMessage())
+                        .setPositiveButton("OK",null).show();
+                }
+                render();
+            }).show();
     }
     /** Foreground-only; old data is exported before another recording overwrites it. */
     void startSession(){
@@ -164,14 +246,23 @@ public final class PdrActivity extends Activity {
         openNewSession();
     }
     private void openNewSession(){
+        if(!bridge.hasStepSource(stepPermissionGranted())){
+            note="NO STEP SOURCE: accelerometer/STEP_DETECTOR unavailable";
+            render();return;
+        }
         try {writer=new PdrTraceWriter(this);}
         catch(Exception e){note="Cannot start trace: "+e.getMessage();render();return;}
+        completedSnapshot=null;completedPath=null;
+        recordedRunning=runningMode;
+        recordedPhoneTopForward=phoneTopForward;
+        engine.setStepLengthMeters(savedStride(recordedRunning));
         long startNs=SystemClock.elapsedRealtimeNanos();
         engine.start(startNs);
         log("START",startNs,0,0,0,0);
         log("STEP_LENGTH",startNs,
             engine.snapshot(SystemClock.elapsedRealtimeNanos()).stepLengthM,0,0,0);
-        bridge.start(stepPermissionGranted());
+        bridge.start(stepPermissionGranted(),recordedPhoneTopForward);
+        recordedStepMode=bridge.stepMode();
         autoStopped=false;exportReady=false;note="RECORDING";
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if(gpsOn)startGps();
@@ -191,6 +282,8 @@ public final class PdrActivity extends Activity {
         if(!engine.isRecording())return;
         bridge.stop();stopGps();
         engine.pause();
+        completedSnapshot=engine.snapshot(SystemClock.elapsedRealtimeNanos());
+        completedPath=engine.path();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         try{if(writer!=null)writer.close();exportReady=writer!=null;}
         catch(Exception e){note="Trace error: "+e.getMessage();exportReady=false;}
@@ -211,13 +304,24 @@ public final class PdrActivity extends Activity {
              +"Use separate values for walking and running.")
           .setView(input).setNegativeButton("CANCEL",null)
           .setPositiveButton("APPLY",(d,w)->{
-              try{engine.setStepLengthMeters(Double.parseDouble(input.getText().toString()));}
+              try{
+                  double value=Double.parseDouble(input.getText().toString());
+                  engine.setStepLengthMeters(value);
+                  saveStride(runningMode,value);
+              }
               catch(Exception e){Toast.makeText(this,"Use 0.35–1.8 metres",Toast.LENGTH_LONG).show();}
               render();
           }).show();
     }
     private void toggleGps(){
         if(gpsOn){gpsOn=false;stopGps();render();return;}
+        if(engine.isRecording() &&
+           checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+               !=PackageManager.PERMISSION_GRANTED){
+            Toast.makeText(this,"STOP first to request location permission; Android would interrupt this session.",
+                Toast.LENGTH_LONG).show();
+            return;
+        }
         if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION},LOCATION_REQUEST);
             return;
@@ -245,7 +349,11 @@ public final class PdrActivity extends Activity {
         super.onActivityResult(request,result,data);
         if(request!=EXPORT_REQUEST||result!=RESULT_OK||data==null||data.getData()==null)return;
         try{
-            writer.export(this,data.getData(),engine.path(),engine.snapshot(SystemClock.elapsedRealtimeNanos()),bridge.stepMode());
+            writer.export(this,data.getData(),
+                completedPath!=null?completedPath:engine.path(),
+                completedSnapshot!=null?completedSnapshot:engine.snapshot(SystemClock.elapsedRealtimeNanos()),
+                recordedStepMode,recordedRunning?"RUN":"WALK",
+                recordedPhoneTopForward?"PHONE_FORWARD":"DISTANCE_ONLY");
             Toast.makeText(this,"PDR ZIP exported",Toast.LENGTH_LONG).show();
         }catch(Exception e){new AlertDialog.Builder(this).setMessage("Export failed: "+e.getMessage())
                .setPositiveButton("OK",null).show();}
@@ -260,7 +368,10 @@ public final class PdrActivity extends Activity {
             // is available. Do not restart a completed session here.
             if(!engine.isRecording() && !exportReady && !isFinishing() && !isDestroyed())
                 startSession();
-            else if(engine.isRecording())bridge.start(stepPermissionGranted());
+            else if(engine.isRecording()){
+                bridge.start(stepPermissionGranted(),recordedPhoneTopForward);
+                recordedStepMode=bridge.stepMode();
+            }
             render();
         }
     }
@@ -272,15 +383,26 @@ public final class PdrActivity extends Activity {
         gpsButton.setText(gpsOn?"GNSS ASSIST ON":"GNSS ASSIST OFF");
         stepLengthButton.setText(String.format(Locale.US,"STEP %.2f m",s.stepLengthM));
         start.setEnabled(!s.recording);finish.setEnabled(s.recording);export.setEnabled(exportReady);
+        gaitButton.setEnabled(!s.recording);
+        headingButton.setEnabled(!s.recording);
+        calibrationButton.setEnabled(!s.recording && completedSnapshot!=null &&
+                                     completedSnapshot.steps>=5);
+        gaitButton.setText(runningMode?"PROFILE: RUN":"PROFILE: WALK");
+        headingButton.setText(phoneTopForward?"PHONE FORWARD":"DISTANCE ONLY");
+        sensors.setText(bridge.sensorInventory(stepPermissionGranted())+"\n"+
+                        bridge.sessionDiagnostics());
         details.setText(String.format(Locale.US,
-            "Steps: %s\nDirection: %s%s\nLocal EN (m): %.1f, %.1f\n"
-           +"Steps with missing direction: %d / %d\nElevation change (pressure): %s\n"
-           +"GNSS: %s (course only)\nNote: device heading is not body heading.",
-            bridge.stepMode(),s.headingSource.name(),
+            "Steps: %s\nHeading source: %s%s\nLocal magnetic XY (m): %.1f, %.1f\n"
+           +"Steps without usable direction: %d / %d\n"
+           +"Cadence: %.0f steps/min · estimated speed: %.2f m/s\n"
+           +"Pressure elevation change: %s\nGNSS: %s (course only)\n"
+           +"Phone heading: %s · never a measured body heading",
+            recordedStepMode,s.headingSource.name(),
             Double.isFinite(s.headingDeg)?String.format(Locale.US," (%.0f°)",s.headingDeg):"",
             s.eastM,s.northM,s.stepsWithoutHeading,s.steps,
+            s.cadenceStepsPerMin,s.estimatedSpeedMps,
             Double.isFinite(s.elevationM)?String.format(Locale.US,"%.1f m (uncalibrated)",s.elevationM):"unknown",
-            gpsOn?"requested":"off"));
+            gpsOn?"requested":"off",phoneTopForward?"opted in":"disabled"));
         trail.setPath(engine.path());
     }
     @Override protected void onPause(){
