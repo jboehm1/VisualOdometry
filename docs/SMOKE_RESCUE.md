@@ -138,3 +138,24 @@ The source index indicates channels and counts, NOT successful sensor-message de
 
 - TI xWRL6432 (2TX/3RX, compact low-power; 120° azimuth and ~80° elevation board): https://www.ti.com/tool/IWRL6432BOOST ; distributor price https://www.mouser.de/de/ProductDetail/Texas-Instruments/AWRL6432BOOST . Point-cloud output exists but low angular resolution and minimum valid obstacles need bench verification. Compare static corners and person targets against AWR6843AoP before selecting.
 - UPO university source gives robot hardware + marker assisted partial GT and license https://robotics.upo.es/datasets/smoke/ . Experiment 7 **ROS bag index** https://robotics.upo.es/datasets/smoke/experiment_7.txt lists 168s, RadarScan, PointCloud2, compressed RGB, lidar and /ground_truth; experiment_7.bag size 2,183,007,782 bytes. No samples downloaded during this audit; a downloadable bag being online is NOT successful parsing or estimation.
+
+
+## 8. First VERIFIED ORIGINAL smoke recording decoded (2026-10-19, CI)
+
+**Real original UPO exp7** downloaded in ephemeral GitHub Actions, exact 2,183,007,782 bytes verified (not retained on GitHub). [Real job 39177341887 SUCCESS](https://github.com/jboehm1/VisualOdometry/actions/runs/39177341887), initial source head 54bf63dc4749b554d411e6202294f2f6c99e14b0. Original ROS1 messages decoded with rosbags 0.11.4. Tested source code using 18 host tests before download. **No radar odometry estimator or obstacle map accuracy scored**. First 60 seconds of BAG receipt time selected (radar actually active for only ~39.8 sec of this window, explain unequal temporal support).
+
+| Real-source observed metric | Left IWR6843 | Right IWR6843 | Ouster OS1-16 |
+| --- | ---: | ---: | ---: |
+| Decoded PointCloud2 messages | **781** | **750** | **600** |
+| Active-stream duration | **39.795s** | **39.795s** | **59.889s** |
+| Frame rate over active stream | 19.6004 Hz | 18.8215 Hz | 10.0018 Hz |
+| Median advertised XYZ returns / frame | **3** | **2** | **31,647** |
+| P95 advertised returns / frame | 5 | 5 | 31,873 |
+| Sum of advertised return counts over frames | 2,285 | 2,033 | 18,521,388 |
+| Median radial range across frames | 2.095m | 2.500m | 2.018m |
+
+**Critical interpretation**: Radars are *very sparse* on this dataset, even though most published (nonempty) clouds report detections. They cannot supply a dense wall silhouette equivalent to Ouster; passive no-return behavior and missed obstacles CANNOT be inferred from the zero-return-frame fraction (driver might publish only when points exist). Different active durations and frames prohibit naive raw-total comparison of returns across sensors. LiDAR itself is not independent obstacle ground truth during smoke. No category labels or calibrated corner/door recall.
+
+Follow-on **canonical Test Environment V2** integration: dataset ID \`upo_smoke\`, engine \`radar-sensor-audit\`, CLI \`python benchmark.py plan --dataset upo_smoke --engine radar-sensor-audit\`, and strict \`tools/testenv/suites/smoke-upo7-real.json\`. The central suite requires the ORIGINAL bag at \`campaign_results/smoke-upo7/experiment_7.bag\` and uses its SHA in benchmark output; it never substitutes sensor indexing for a radar SLAM estimate. Dedicated 2.18GB Action workflow downloads an ephemeral licensed original, runs V2 and uploads only metric summaries/HTML. Full central V2 exact-head CI evidence to be recorded separately from the initial real sensor job.
+
+**What remains before positioning/obstacle performance**: validate ROS /tf_static geometry and sensor axes; only then register LiDAR reference geometry and quantify radar ↔ LiDAR nearest-surface agreement by distance, time and smoke condition. Run at least one radar-only odometry estimator on raw cloud/doppler/IMU (no /ground_truth as input), score tracked-segment ATE/RPE against independent marker frames where actually independent, report abstention/coverage. Hold out other smoke levels and repeat environments. Thermal requires a different dataset or later benign physical test. No performance statement about actual rescue readiness from these numbers.
