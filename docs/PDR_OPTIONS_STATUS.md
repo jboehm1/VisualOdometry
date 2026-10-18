@@ -48,3 +48,5 @@ under `tools/benchmark/` and `tools/campaigns/`; coordination file owns this
 chore's scope.
 
 **Orientation opt-in lifetime:** PHONE FORWARD is NEVER persisted and resets after STOP/onPause. Device yaw requires fresh, deliberate user opt-in for each recording; walk/run stride preferences are persisted separately.
+
+**AI options and percentages:** [detailed milestones, status and limitations](PDR_AI_OPTIONS.md); the neutral pure-Java candidate runtime is not a pretrained RoNIN/TLIO model. Neural testing remains a separate workstream.

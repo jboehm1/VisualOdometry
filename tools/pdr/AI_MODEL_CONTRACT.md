@@ -101,3 +101,16 @@ labelled `TEST_ONLY`; they make **zero** model accuracy claims.
 The original PDR Java APK test workflow is unchanged. This text-only update
 triggers its existing PDR path filter and asks GitHub Actions to compile/test
 these independent source files.
+
+## Model-family modularity
+
+`NeuralMotionModel` is now a backend interface. It takes the raw
+64x6 time-major synchronized sensor window, along with its end timestamp
+and duration. The compact portable MLP backend applies the 24-feature
+extraction internally; a RoNIN ResNet/TCN or TLIO backend would instead
+provide **its own strictly reviewed preprocessing**, temporal orientation
+normalization, model IO, output frame and confidence gates. NEVER load a
+PyTorch/ONNX original checkpoint as if it were our `PDR_AI_MLP_V1` format.
+Unit tests enforce deterministic predictions and no-fusion invariants.
+Full status and test handoff: `docs/PDR_AI_OPTIONS.md` and
+`docs/PDR_AI_TEST_HANDOFF.md`.
