@@ -9,6 +9,7 @@ public class PoseFixSynchronizerTest {
         assertTrue(s.push(1,1_100_000_000L,10,4));
         PoseFixSynchronizer.Pose m=s.interpolate(1_050_000_000L);
         assertNotNull(m);assertEquals(5,m.x,1e-10);assertEquals(2,m.z,1e-10);
+        assertEquals(Math.hypot(10,4)*.5,m.distanceMeters,1e-10);
         assertNull(s.interpolate(1_250_000_000L)); // no extrapolation
         assertFalse(s.push(1,1_050_000_000L,9,9));
         assertTrue(s.push(2,1_200_000_000L,20,20));
