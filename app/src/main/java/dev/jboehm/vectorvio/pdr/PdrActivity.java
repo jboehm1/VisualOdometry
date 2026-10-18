@@ -54,8 +54,11 @@ public final class PdrActivity extends Activity {
             float bearingAccuracy=loc.getBearingAccuracyDegrees();
             engine.gpsCourse(loc.getElapsedRealtimeNanos(),Math.toRadians(loc.getBearing()),
                 loc.getSpeed(),loc.getAccuracy(),bearingAccuracy);
-            log("GPS_COURSE",loc.getElapsedRealtimeNanos(),Math.toRadians(loc.getBearing()),
-                loc.getSpeed(),loc.getAccuracy(),0);
+            if(writer!=null) {
+                try{writer.gpsCourse(loc.getElapsedRealtimeNanos(),Math.toRadians(loc.getBearing()),
+                    loc.getSpeed(),loc.getAccuracy(),bearingAccuracy);}
+                catch(RuntimeException e){note="STORAGE ERROR; STOPPED";finishSession(true);}
+            }
         }
         @Override public void onProviderEnabled(String s){}
         @Override public void onProviderDisabled(String s){}
@@ -140,6 +143,8 @@ public final class PdrActivity extends Activity {
         try {writer=new PdrTraceWriter(this);}
         catch(Exception e){note="Cannot start trace: "+e.getMessage();render();return;}
         engine.start(SystemClock.elapsedRealtimeNanos());
+        log("STEP_LENGTH",SystemClock.elapsedRealtimeNanos(),
+            engine.snapshot(SystemClock.elapsedRealtimeNanos()).stepLengthM,0,0,0);
         bridge.start(stepPermissionGranted());
         autoStopped=false;exportReady=false;note="RECORDING";
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
