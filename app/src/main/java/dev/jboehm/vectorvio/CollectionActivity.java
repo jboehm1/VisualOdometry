@@ -32,6 +32,7 @@ public final class CollectionActivity extends Activity {
         button(root,"START SCREEN-OFF CAPTURE",this::permissions);
         button(root,"STOP AND FINALIZE",()->{returnToAr=false;stop();});
         button(root,"FINALIZE AND RESUME LIVE AR",()->{returnToAr=true;stop();});
+        button(root,"GPS ROUTES · follow / record",()->startActivity(new Intent(this,GpsRoutesActivity.class)));
         button(root,"EXPORT A COLLECTION ZIP",this::chooseExport);
         button(root,"HOME · KEEP RECORDING",()->moveTaskToBack(true));
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.addView(root);setContentView(scroll);
