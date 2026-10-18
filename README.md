@@ -144,3 +144,13 @@ When the tracking signal becomes unreliable, the accumulator does **not** preten
 - Diagnostic IMU requests 200 Hz; actual device delivery must be measured. It uses Android device axes with gravity, and is distinct from ARCore's internally calibrated sensor stream.
 - Camera/IMU extrinsics, offset and rolling-shutter readout are not calibrated in this export. These fields are explicitly unknown in metadata. ARCore poses are estimates rather than training ground truth. See [capture format](docs/CAPTURE_FORMAT.md).
 - Simulation **TRUTH** exports generated pose/IMU reference, not the estimated path/cloud. Synthetic replay and live ARCore use different estimators, so a favorable simulation score does not validate live behavior.
+
+## Real-dataset validation and modular benchmark runner
+
+See [Real Dataset Benchmark Pipeline](docs/BENCHMARK_PIPELINE.md) for source catalog, EuRoC/TUM VI/phone capture adapters, reproducible SE(3) trajectory scoring, an external-engine contract, GitHub Actions smoke tests and optional checksum-verified cloud ZIP ingestion. Run:
+
+    python -m pip install -r tools/benchmark/requirements.txt
+    python -m unittest discover -s tools/benchmark/tests -v
+    python tools/benchmark/bench.py catalog
+
+**Honest limitation:** This host-side harness is not an ARCore emulator and does not yet execute the Android engine or an installed ORB-SLAM3/OpenVINS pipeline on a full real dataset. See the documentation for implemented versus planned work.
