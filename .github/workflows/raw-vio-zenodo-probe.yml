@@ -1,0 +1,24 @@
+name: Public smartphone VIO raw-source probe
+on:
+  push:
+    branches: [feature/real-raw-vio-euroc]
+    paths: [".github/workflows/raw-vio-zenodo-probe.yml"]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Examine open research record
+        run: |
+          python - <<'PY'
+          import urllib.request,json
+          url="https://zenodo.org/api/records/20525157"
+          try:
+            with urllib.request.urlopen(url,timeout=15) as f: record=json.load(f)
+            for item in record.get("files",[]):
+              print("FILE",item.get("key"),item.get("size"),item.get("checksum"),flush=True)
+          except Exception as exc:
+            print("SOURCE_UNAVAILABLE",repr(exc),flush=True)
+          PY
