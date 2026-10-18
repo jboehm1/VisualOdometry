@@ -26,3 +26,15 @@ New isolated `tools/campaigns/mobile_gvio_fetch.py`, `mobile_gvio_raw.py`, `mobi
 
 ### Next gate
 Wait for and audit exact results of [raw evaluation workflow](https://github.com/jboehm1/VisualOdometry/actions/runs/39168984191). If overlapping reference and enough successful image/gyro updates, archive compact reports on user's Drive, remove obsolete probe workflows, run CI on PR against current integration SHA, and merge only if green. If it fails, preserve failure status and document the remaining reference-alignment issue rather than inventing success.
+
+## Mise à jour : basculement vers données smartphone authentiques
+
+Le site historique de téléchargement des ZIP EuRoC n'a pas répondu au runner GitHub, et un miroir Google Drive tiers n'était pas accessible anonymement. Le chantier a donc choisi **Mobile-GVIO Indoor-2** avec un enregistrement public du capteur du téléphone, plutôt que de substituer une trajectoire VINS-Mono publiée à des images brutes.
+
+- Source réelle : `https://zenodo.org/api/records/20525157` ; **951 Mo compressés** et **2,83 Go de bag décompressée** ; MD5 et taille vérifiés contre le fournisseur. Calibration caméra–IMU native également vérifiée et requise.
+- Périmètre algorithmique : `tools/campaigns/mobile_gvio_raw.py` est une **baseline de recherche distincte** de notre estimateur Android ARCore. Elle utilise l'optical flow et l'essential matrix pour la direction de translation et l'intégration gyroscopique calibrée pour l'orientation ; **pas d'échelle métrique monoculaire estimée**.
+- Évaluateur `tools/campaigns/mobile_gvio_score.py` : référence Fast-LIO2 LiDAR–IMU chargée **uniquement après** inférence ; Sim3 ajuste l'échelle a posteriori, donc score de forme et pas preuve d'erreur métrique de distance.
+- Preuve d'inférence sur vraie caméra/IMU : [CI 39168458373](https://github.com/jboehm1/VisualOdometry/actions/runs/39168458373), **131 images**, **2 185 intégrations gyro**, **130 translations visuelles**. La première évaluation a échoué faute de chevauchement des timestamps : premier intervalle avant le segment de vérité. Ce résultat n'est pas passé sous silence.
+- Rejouer sur l'intervalle 295 s après début pour rechercher un chevauchement temporel avec la référence. **Ne pas annoncer de validation bout en bout avant job vert**.
+- Fichiers créés sur cette branche : `tools/campaigns/mobile_gvio_fetch.py`, `mobile_gvio_raw.py`, `mobile_gvio_score.py`, `tools/campaigns/tests/test_mobile_gvio_score.py`, `.github/workflows/real-phone-vio.yml`, `docs/campaigns/REAL_PHONE_IMAGE_IMU.md`, cette coordination. Les workflows provisoires de découverte ont été retirés (historique CI conservé).
+- Fichiers Android et partagés modifiés : **aucun**. La branche d'intégration et les autres travaux PDR/géofusion restent intacts.
