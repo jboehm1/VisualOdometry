@@ -53,6 +53,8 @@ Sources: https://www.mouser.de/de/ProductDetail/Texas-Instruments/AWR6843AOPEVM 
 
 **False bargains:** Seeed MR60BHA2 vendor confirms no raw ADC/IQ/FFT access, only processed vital-sign information: https://github.com/Seeed-Studio/wiki-documents/discussions/3362 . Do NOT substitute human-presence module for true 3D obstacle mapping.
 
+Retail products seen in additional search: LD2450 modules listed as low as ~€10–20 in DE marketplaces (quality / seller and documentation unverified); MLX90640 modules from about €69–85. These are not substitutes for TI FMCW radar raw returns. **Distinct TI IWRL6432BOOST** (industrial) also exists at about **€173.29 ex VAT**, not the same part number as AWRL6432BOOST (€139.75).
+
 Stage-1 full approximate budget: **€90–170** (cheap 24GHz human tracker + M5 thermal 32x24 + ESP32/USB/power) detects moving targets/heat only, NO map. Stage-2 **~€250–340** with AWRL6432BOOST 2TX/3RX or **€300–420** with AWR6843AoP 3TX/4RX (plus MLX90640 + power/MCU/cables) is the recommended approximate radar-cloud + thermal hardware laboratory test. DCA1000/MMWAVEICBOOST may be needed for RAW ADC: USB demo point-cloud does NOT imply access to RF samples. Confirm serial interface, correct supply, board thermal operating limits and EU radio conformity. Do not put unprotected consumer electronics near fire.
 
 ## 4. Actual closest research datasets
@@ -94,6 +96,18 @@ Frame example (one per line):
 - User-facing static HTML explicitly separates occupied/free/unknown and marks synthetic provenance; no route instruction.
 
 **NOT implemented:** vendors UART/ADC/ROS drivers, replay of smoke datasets, thermal-grid fusion, joint time sync, localization radar-SLAM, Java PDR integration, real tests, Android APK, trained AI, PPE-safe hardware, evacuation route or CE/NFPA qualification. CI unit+synthetic test only; record exact run SHA after it completes.
+
+### Original public-smoke dataset *index* adapter (metadata only)
+
+Additional runnable standard-library parser: `tools/smoke_rescue/upo_index.py` validates a small original text `rosbag info` index with mandatory left/right radar PointCloud2 and separate /ground_truth topic. Offline test fixtures mimic exact indexed counts but contain NO measurement bytes. Optional live fetch of **only ~3 KB official text** (not ~2.18 GB ROS bag) on an explicit command:
+
+    python tools/smoke_rescue/upo_index.py --fetch-upo --out /tmp/upo7-index.json
+
+Or offline:
+
+    python tools/smoke_rescue/upo_index.py --input /path/to/experiment_7.txt --out /tmp/upo7-index.json
+
+The source index indicates channels and counts, NOT successful sensor-message decoding, radar detection accuracy, sequence sensor calibration, independent positioning, or smoke attenuation. `INDEX_METADATA_ONLY` is forced in results. Parsing the full ROS1 bag and normalizing measurements is a separate future work package.
 
 ## 6. Staged scientific validation requirements
 1. Download **small** real smoke sequence with licensed access and hash; decode real frame, verify clocks/extrinsics. Start with the **smallest UPO experiment 7 (~2.18GB)** or IFR subset, and do a download HEAD/partial index audit before any full transfer, reserve huge SNAIL later. No GT leakage.
