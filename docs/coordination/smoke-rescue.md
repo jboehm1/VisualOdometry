@@ -23,3 +23,10 @@
 - New suite requires a second exact-head real recording run through V2; do not claim it green without its run-specific evidence.
 - Current collision surface is limited to unified.py / runner.py; coordinate future modifications with Test Env owner. User requested this integration explicitly. Preserve Android/PDR and unrelated suites.
 - Next steps: exact-head V2 CI on ORIGINAL bag; inspect source TF and calibrations; assess radar/LiDAR agreement with calibration; actual radar odometry with independent held-out reference; thermal sensor experiments when possible. NEVER feed the published UPO marker/odometry-smoothed poses to radar localization estimator.
+
+
+## Final exact tested evidence — benchmark V2
+- New canonical real dataset/engine \`upo_smoke / radar-sensor-audit\` is registered in **tools/campaigns/unified.py**, suite file \`tools/testenv/suites/smoke-upo7-real.json\`, decoder fingerprint included in **tools/testenv/runner.py**. These are shared files changed **only on this isolated branch**; relevant testenv owner must review before merge.
+- **SUCCESS GitHub Actions 39178059836 on commit d92e86f7f1bed31e3fed9dce252e86912defe4a9**: original 2.18GB UPO bag downloaded and decoded, 20 tests, 781/750 radar and 600 lidar scans, 479 partial-reference poses. TestEnv V2 suite passes and generates report+HTML, artifact ID 12154344457. The original bag is not stored/re-uploaded, no noncommercial data redistribution.
+- **Important**: no radar odometry engine executed; synthetic viewer remains separate. Report only sensor rates/returns, temporal reference association and observational metadata. No ATE, RPE or obstacle recall; not a rescue tool.
+- PR integration: recheck current feature/slam-explorer HEAD and combined CI before merge, retain other commits, especially PDR, replay and benchmark refactor.
