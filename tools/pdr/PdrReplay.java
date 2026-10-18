@@ -33,7 +33,12 @@ public final class PdrReplay {
                         case "STEP":p.step(t);break;
                         case "ACCEL":p.acceleration(t,x,y,z);break;
                         case "HEADING":p.deviceHeading(t,x);break;
-                        case "GPS_COURSE":p.gpsCourse(t,x,(float)y,(float)z,15);break;
+                        case "STEP_LENGTH":p.setStepLengthMeters(x);break;
+                        case "GPS_COURSE":
+                            if(f.length>=6)
+                                p.gpsCourse(t,x,(float)y,(float)z,Float.parseFloat(f[5].trim()));
+                            else bad++;
+                            break;
                         case "PRESSURE":p.pressure(t,x);break;
                         default:bad++;continue;
                     }
