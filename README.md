@@ -1,3 +1,5 @@
+**0.10.0-alpha — traitement découplé du rendu :** [VIEW 5/15/30, maintien pour accélérer et course](docs/POWER_PROFILES.md). Tous les profils visent 30 lectures de poses/s ; la caméra ARCore reste à une cible de 30 FPS.
+
 **0.9.0-alpha — profils de consommation :** [POWER / maintien 5→30 et collecte Ultra](docs/POWER_PROFILES.md). Cadence app distincte de la caméra ARCore ; compromis de qualité explicités.
 
 > GPS/GPX 0.8 : **DATA → GPS ROUTES** (également depuis WALK). Import/export et bibliothèque hors ligne, suivi GPS avec précision/ambiguïté, sens inverse, enregistrement/récupération de promenades et service écran éteint. Voir [contrat et validation GPS](docs/GPS_NAVIGATION.md). Matching limité au parcours importé ; aucun réseau de sentiers ni calcul routier intégré. Tests automatisés ne remplacent pas la qualification terrain.

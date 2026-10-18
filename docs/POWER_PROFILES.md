@@ -1,14 +1,39 @@
-# Profils de consommation — 0.9.0-alpha
+# Profils de consommation — 0.10.0-alpha
 
-## Live AR
+## Décision et fonctionnement
 
-Bouton POWER dans la vue caméra : Full 30, Balanced 15, Very low 5 mises à jour/s et Hold 5 → 30 pendant un appui sur l’image. Le mode choisi est conservé ; un appui actif ne l’est jamais. Relâchement, annulation, relâchement du doigt principal, perte de focus et pause annulent l’accélération. Les contrôles du HUD ne déclenchent pas le boost. Choisir Full reste possible sans maintenir un geste.
+ARCore ouvre/pilote la caméra et fusionne les images avec les capteurs inertiels. Notre app ne lui fournit pas un sous-ensemble choisi d’images. La session est configurée pour une cible caméra de 30 FPS ; l’API publique propose 30/60, pas 5/15. La cadence réelle peut être moindre (exposition, charge, pertes de suivi). La fréquence interne du VIO d’ARCore n’est pas réglable via un simple paramètre de notre app.
 
-LiveFrameScheduler pilote GLSurfaceView en RENDERMODE_WHEN_DIRTY, via des demandes périodiques sur le thread UI. Il ne bloque pas le thread GL, ne rejoue pas de demandes en rafale après retard et arrête les demandes à la pause. Chaque rendu demandé exécute le pipeline existant (Session.update, pose, odométrie, map, overlay). La cadence est une cible, pas un débit garanti sur un appareil lent. Le HUD affiche APP Hz, mesuré à partir des timestamps des images reçues, distinct de la cible du bouton POWER.
+La version 0.9 réduisait nos appels Session.update avec l’affichage : elle pouvait donc sous-échantillonner les poses et les virages. La version 0.10 remplace ce comportement : **tous les profils gardent une cible de lecture/traitement de 30 poses/s**, sans réinitialiser la session lors d’un appui. L’odométrie, les keyframes/POI, les réglages de capture de carte, les métadonnées de frames et la demande IMU ne dépendent plus du profil d’affichage. Le CSV principal garde son échantillonnage existant (~10 Hz) ; le diagnostic _motion.csv et les appels odométriques suivent chaque nouvelle frame reçue. Aucun nouveau filtre de translation n’est ajouté.
 
-ARCore est configuré pour une caméra cible 30 FPS à la création de la session. Son capteur et son suivi interne restent actifs entre nos appels : demander cinq mises à jour/s n’est pas faire fonctionner la caméra à 5 FPS. Aucun gain d’autonomie chiffré n’a été mesuré sur S21. Les réglages de la caméra ne sont pas changés à chaque geste : pas de redémarrage de session, ni de rupture volontaire du repère AR.
+## Présentation indépendante
 
-À basse cadence, moins de poses sont consommées/enregistrées et la reconstruction reçoit moins de points de vue. Courbes et mouvements rapides peuvent être sous-échantillonnés ; la distance et la carte ne sont pas garanties identiques. Les contrôles de continuité existants restent actifs et aucun filtre de distance supplémentaire n’est ajouté. L’IMU conserve sa cadence de demande. Une éventuelle vidéo ARCore garde sa propre cadence caméra ; les métadonnées de frames suivent les appels de l’app. Le choix de profil est journalisé au démarrage/reprise et lors des changements.
+Bouton VIEW : Full 30, Balanced 15, Very low 5 FPS et Hold 5 → 30 pendant l’appui sur l’image. Le mode choisi est conservé ; l’appui ne l’est jamais. Relâchement, annulation, relâchement du doigt principal, perte de focus et pause annulent le boost. Les contrôles du HUD ne le déclenchent pas. Choisir Full reste possible sans maintenir un geste.
+
+LiveFrameScheduler utilise un HandlerThread dédié VioCadence. Il demande le traitement à ~30/s et le rendu à des échéances indépendantes. CoalescingTask garde au plus une mise à jour en attente/en cours : un thread GL lent n’accumule pas de frames périmées à rejouer. Toutes les opérations Session.update et GL restent sérialisées sur le thread GL, avec vérification du contexte EGL. Le premier rendu établit le contexte ; ensuite queueEvent peut traiter les poses sans demander un swap à chaque pose.
+
+GLSurfaceView reste en RENDERMODE_WHEN_DIRTY. onDrawFrame présente uniquement la dernière frame disponible, prépare les overlays à au plus ~20 Hz et selon le profil, et réduit les rafraîchissements du HUD. La capture de géométrie persistante garde sa politique antérieure à chaque nouvelle pose. Les timestamps dupliqués ne redéclenchent pas l’odométrie ou les métadonnées. POSE Hz mesure le nombre d’intervalles de frames distinctes sur une fenêtre, au lieu de moyenner les inverses des intervalles (qui biaisait le résultat lors de frames manquantes). L’indicateur tombe à zéro si aucune nouvelle frame n’est reçue depuis >0,7 s, quand la présentation continue.
+
+Limiter le rendu diminue le travail de préparation/dessin/swap ; cela ne signifie pas que le capteur caméra tourne à 5 FPS. Le thread GL est partagé : un rendu ou une capture photo coûteuse peut toujours retarder la lecture des poses. La cible de 30/s est un budget, pas une garantie temps réel ou une promesse de précision/batterie. Aucun pourcentage d’économie n’a été mesuré sur téléphone.
+
+## Marche, course et fréquence minimale
+
+La vitesse seule ne définit pas une fréquence minimale fiable. Le déplacement des pixels dépend aussi de la profondeur des objets, de la rotation du téléphone, du champ de vision, du temps d’exposition/flou, des textures et des occlusions. À vitesse de translation nulle, une rotation rapide peut déjà perdre le suivi.
+
+Exemples cinématiques, **pas des seuils de validation VIO** : déplacement entre images = vitesse / fréquence.
+
+| Vitesse | 5 images/s | 15 images/s | 30 images/s |
+| --- | --- | --- | --- |
+| Marche 1,5 m/s (5,4 km/h) | 30 cm | 10 cm | 5 cm |
+| Course 3 m/s (10,8 km/h) | 60 cm | 20 cm | 10 cm |
+| Course 5 m/s (18 km/h) | 1 m | 33 cm | 17 cm |
+| Sprint 8 m/s (28,8 km/h) | 1,6 m | 53 cm | 27 cm |
+
+Rotation à 180°/s : 36° entre images à 5 FPS, 12° à 15, 6° à 30. Des images proches d’un mur et une caméra balancée en courant peuvent donc être plus difficiles qu’un déplacement rapide vers un paysage lointain.
+
+Choix actuel : caméra et lecture des poses cibles 30/s pour marche ET course ; affichage 5/15/30 au choix. 15 FPS caméra serait une hypothèse de test pour une marche douce, pas un minimum garanti ; 5 FPS n’est pas retenu pour l’odométrie en courant. Tester 60 FPS pourrait être utile pour des mouvements très rapides sur matériel compatible, mais consomme davantage et ne corrige pas à lui seul le flou. Aucun basculement dynamique 30/60 selon GPS n’est introduit : la vitesse GPS n’est pas un indicateur suffisant et changer de configuration AR peut perturber le suivi.
+
+Pour déterminer un minimum empirique, il faut des captures vidéo/IMU synchronisées et une référence de distance/trajectoire, couvrant marche/course, rotations, lumière et scènes variées. Réduire seulement la fréquence de poses d’un même suivi ARCore ne teste pas le comportement du VIO avec moins d’images d’entrée. Les données caméra 30 FPS ne valident pas une hypothèse 60 FPS.
 
 ## Collecte WALK
 
@@ -25,7 +50,7 @@ Full/Light/Detail conservent leur sélection stricte de borne haute. Tous demand
 
 ## Validation
 
-Tests du scheduler (cadence basse, boost immédiat, relâchement, arrêt/reprise, sélection), geste Android/menu (annulation et focus) et sélection de plage caméra avec repli. CI : unit tests, lint, APK debug/release et régressions GPS/AR. À vérifier sur appareil : gestes multitouch, cadence réelle, transitions, températures et autonomie. Mesurer plusieurs profils à luminosité, scène et durée identiques ; ne pas déduire une consommation proportionnelle aux FPS.
+Tests du scheduler (même cadence de traitement pour tous les profils, boost visuel sans requête de pose supplémentaire, arrêt/reprise), coalescence/bornes en cas de consommateur lent/erreur, comptage des frames distinctes, geste Android/menu (annulation et focus) et sélection de plage caméra avec repli. CI : unit tests, lint, APK debug/release et régressions GPS/AR. À vérifier sur appareil : gestes multitouch, cadence réelle, transitions, températures et autonomie. Mesurer plusieurs profils à luminosité, scène et durée identiques ; ne pas déduire une consommation proportionnelle aux FPS.
 
 Sources :
 - https://developers.google.com/ar/reference/java/com/google/ar/core/CameraConfig.TargetFps

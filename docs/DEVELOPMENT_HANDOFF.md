@@ -1,3 +1,7 @@
+## Mise à jour 0.10.0-alpha : fréquence de poses indépendante
+
+La version 0.9 ci-dessous est historique. LiveFrameScheduler demande désormais des mises à jour à ~30/s sur un HandlerThread dédié, indépendamment du rendu VIEW 5/15/30/Hold. CoalescingTask borne la file GL ; processFrame conserve odométrie/capture de carte/métadonnées, onDrawFrame ne fait que présenter. FrameRateMeter élimine les doublons et mesure les frames distinctes. Voir POWER_PROFILES.md pour limites, course et protocole de validation. Vérifier matériellement EGL/ARCore, fréquence effective en courant et autonomie ; CI ne certifie pas ces points.
+
 ## Mise à jour 0.9.0-alpha : énergie
 
 Voir [POWER_PROFILES.md](POWER_PROFILES.md). LiveFrameScheduler isole la politique de cadence Full/15/5/Hold ; CaptureProfile et le sélecteur de plage gèrent Ultra WALK avec repli annoncé. Tests de transitions, geste/menu et limites caméra. Aucune mesure batterie physique ni garantie de qualité identique en basse cadence.

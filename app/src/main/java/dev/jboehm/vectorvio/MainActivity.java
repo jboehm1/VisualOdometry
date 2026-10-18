@@ -62,6 +62,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private GLSurfaceView surface;
     private HudView hud;
     private LiveFrameScheduler frameScheduler;
+    private android.os.HandlerThread cadenceThread;
+    private CoalescingTask trackingTask;
+    // Accessed only on the GL thread, shared by update events and presentation.
+    private Frame latestFrame;
+    private Odometer.Result latestPoseResult=Odometer.Result.INACTIVE;
+    private final FrameRateMeter poseRate=new FrameRateMeter();
     private TextView powerButton;
     private int boostPointer=-1;
     private ImuMonitor imu;
@@ -79,9 +85,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile PoiRequest pendingPoi;
     private volatile String autoMapName="map_"+System.currentTimeMillis()+"_0.vmap";
     private volatile boolean clearMap=false;
-    private long lastSceneNs=0;
+    private long lastSceneMs=0;
     private long previousFrameNs=0;
     private float cameraHz=0;
+    private long lastPoseReceivedMs;
     private TextView recordButton;
     private TextView torchButton;
     private CameraBackground background;
@@ -142,7 +149,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         surface.setPreserveEGLContextOnPause(true);
         surface.setRenderer(this);
         surface.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
-        frameScheduler=new LiveFrameScheduler(new android.os.Handler(getMainLooper()),surface::requestRender);
+        cadenceThread=new android.os.HandlerThread("VioCadence");cadenceThread.start();
+        trackingTask=new CoalescingTask(surface::queueEvent,this::processFrame);
+        frameScheduler=new LiveFrameScheduler(new android.os.Handler(cadenceThread.getLooper()),trackingTask::offer,surface::requestRender);
         frameScheduler.setMode(LiveFrameScheduler.Mode.from(preferences.getString("live_power","full")));
         surface.setOnTouchListener(this::powerTouch);
         root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
@@ -266,7 +275,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         long now=SystemClock.elapsedRealtime();
         odometer.start(now);
         recorder.event("START",System.currentTimeMillis());
-        recorder.event("LIVE_POWER_"+frameScheduler.mode().id+"_TARGET_"+frameScheduler.fps(),System.currentTimeMillis());
+        recorder.event("LIVE_POWER_"+frameScheduler.mode().id+"_VIEW_"+frameScheduler.fps()+"_TRACK_TARGET_30",System.currentTimeMillis());
         recorder.event("DISTANCE_ANCHOR_RELATIVE_V4_NO_DEADBAND",System.currentTimeMillis());
         recordButton.setText("PAUSE");
         recordButton.setContentDescription("Pause recording");
@@ -280,10 +289,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private void updatePowerLabel(){
         if(powerButton==null)return;
         String label=frameScheduler.mode()==LiveFrameScheduler.Mode.HOLD
-            ?(frameScheduler.pressed()?"HOLD · 30 UPDATES/S":"HOLD VIEW · 5 → 30/S")
-            :"POWER · "+frameScheduler.fps()+" UPDATES/S";
+            ?(frameScheduler.pressed()?"VIEW · 30 FPS":"HOLD VIEW · 5 → 30 FPS")
+            :"VIEW · "+frameScheduler.fps()+" FPS";
         powerButton.setText(label);
-        powerButton.setContentDescription(label+". Choose live processing rate. Hold the camera image to boost in hold mode.");
+        powerButton.setContentDescription(label+". Choose display rate. Tracking targets 30 updates per second in every mode. Hold the camera image to boost in hold mode.");
     }
     private boolean powerTouch(View view,MotionEvent event){
         if(frameScheduler.mode()!=LiveFrameScheduler.Mode.HOLD)return false;
@@ -298,7 +307,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);if(!focused&&frameScheduler!=null){boostPointer=-1;frameScheduler.setPressed(false);updatePowerLabel();}}
     private void powerMenu(){
-        String[] choices={"Full · 30 updates/s","Balanced · 15 updates/s","Very low · 5 updates/s","Hold camera image · 5 → 30 updates/s"};
+        String[] choices={"Full · view 30 FPS","Balanced · view 15 FPS","Very low · view 5 FPS","Hold image · view 5 → 30 FPS"};
         new AlertDialog.Builder(this).setTitle("Live power profile")
             .setSingleChoiceItems(choices,frameScheduler.mode().ordinal(),(dialog,index)->{
                 frameScheduler.setMode(LiveFrameScheduler.Mode.values()[index]);boostPointer=-1;
@@ -309,7 +318,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             .setPositiveButton("CLOSE",null).show();
     }
     private void powerHelp(){new AlertDialog.Builder(this).setTitle("Power · limits")
-        .setMessage("Controls this app's image processing and display requests. ARCore camera and internal tracking remain active, normally at 30 FPS. Low modes sample fewer poses and can miss curved or fast motion; they do not preserve identical distance/map detail. IMU sampling is unchanged. ARCore MP4 recording keeps its own camera cadence; frame metadata follows app updates.\n\nIn Hold mode, keep a finger on the camera image for 30 updates/s; release to return to 5. Controls do not boost. For maximum autonomy, use GPS ROUTES without camera or COLLECT ONLY for video without mapping.").setPositiveButton("OK",null).show();}
+        .setMessage("Profiles change presentation only: camera preview, overlay preparation and HUD refresh. Tracking/odometry, map capture and frame metadata keep a 30 updates/s target in every profile. The actual rate can be lower if the device is busy; the HUD reports received pose cadence. No new pose-distance filter is applied.\n\nARCore opens the camera itself at a 30 FPS target and retains its internal tracking. Display at 5 FPS does not mean camera capture at 5 FPS. In Hold mode, press the image for a 30 FPS view; release for 5. The same latest-frame GL pipeline is used at every display rate.\n\nFor maximum autonomy, GPS ROUTES avoids the camera; COLLECT ONLY records video without live mapping. Battery savings require measurement on your phone.").setPositiveButton("OK",null).show();}
     private void dataMenu(){
         String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return"),"Unknown floor ribbon: "+(estimatedGround?"ESTIMATED — disable":"HIDDEN — enable height estimate"),"GPS ROUTES — import GPX / follow / record"};
         new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
@@ -749,6 +758,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             arSession.close();
             arSession=null;
         }
+        if(frameScheduler!=null)frameScheduler.stop();
+        if(cadenceThread!=null)cadenceThread.quitSafely();
         recorder.shutdown();
         mapIo.shutdown();
         super.onDestroy();
@@ -772,7 +783,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private void releaseWorldOverlay(){
         WorldOverlayRenderer old=worldOverlay;worldOverlay=null;
         if(old!=null)try{old.release();}catch(RuntimeException|OutOfMemoryError ignored){}
-        mapper.worldRendering=false;lastSceneNs=0;
+        mapper.worldRendering=false;lastSceneMs=0;
     }
     private void disableWorldOverlay(Throwable e){
         android.util.Log.e("VectorGL","GPU overlay failed; Canvas fallback",e);
@@ -793,6 +804,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config) {
         GLES20.glClearColor(.025f,.07f,.105f,1);
+        latestFrame=null;poseRate.reset();lastSceneMs=0;lastPoseReceivedMs=0;cameraHz=0;
         background=new CameraBackground();background.initialize();
         // Previous handles belong to a lost EGL context; never delete them in this new one.
         worldOverlay=null;configureWorldOverlay();textureAssigned=false;
@@ -801,10 +813,11 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         width=w;height=h;
         GLES20.glViewport(0,0,w,h);
     }
-    @Override public void onDrawFrame(GL10 gl) {
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
+    /** Tracking runs through GL queue events even when no swap/render is requested. */
+    private void processFrame() {
         Session s=arSession;
-        if(s==null||background==null||!rendererRunning) return;
+        if(s==null||background==null||!rendererRunning||
+            android.opengl.EGL14.eglGetCurrentContext().equals(android.opengl.EGL14.EGL_NO_CONTEXT))return;
         long renderStartNs=SystemClock.elapsedRealtimeNanos(),arUpdateMs=0,metadataMs=0;
         try {
             if(!textureAssigned){
@@ -814,14 +827,16 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             if(width<=0||height<=0) return;
             s.setDisplayGeometry(getWindowManager().getDefaultDisplay().getRotation(),width,height);
             long phaseStartNs=SystemClock.elapsedRealtimeNanos();
-            Frame frame=s.update();
+            Frame frame=s.update();latestFrame=frame;
+            if(!poseRate.accept(frame.getTimestamp()))return;
+            cameraHz=poseRate.hz();lastPoseReceivedMs=SystemClock.elapsedRealtime();
             arUpdateMs=(SystemClock.elapsedRealtimeNanos()-phaseStartNs)/1_000_000L;
             phaseStartNs=SystemClock.elapsedRealtimeNanos();
             try{training.frame(s,frame);}catch(Exception e){training.status="VIDEO METADATA ERROR";}
             metadataMs=(SystemClock.elapsedRealtimeNanos()-phaseStartNs)/1_000_000L;
             if(clearMap){traceGuide.clear();returnTraceRequested=false;guideText="";anchoredOdometry.reset();odometer.lostTracking();mapper.clear();if(worldOverlay!=null)worldOverlay.clear();clearMap=false;}
             Odometer.Result poseResult=Odometer.Result.INACTIVE;
-            if(frame.getTimestamp()!=0) background.draw(frame);
+
             Camera camera=frame.getCamera();
             if(camera.getTrackingState()==TrackingState.TRACKING && frame.getTimestamp()>0) {
                 if (!"TRACKING".equals(trackingLabel))
@@ -874,11 +889,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 trackingLabel="SEARCHING";
                 message="Tracking paused: "+why.replace('_',' ').toLowerCase(Locale.US);
             }
-            if(frame.getTimestamp()>previousFrameNs && previousFrameNs>0) {
-                float hz=1_000_000_000f/(frame.getTimestamp()-previousFrameNs);
-                cameraHz=.9f*cameraHz+.1f*hz;
-            }
             if(frame.getTimestamp()>0) previousFrameNs=frame.getTimestamp();
+            latestPoseResult=poseResult;
             try {
             mapCapture.update(s,frame,poseResult,odometer.currentSegment(),photoKeyframes,keyframeIntervalSeconds,keyframeMinDistance,keyframeMinRotation,pointConfidenceThreshold);
             PoiRequest request=pendingPoi;
@@ -907,28 +919,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 android.util.Log.e("VectorMap","Map update failed; tracking continues",mapError);
             }
             long now=SystemClock.elapsedRealtime();
-            try {
-                if(now-lastSceneNs>=50) {
-                    lastSceneNs=now;
-                    java.util.List<Odometer.Point> history=odometer.snapshot(now).worldTrail;
-                    mapper.allowEstimatedGround=estimatedGround;
-                    SceneMapper.Snapshot scene=mapper.update(s,frame,poseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,history);
-                    if(worldOverlay!=null)try{worldOverlay.update(scene);}catch(RuntimeException|OutOfMemoryError e){
-                        disableWorldOverlay(e);
-                        scene=mapper.update(s,frame,poseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,history);
-                    }
-                    final SceneMapper.Snapshot published=scene;
-                    float[] sensors=imu.snapshot();float hz=cameraHz;
-                    int keyframes=savedKeyframes,images=capturedImages,pois=savedPois;boolean full=mapFull;
-                    runOnUiThread(()->{hud.updateScene(published,sensors,hz);hud.updateCapture(keyframes,images,pois,full);});
-                }
-                if(worldOverlay!=null&&camera.getTrackingState()==TrackingState.TRACKING)
-                    try{worldOverlay.draw(camera,hud.layers(),width,height,getResources().getDisplayMetrics().density);}catch(RuntimeException|OutOfMemoryError e){disableWorldOverlay(e);}
-            }catch(Exception displayError){
-                // Display failure must not manufacture a tracking gap or end an anchor segment.
-                if(now-lastOverlayErrorMs>=5_000){lastOverlayErrorMs=now;android.util.Log.e("VectorGL","Scene display failed; tracking and capture continue",displayError);recorder.event("OVERLAY_SCENE_ERROR",System.currentTimeMillis());}
-            }
-            if(now-lastHudUpdateMs>110) {
+            if(now-lastHudUpdateMs>=Math.max(110,1000/frameScheduler.fps())) {
                 lastHudUpdateMs=now;
                 if(recorder.problem()!=null) message="CSV ERROR: check Android logcat";
                 Odometer.Snapshot snap=odometer.snapshot(now);
@@ -948,8 +939,37 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             long nowMs=SystemClock.elapsedRealtime();
             if(durationMs>=100 && nowMs-lastSlowFrameLogMs>=5_000 && odometer.isRecording()) {
                 lastSlowFrameLogMs=nowMs;
-                recorder.event("SLOW_RENDER_MS_"+durationMs+"_AR_"+arUpdateMs+"_META_"+metadataMs,System.currentTimeMillis());
+                recorder.event("SLOW_TRACK_UPDATE_MS_"+durationMs+"_AR_"+arUpdateMs+"_META_"+metadataMs,System.currentTimeMillis());
             }
+        }
+    }
+    @Override public void onDrawFrame(GL10 gl){
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);
+        if(!rendererRunning||arSession==null||background==null)return;
+        // First draw establishes the EGL context; queued updates can then run without swaps.
+        if(latestFrame==null)processFrame();
+        Frame frame=latestFrame;if(frame==null||frame.getTimestamp()==0)return;
+        long now=SystemClock.elapsedRealtime();
+        try{
+            background.draw(frame);
+            Camera camera=frame.getCamera();
+            if(now-lastSceneMs>=Math.max(50,1000/frameScheduler.fps())){
+                lastSceneMs=now;
+            java.util.List<Odometer.Point> history=odometer.snapshot(now).worldTrail;
+            mapper.allowEstimatedGround=estimatedGround;
+            SceneMapper.Snapshot scene=mapper.update(arSession,frame,latestPoseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,history);
+            if(worldOverlay!=null)try{worldOverlay.update(scene);}catch(RuntimeException|OutOfMemoryError e){
+                disableWorldOverlay(e);
+                scene=mapper.update(arSession,frame,latestPoseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,history);
+            }
+            final SceneMapper.Snapshot published=scene;float[] sensors=imu.snapshot();float hz=now-lastPoseReceivedMs>700?0:cameraHz;
+            int keyframes=savedKeyframes,images=capturedImages,pois=savedPois;boolean full=mapFull;
+            runOnUiThread(()->{hud.updateScene(published,sensors,hz);hud.updateCapture(keyframes,images,pois,full);});
+            }
+            if(worldOverlay!=null&&camera.getTrackingState()==TrackingState.TRACKING)
+                try{worldOverlay.draw(camera,hud.layers(),width,height,getResources().getDisplayMetrics().density);}catch(RuntimeException|OutOfMemoryError e){disableWorldOverlay(e);}
+        }catch(Exception displayError){
+            if(now-lastOverlayErrorMs>=5_000){lastOverlayErrorMs=now;android.util.Log.e("VectorGL","Presentation failed; tracking continues",displayError);recorder.event("OVERLAY_SCENE_ERROR",System.currentTimeMillis());}
         }
     }
 }
