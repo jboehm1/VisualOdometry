@@ -139,9 +139,14 @@ def prepare_oxiod(imu,out,reference=None,quality=None,stride=.74):
             def refs():
                 prev=None
                 for row in oxrows(reference,9):
+                    # Ground-truth logger may have started before the phone IMU.
+                    # Skip pre-IMU poses without rejecting a harmless negative
+                    # relative timestamp or leaking them into the estimator.
+                    if row[0] < origin:
+                        continue
                     t=stamp(row[0],origin,prev)
                     prev=t
-                    if t<1_000_000_000 or t>last:continue
+                    if t>last:break
                     yield (t,*row[2:5])
             reference_stats=write_truth(stage/"reference_xyz.csv",refs())
             reference_stats["reference_coverage_time_fraction"]=(
