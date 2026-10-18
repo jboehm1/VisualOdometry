@@ -31,6 +31,18 @@ public final class PdrEngineTest {
         assertEquals(3,p.path().size());
         assertTrue(p.path().get(2).gapBefore);
     }
+    @Test public void cadenceAndSpeedAreBoundedToActualRecentSteps(){
+        PdrEngine p=new PdrEngine();p.start(1);
+        for(int i=0;i<8;i++)p.step(1_000_000_000L+i*500_000_000L);
+        PdrEngine.Snapshot s=p.snapshot(4_500_000_000L);
+        assertEquals(120,s.cadenceStepsPerMin,1e-7);
+        assertEquals(1.48,s.estimatedSpeedMps,1e-7);
+        assertEquals(0,p.snapshot(9_000_000_000L).cadenceStepsPerMin,0);
+        p.pause();
+        assertEquals(0,p.snapshot(5_000_000_000L).estimatedSpeedMps,0);
+        p.resume();p.step(10_000_000_000L);
+        assertEquals(0,p.snapshot(10_000_000_000L).cadenceStepsPerMin,0);
+    }
     @Test public void gnssCourseQualityGateAndExpiry() {
         PdrEngine p=new PdrEngine();p.start(1);
         p.deviceHeading(1_000_000_000L,0);

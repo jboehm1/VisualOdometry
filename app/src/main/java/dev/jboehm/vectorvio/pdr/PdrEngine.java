@@ -26,6 +26,8 @@ public final class PdrEngine {
         public final boolean recording, hasTrajectory;
         public final int steps;
         public final double distanceM, eastM, northM, stepLengthM, elevationM, headingDeg;
+        /** Cadence is inferred from accepted step timestamps, not accelerometer integration. */
+        public final double cadenceStepsPerMin, estimatedSpeedMps;
         public final HeadingSource headingSource;
         public final int trajectorySteps, stepsWithoutHeading;
         public final long lastStepNs;
@@ -37,6 +39,15 @@ public final class PdrEngine {
             stepsWithoutHeading=p.stepsWithoutHeading; lastStepNs=p.lastStepNs;
             Heading h=p.headingAt(nowNs); headingSource=h.source;
             headingDeg=h.source==HeadingSource.UNAVAILABLE?Double.NaN:Math.toDegrees(h.radians);
+            if(recording && p.lastStepNs!=Long.MIN_VALUE && nowNs>=p.lastStepNs
+                    && nowNs-p.lastStepNs<=4_000_000_000L
+                    && Double.isFinite(p.smoothedStepPeriodNs)){
+                cadenceStepsPerMin=60_000_000_000.0/p.smoothedStepPeriodNs;
+                estimatedSpeedMps=stepLengthM*cadenceStepsPerMin/60.0;
+            } else {
+                cadenceStepsPerMin=0;
+                estimatedSpeedMps=0;
+            }
         }
     }
     private static final long MIN_STEP_NS=270_000_000L;
@@ -48,6 +59,7 @@ public final class PdrEngine {
     private long lastStepNs=Long.MIN_VALUE, deviceTimeNs=Long.MIN_VALUE, gpsTimeNs=Long.MIN_VALUE;
     private double deviceHeadingRad, gpsHeadingRad, stepLengthM=.74, distanceM, eastM, northM;
     private double baselinePressureHpa=Double.NaN, elevationM=Double.NaN;
+    private double smoothedStepPeriodNs=Double.NaN;
     private int steps, trajectorySteps, stepsWithoutHeading;
     private boolean gapPending;
     private final ArrayList<Point> path=new ArrayList<>();
@@ -65,11 +77,16 @@ public final class PdrEngine {
         gpsTimeNs=Long.MIN_VALUE; distanceM=0; eastM=0; northM=0; steps=0;
         trajectorySteps=0; stepsWithoutHeading=0;
         elevationM=Double.NaN; baselinePressureHpa=Double.NaN;
+        smoothedStepPeriodNs=Double.NaN;
         fallback.reset();gapPending=false;path.clear();path.add(new Point(timeNs,0,0,false));
     }
-    public void pause() { recording=false; fallback.reset(); lastStepNs=Long.MIN_VALUE; gapPending=true; }
+    public void pause() {
+        recording=false;fallback.reset();lastStepNs=Long.MIN_VALUE;
+        smoothedStepPeriodNs=Double.NaN;gapPending=true;
+    }
     public void resume() {
         recording=true;fallback.reset();lastStepNs=Long.MIN_VALUE;
+        smoothedStepPeriodNs=Double.NaN;
         deviceTimeNs=Long.MIN_VALUE;gpsTimeNs=Long.MIN_VALUE;
         gapPending=true;
     }
@@ -97,6 +114,15 @@ public final class PdrEngine {
     public boolean step(long timeNs) {
         if (!recording || timeNs<sessionStartNs || (lastStepNs!=Long.MIN_VALUE
                 && (timeNs<=lastStepNs || timeNs-lastStepNs<MIN_STEP_NS))) return false;
+        if(lastStepNs!=Long.MIN_VALUE){
+            long dt=timeNs-lastStepNs;
+            if(dt<=2_000_000_000L){
+                smoothedStepPeriodNs=Double.isFinite(smoothedStepPeriodNs)
+                    ? .7*smoothedStepPeriodNs+.3*dt : dt;
+            } else {
+                smoothedStepPeriodNs=Double.NaN;
+            }
+        }
         lastStepNs=timeNs; ++steps; distanceM+=stepLengthM;
         Heading heading=headingAt(timeNs);
         if (heading.source==HeadingSource.UNAVAILABLE) {++stepsWithoutHeading;gapPending=true;return true;}
