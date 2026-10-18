@@ -100,7 +100,8 @@ def load_suite(path: Path) -> dict:
             _dict(check, "check")
             if check.keys() - CHECK_KEYS or not isinstance(check.get("field"), str):
                 raise ValueError(f"{name}: malformed check")
-            if not re.fullmatch(r"[A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_][A-Za-z_0-9]*){0,5}", check["field"]):
+            if (not re.fullmatch(r"[A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_][A-Za-z_0-9]*){0,5}", check["field"])
+                    or any(part.startswith("_") for part in check["field"].split("."))):
                 raise ValueError(f"{name}: invalid check path")
             ops = set(check) - {"field"}
             if not ops or ("equals" in ops and len(ops) > 1):
