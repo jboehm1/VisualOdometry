@@ -38,3 +38,13 @@ Le site historique de téléchargement des ZIP EuRoC n'a pas répondu au runner 
 - Rejouer sur l'intervalle 295 s après début pour rechercher un chevauchement temporel avec la référence. **Ne pas annoncer de validation bout en bout avant job vert**.
 - Fichiers créés sur cette branche : `tools/campaigns/mobile_gvio_fetch.py`, `mobile_gvio_raw.py`, `mobile_gvio_score.py`, `tools/campaigns/tests/test_mobile_gvio_score.py`, `.github/workflows/real-phone-vio.yml`, `docs/campaigns/REAL_PHONE_IMAGE_IMU.md`, cette coordination. Les workflows provisoires de découverte ont été retirés (historique CI conservé).
 - Fichiers Android et partagés modifiés : **aucun**. La branche d'intégration et les autres travaux PDR/géofusion restent intacts.
+
+## Complete real-data run verified — 2026-10-18
+
+- Exact tested commit: `ce8bd4141dfdd334887ad91530035c7814b12fe7`. [GitHub Actions run #39170361901](https://github.com/jboehm1/VisualOdometry/actions/runs/39170361901) **SUCCESS**.
+- Actual raw 950,890,027-byte camera+IMU archive MD5 checked, original `indoor_2.bag` decoded. **131 images and 2,185 gyro integrations** performed; 130 visual updates with 14,313 RANSAC inliers.
+- Reference score 124 matched poses, posthoc angular correlation 0.815, posthoc phone-to-reference shift 282.95965 seconds, Sim(3) after-truth-fit shape RMSE 0.40149 m. **NOT independent timestamp calibration, NOT independent metric scale or APK accuracy.**
+- Reference poses were not estimator input. The reference **was** used in the separate evaluator to fit clock and scale; see warning above.
+- Report transferred to user Drive `SLAM_BENCHMARKS/04_REPORTS`, verified: https://drive.google.com/file/d/1OkFbRBkj6kgoHM1HAHTxogOMUKdnxL_t/view
+- Existing production Android, PDR Java, DATA menu, manifest, historical workflows and `benchmark.py` were not touched.
+- Remaining handoff: review isolated PR against current integration SHA, run CI on combined PR SHA, merge if clean. Keep next step **metric full VIO** distinct from this research baseline.
