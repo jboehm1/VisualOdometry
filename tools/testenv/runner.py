@@ -33,7 +33,8 @@ PROVENANCE_CODE = tuple(ROOT / name for name in (
     "tools/campaigns/java/PdrStepTrace.java",
     "tools/campaigns/make_inertial_fixture.py", "tools/benchmark/bench.py",
     "tools/testenv/contracts.py", "tools/testenv/runner.py",
-    "tools/testenv/presentation.py", "tools/testenv/cli.py"))
+    "tools/testenv/presentation.py", "tools/testenv/cli.py",
+    "tools/smoke_rescue/upo_real.py"))
 
 
 def sha256(path: Path) -> str:

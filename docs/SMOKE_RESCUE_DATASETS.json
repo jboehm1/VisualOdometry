@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "dataset_unit": "downloaded_bytes means original recording PERSISTENTLY stored in repo (always zero); verified_ephemeral_ci_bytes records a successfully downloaded GitHub Actions original without retaining dataset",
+  "sources": [
+    {
+      "reviewed_on": "2026-10-19",
+      "status": "discovered_not_downloaded",
+      "downloaded_bytes": 0,
+      "parsed_frames": 0,
+      "scored_frames": 0,
+      "gt_verified": false,
+      "id": "snail-radar-indoor",
+      "priority": "P0",
+      "url": "https://snail-radar-indoor.github.io/",
+      "modalities": [
+        "4d_radar",
+        "lidar",
+        "imu"
+      ],
+      "smoke": "explicit_handheld_hospital_hotel_smoke",
+      "published_total_gb": 255.68,
+      "access": "source site Google Drive; verify sequence availability",
+      "licence": "ODbL stated on source; check actual terms",
+      "caveat": "site changelog 2026-10-30 lies after review date, no download verified"
+    },
+    {
+      "reviewed_on": "2026-10-19",
+      "status": "discovered_not_downloaded",
+      "downloaded_bytes": 0,
+      "parsed_frames": 0,
+      "scored_frames": 0,
+      "gt_verified": false,
+      "id": "indoor-firerescue-radar",
+      "priority": "P0",
+      "url": "https://huggingface.co/datasets/yysd123/indoor_mmwave",
+      "modalities": [
+        "4d_radar_raw_adc",
+        "4d_radar_pointcloud",
+        "lidar",
+        "rgb",
+        "imu"
+      ],
+      "smoke": "fire_training_facility_smoke_experiments",
+      "published_public_subset_gb": 14.9,
+      "access": "public subset; full version via email/request",
+      "licence": "cc-by-nc-4.0",
+      "caveat": "radar cascade high aperture; not comparable to cheap 3Tx4Rx"
+    },
+    {
+      "reviewed_on": "2026-10-19",
+      "status": "verified_ephemeral_ci_original_ros1_decoded",
+      "downloaded_bytes": 0,
+      "parsed_frames": 2131,
+      "scored_frames": 0,
+      "gt_verified": false,
+      "id": "upo-smoke",
+      "priority": "P0",
+      "url": "https://robotics.upo.es/datasets/smoke/",
+      "modalities": [
+        "radar_iwr6843_4_units",
+        "radar_pointcloud",
+        "lidar_os1_16",
+        "rgb",
+        "robot_odom",
+        "imu_lidar",
+        "marker_pose_partial"
+      ],
+      "smoke": "multiple_levels_artificial_smoke_underground_12x6m",
+      "access": "7 public ROS1 bags plus exact rosbag info TXT; experiment_7 is smallest 2,183,007,782 bytes",
+      "licence": "CC-BY-NC-SA-3.0 (noncommercial)",
+      "caveat": "Most directly comparable to cheap 60GHz 4/3Tx radar; NOT downloaded, no thermal, robot not human; no claim of measured localization",
+      "published_min_experiment_bytes": 2183007782,
+      "min_experiment_id": 7,
+      "min_experiment_index_url": "https://robotics.upo.es/datasets/smoke/experiment_7.txt",
+      "min_experiment_duration_s": 168,
+      "min_experiment_expected_topics": [
+        "/ti_mmwave_left_radar/radar_scan_pcl",
+        "/ti_mmwave_right_radar/radar_scan_pcl",
+        "/os1_cloud_node/points_non_dense",
+        "/ground_truth",
+        "/fiducial_pose",
+        "/os1_cloud_node/imu"
+      ],
+      "independent_ground_truth": "partial AR-marker pose and odometry-smoothed positions; not independent for all frames",
+      "verified_ephemeral_ci_bytes": 2183007782,
+      "real_decoded_pointcloud_frames": {
+        "radar_left": 781,
+        "radar_right": 750,
+        "lidar": 600
+      },
+      "real_decoded_reference_messages": 479,
+      "result_scope": "first 60s bag receipt time; 39.795s of radar stream present; point-cloud observability not map/odometry accuracy",
+      "evidence_run": "https://github.com/jboehm1/VisualOdometry/actions/runs/39178059836",
+      "exact_head": "d92e86f7f1bed31e3fed9dce252e86912defe4a9",
+      "pipeline_suite": "tools/testenv/suites/smoke-upo7-real.json",
+      "dataset_persistence": "original deleted from runner after execution; SHA recorded in downloadable result, public source URL remains"
+    },
+    {
+      "reviewed_on": "2026-10-19",
+      "status": "discovered_not_downloaded",
+      "downloaded_bytes": 0,
+      "parsed_frames": 0,
+      "scored_frames": 0,
+      "gt_verified": false,
+      "id": "dortmund-smokebot",
+      "priority": "P0",
+      "url": "https://zenodo.org/records/1489911",
+      "modalities": [
+        "radar",
+        "lidar"
+      ],
+      "smoke": "firefighter_field_testing_smoke",
+      "published_total_gb": 10.7,
+      "access": "single public ROS bag",
+      "licence": "verify_Zenodo_metadata",
+      "caveat": "robot source, no proven independent GT"
+    },
+    {
+      "reviewed_on": "2026-10-19",
+      "status": "discovered_not_downloaded",
+      "downloaded_bytes": 0,
+      "parsed_frames": 0,
+      "scored_frames": 0,
+      "gt_verified": false,
+      "id": "smokebasement",
+      "priority": "P1",
+      "url": "https://zenodo.org/records/15173055",
+      "modalities": [
+        "stereo_lwir_thermal",
+        "lidar"
+      ],
+      "smoke": "firefighting_drill_basement_smoke",
+      "published_total_gb": 27,
+      "access": "Zenodo zip",
+      "licence": "verify_Zenodo_metadata",
+      "caveat": "NO radar; lidar host clock, explicit sync limits"
+    },
+    {
+      "reviewed_on": "2026-10-19",
+      "status": "discovered_not_downloaded",
+      "downloaded_bytes": 0,
+      "parsed_frames": 0,
+      "scored_frames": 0,
+      "gt_verified": false,
+      "id": "msc-rad4r-smoke",
+      "priority": "P1",
+      "url": "https://mscrad4r.github.io/smoke/overall/",
+      "modalities": [
+        "radar",
+        "lidar",
+        "imu"
+      ],
+      "smoke": "outdoor_campus_smoke",
+      "access": "public Drive gated password given on site",
+      "licence": "verify",
+      "caveat": "not indoor building, verify modalities"
+    },
+    {
+      "reviewed_on": "2026-10-19",
+      "status": "discovered_not_downloaded",
+      "downloaded_bytes": 0,
+      "parsed_frames": 0,
+      "scored_frames": 0,
+      "gt_verified": false,
+      "id": "sew-multimodal-amr",
+      "priority": "P2",
+      "url": "https://github.com/SEW-Eurodrive-Open-Source/Multimodal_AMR_dataset",
+      "modalities": [
+        "thermal",
+        "radar",
+        "rgb",
+        "lidar",
+        "ultrasonic",
+        "tof"
+      ],
+      "smoke": "not_demonstrated",
+      "access": "project download",
+      "licence": "CC-BY-4.0 data; MIT code per repository",
+      "caveat": "industrial robot, not controlled smoke"
+    },
+    {
+      "reviewed_on": "2026-10-19",
+      "status": "discovered_not_downloaded",
+      "downloaded_bytes": 0,
+      "parsed_frames": 0,
+      "scored_frames": 0,
+      "gt_verified": false,
+      "id": "mmvr",
+      "priority": "P2",
+      "url": "https://zenodo.org/records/12611978",
+      "modalities": [
+        "radar"
+      ],
+      "smoke": "no",
+      "published_total_gb": 79.9,
+      "access": "Zenodo packages",
+      "licence": "CC-BY-SA-4.0",
+      "caveat": "people perception not navigation"
+    },
+    {
+      "reviewed_on": "2026-10-19",
+      "status": "discovered_not_downloaded",
+      "downloaded_bytes": 0,
+      "parsed_frames": 0,
+      "scored_frames": 0,
+      "gt_verified": false,
+      "id": "mmodalfire",
+      "priority": "P2",
+      "url": "https://doi.org/10.1038/s41597-026-06810-6",
+      "modalities": [
+        "rgb",
+        "temperature",
+        "smoke_density",
+        "ir_uv_radiation"
+      ],
+      "smoke": "recorded_indoor_fire",
+      "access": "article linked data repository",
+      "licence": "check_datasets_independently",
+      "caveat": "NO radar navigation"
+    }
+  ]
+}

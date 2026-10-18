@@ -1,0 +1,38 @@
+name: Smoke rescue research (offline)
+on:
+  pull_request:
+    paths:
+      - 'tools/smoke_rescue/**'
+      - 'docs/SMOKE_RESCUE*'
+      - '.github/workflows/smoke-rescue-research.yml'
+  workflow_dispatch:
+jobs:
+  unit-and-offline-demo:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Strict stdlib unit tests
+        run: python -m unittest discover -s tools/smoke_rescue/tests -p 'test_*.py' -v
+      - name: Real execution of synthetic offline demo
+        run: |
+          python tools/smoke_rescue/replay.py --demo --out /tmp/smoke-research-demo.html > /tmp/smoke-result.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path('/tmp/smoke-result.json').read_text())
+          assert d['mode'] == 'synthetic_demo' and d['frames'] == 11
+          assert d['returns'] == 55 and d['occupied_cells'] > 0
+          assert d['safety'] == 'RESEARCH_ONLY'
+          assert 'RECHERCHE UNIQUEMENT' in Path('/tmp/smoke-research-demo.html').read_text()
+          print(d)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smoke-research-synthetic-html
+          path: /tmp/smoke-research-demo.html
+          retention-days: 7

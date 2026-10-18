@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "id": "smoke-upo7-real",
+  "description": "Original UPO underground smoke ROS1 bag radar+LiDAR sensor observability. No pose or obstacle accuracy claim.",
+  "jobs": [
+    {
+      "id": "upo7-radar-sensor",
+      "dataset": "upo_smoke",
+      "engine": "radar-sensor-audit",
+      "inputs": {
+        "input": "../../../campaign_results/smoke-upo7/experiment_7.bag"
+      },
+      "timeout_s": 900,
+      "checks": [
+        {
+          "field": "actual_estimator_executed",
+          "equals": false
+        },
+        {
+          "field": "reference_used_to_score",
+          "equals": false
+        },
+        {
+          "field": "metric_distance_accuracy_proven",
+          "equals": false
+        },
+        {
+          "field": "metrics.radar_left_frames",
+          "min": 10
+        },
+        {
+          "field": "metrics.radar_right_frames",
+          "min": 10
+        },
+        {
+          "field": "metrics.lidar_frames",
+          "min": 10
+        },
+        {
+          "field": "metrics.radar_left_returns_median",
+          "min": 0
+        },
+        {
+          "field": "metrics.radar_right_returns_median",
+          "min": 0
+        },
+        {
+          "field": "metrics.reference_samples",
+          "min": 10
+        }
+      ]
+    }
+  ]
+}
