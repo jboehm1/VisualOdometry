@@ -60,3 +60,12 @@ Le document de coordination central est un **instantané daté** et ne garantit 
 **Fichiers modifiés exclusivement par V5**, vérifiés par comparaison à `work/slam-roadmap-b1-b2-b8` : `docs/coordination/slam-b1-b8.md`, `tools/eval/README.md`, `tools/eval/examples/{manifest-fixture,metrics-fixture}.json`, `tools/eval/provenance.py`, `tools/tests/test_benchmark_provenance.py`. Aucun fichier partagé d'intégration n'a été modifié dans le diff V5. La branche B1–B8 d'origine peut toujours entrer en conflit avec les autres chantiers — à traiter par un intégrateur.
 
 **Sortie attendue :** le lot V5 peut être intégré dans **sa propre branche B1–B8** après contrôle CI au SHA final ; **ne pas intégrer automatiquement B1–B8 à `feature/slam-explorer`**. Au moment de l'intégration multiprojets, réexaminer les têtes des branches et lancer la CI de l'APK réellement fusionnée.
+
+
+## Finalisation effective du lot V5 dans B1–B8
+
+- **PR #8 fusionnée avec succès** vers `work/slam-roadmap-b1-b2-b8` : commit de fusion `69ea3804439c35bf79179b5b02736eb854bc0cfa`.
+- Dernier commit du PR vérifié avant fusion : `d3457bf348b7ba3c762ddb62039d5518a4548914`; GitHub Actions **#39161692171 = success** sur ce SHA exact (Python + Android JUnit/lint/APK + GPS + replay synthétique).
+- La fusion est **limitée au périmètre B1–B8** : la branche d'intégration centrale `feature/slam-explorer`, PDR (`feature/camera-free-pdr`) et les campagnes (`feature/three-validation-campaigns`) restent indépendantes.
+- Aucune modification V5 des fichiers partagés : `MainActivity.java`, `AndroidManifest.xml`, menus DATA, exports, README, workflows. L'assemblage final avec les autres branches nécessite encore réconciliation et CI **au SHA de l'APK réunie** ; la fusion V5 n'en constitue pas une preuve.
+- Le pourcentage global du projet demeure indicatif, et aucun test de précision S21/brouillard/terrain indépendant n'a été conclu par ce lot. **Prochaine responsabilité** : l'intégrateur multi-branches; le chantier de provenance V5 est terminé.
