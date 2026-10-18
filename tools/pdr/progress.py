@@ -48,7 +48,7 @@ def load():
                     if not s.get("evidence"):
                         raise ValueError("Completed subtask without evidence: " + sid)
                     target = ROOT / s["evidence"]
-                    if target.is_absolute() or ".." in Path(s["evidence"]).parts or not target.is_file():
+                    if Path(s["evidence"]).is_absolute() or ".." in Path(s["evidence"]).parts or not target.is_file():
                         raise ValueError("Evidence file missing or outside repo: " + sid)
                 elif not s.get("blocker"):
                     raise ValueError("Incomplete subtask without blocker: " + sid)
