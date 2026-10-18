@@ -339,9 +339,9 @@
         [
           "B8.3",
           "Publier code/docs sur branche GitHub dédiée",
-          0,
-          "À confirmer après commit distant",
-          "GitHub/CI peuvent refuser la publication"
+          100,
+          "Commits confirmés sur work/slam-roadmap-b1-b2-b8",
+          "CI et revue de code restent à vérifier séparément"
         ],
         [
           "B8.4",
@@ -358,7 +358,7 @@
           "Nécessite discipline de mise à jour"
         ]
       ],
-      "progress": 80
+      "progress": 100
     }
   ]
 }
