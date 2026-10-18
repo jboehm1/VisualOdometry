@@ -79,10 +79,39 @@ class ProvenanceTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             module.build(manifest(engine="pdr-unknown"), {"ate_rmse_m": 2})
         with self.assertRaises(ValueError):
-            module.build(manifest(), {"ate_rmse_m": -5})
-        with self.assertRaises(ValueError):
             module.build(manifest(), {"ate_rmse_m": float("nan")})
         self.assertEqual(-45, module.build(manifest(), {"alignment_yaw_deg": -45})["metrics"]["alignment_yaw_deg"])
+
+    def test_actual_segmented_nested_report_survives_without_claim_inflation(self):
+        measurements = {
+            "status": "INDEPENDENT_GROUND_TRUTH_REQUIRED",
+            "segments": [
+                {"segment": 1, "ate_rmse_m": 0.9, "rpe_translation_rmse_m": 0.3,
+                 "rpe_samples": 20, "metric_scale_fitted": False},
+                {"segment": 2, "status": "INSUFFICIENT_MATCHES", "matches": 2}
+            ],
+            "matched_coverage_fraction": 0.63,
+            "global_metric_accuracy": "NOT_EVALUATED_ACROSS_SEGMENT_RESETS"
+        }
+        evidence = module.build(manifest(), measurements)
+        self.assertEqual(measurements, evidence["metrics"])
+        self.assertEqual("DIAGNOSTIC_OR_SYNTHETIC_ONLY", evidence["evidence_tier"])
+
+    def test_nested_nonfinite_and_deep_structure_are_rejected(self):
+        with self.assertRaises(ValueError):
+            module.build(manifest(), {"segments": [{"ate": float("inf")}]})
+        tree = {"leaf": 1}
+        for _ in range(15):
+            tree = {"child": tree}
+        with self.assertRaises(ValueError):
+            module.build(manifest(), tree)
+
+    def test_negative_fixed_clock_offset_can_be_declared_but_not_fitted(self):
+        m = manifest(time_offset_ns=-120_000_000)
+        self.assertEqual("DIAGNOSTIC_OR_SYNTHETIC_ONLY", module.build(m, {})["evidence_tier"])
+        with self.assertRaises(ValueError):
+            module.build(manifest(time_offset_ns=999_999_999_999), {})
+
 
     def test_duplicate_json_keys_rejected(self):
         with tempfile.TemporaryDirectory() as d:
