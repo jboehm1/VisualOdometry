@@ -17,3 +17,6 @@ benchmark_results/
 **/__pycache__/
 *.pyc
 .venv/
+
+# Generated campaign runs; may temporarily contain large/private sensor data
+campaign_results/
