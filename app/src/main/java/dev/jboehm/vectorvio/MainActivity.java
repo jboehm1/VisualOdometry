@@ -40,6 +40,7 @@ import com.google.ar.core.Frame;
 import com.google.ar.core.Pose;
 import com.google.ar.core.Session;
 import com.google.ar.core.TrackingState;
+import dev.jboehm.vectorvio.geo.GeoFusionTracker;
 
 import java.io.File;
 import java.util.Locale;
@@ -55,6 +56,9 @@ import javax.microedition.khronos.opengles.GL10;
 public final class MainActivity extends Activity implements GLSurfaceView.Renderer {
     private static final int CAMERA_REQUEST=140, EXPORT_REQUEST=141, IMPORT_MAP_REQUEST=142, LOCATION_REQUEST=143;
     private final Odometer odometer = new Odometer();
+    private final GeoFusionTracker geoFusion = new GeoFusionTracker();
+    private volatile String geoStatus="GEO WAIT";
+    private long lastTrackingQualityMs;
     private final AnchoredOdometry anchoredOdometry=new AnchoredOdometry();
     private final TraceGuide traceGuide=new TraceGuide();
     private volatile boolean returnTraceRequested;
@@ -130,6 +134,24 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         training=new TrainingCapture(this,recorder);
         gps=new GpsMonitor(this,(location,status)->{
             if(odometer.isRecording())recorder.sidecar(recorder.currentFile(),"_gps.csv","wall_time_ms,elapsed_realtime_ns,provider,latitude_deg,longitude_deg,altitude_m,horizontal_accuracy_m,speed_mps,speed_accuracy_mps,bearing_deg",String.format(Locale.US,"%d,%d,%s,%.9f,%.9f,%s,%.3f,%s,%s,%s",location.getTime(),location.getElapsedRealtimeNanos(),location.getProvider(),location.getLatitude(),location.getLongitude(),location.hasAltitude()?Double.toString(location.getAltitude()):"",location.getAccuracy(),location.hasSpeed()?Float.toString(location.getSpeed()):"",location.hasSpeedAccuracy()?Float.toString(location.getSpeedAccuracyMetersPerSecond()):"",location.hasBearing()?Float.toString(location.getBearing()):""));
+            if(odometer.isRecording()) {
+                GeoFusionTracker.Report report=geoFusion.onFix(location.getElapsedRealtimeNanos(),
+                    location.getLatitude(),location.getLongitude(),location.getAccuracy());
+                switch(report.status){
+                    case CANDIDATE:geoStatus=String.format(Locale.US,"GEO CANDIDATE (%.0f m fit, NOT verified)",report.rmsMeters);break;
+                    case CLOCK_MISMATCH:geoStatus="GEO CLOCK UNKNOWN";break;
+                    case INCONSISTENT:geoStatus="GEO INCONSISTENT";break;
+                    case NEED_BASELINE:geoStatus="GEO NEED MOTION";break;
+                    default:geoStatus="GEO WAIT";break;
+                }
+                if(recorder.currentFile()!=null)recorder.sidecar(recorder.currentFile(),"_geo_alignment.csv",
+                    "gps_time_ns,segment,status,paired_fixes,baseline_m,fit_rms_m,projected_lat_deg,projected_lon_deg",
+                    String.format(Locale.US,"%d,%d,%s,%d,%.3f,%.3f,%s,%s",
+                        location.getElapsedRealtimeNanos(),report.segment,report.status,report.matchedFixes,
+                        report.baselineMeters,report.rmsMeters,
+                        report.hasCoordinate()?Double.toString(report.latitude):"",
+                        report.hasCoordinate()?Double.toString(report.longitude):""));
+            }
             refreshHud();
         });
         SharedPreferences preferences=getSharedPreferences("spatial_explorer",MODE_PRIVATE);
@@ -252,6 +274,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(odometer.snapshot(SystemClock.elapsedRealtime()).recording) {
             long now=SystemClock.elapsedRealtime();
             odometer.pause(now);
+            geoFusion.reset();geoStatus="GEO WAIT";
             recorder.event("PAUSE",System.currentTimeMillis());
             recordButton.setText("RESUME");
             recordButton.setContentDescription("Resume recording");
@@ -274,6 +297,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(needsNewFile){recorder.newSession();needsNewFile=false;}
         long now=SystemClock.elapsedRealtime();
         odometer.start(now);
+        geoFusion.reset();geoStatus="GEO WAIT";
         recorder.event("START",System.currentTimeMillis());
         recorder.event("LIVE_POWER_"+frameScheduler.mode().id+"_VIEW_"+frameScheduler.fps()+"_TRACK_TARGET_30",System.currentTimeMillis());
         recorder.event("DISTANCE_ANCHOR_RELATIVE_V4_NO_DEADBAND",System.currentTimeMillis());
@@ -320,8 +344,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private void powerHelp(){new AlertDialog.Builder(this).setTitle("Power · limits")
         .setMessage("Profiles change presentation only: camera preview, overlay preparation and HUD refresh. Tracking/odometry, map capture and frame metadata keep a 30 updates/s target in every profile. The actual rate can be lower if the device is busy; the HUD reports received pose cadence. No new pose-distance filter is applied.\n\nARCore opens the camera itself at a 30 FPS target and retains its internal tracking. Display at 5 FPS does not mean camera capture at 5 FPS. In Hold mode, press the image for a 30 FPS view; release for 5. The same latest-frame GL pipeline is used at every display rate.\n\nFor maximum autonomy, GPS ROUTES avoids the camera; COLLECT ONLY records video without live mapping. Battery savings require measurement on your phone.").setPositiveButton("OK",null).show();}
     private void dataMenu(){
-        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return"),"Unknown floor ribbon: "+(estimatedGround?"ESTIMATED — disable":"HIDDEN — enable height estimate"),"GPS ROUTES — import GPX / follow / record"};
+        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return"),"Unknown floor ribbon: "+(estimatedGround?"ESTIMATED — disable":"HIDDEN — enable height estimate"),"GPS ROUTES — import GPX / follow / record","COURSES — plan manuel hors ligne"};
         new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
+            if(i==9){startActivity(new Intent(this,StorePlannerActivity.class));return;}
             if(i==8){startActivity(new Intent(this,GpsRoutesActivity.class));return;}
             if(i==7){estimatedGround=!estimatedGround;getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("estimated_ground",estimatedGround).apply();return;}
             if(i==6){
@@ -626,7 +651,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
 
     private void refreshHud() {
         hud.update(odometer.snapshot(SystemClock.elapsedRealtime()),trackingLabel,message,markerCount);
-        hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);
+        hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.enabled?gps.status+" · "+geoStatus:gps.status);
     }
     @Override protected void onNewIntent(Intent intent){
         super.onNewIntent(intent);setIntent(intent);
@@ -718,6 +743,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         frameScheduler.stop();boostPointer=-1;updatePowerLabel();
         imu.stop();
         gps.stopUpdates();
+        geoFusion.reset();geoStatus="GEO WAIT";
         long now=SystemClock.elapsedRealtime();
         if(odometer.snapshot(now).recording){
             odometer.pause(now);
@@ -859,6 +885,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                                 if(traceGuide.active()){traceGuide.clear();returnTraceRequested=false;guideText="RETURN STOPPED — reference lost";}
                             }
                             poseResult=odometer.onMeasuredPose(metric.tx(),metric.ty(),metric.tz(),xyz,frame.getTimestamp());
+                            if(poseResult==Odometer.Result.REJECTED||poseResult==Odometer.Result.GAP){
+                                geoFusion.reset();geoStatus="GEO TRACK GAP";
+                            }else if(poseResult==Odometer.Result.REFERENCE||poseResult==Odometer.Result.ACCEPTED||poseResult==Odometer.Result.NO_CHANGE){
+                                geoFusion.onPose(odometer.currentSegment(),frame.getTimestamp(),
+                                    SystemClock.elapsedRealtimeNanos(),metric.tx(),metric.tz());
+                            }
                             if(poseResult==Odometer.Result.REJECTED||poseResult==Odometer.Result.GAP)anchoredOdometry.reset();
                             updateTraceGuide(metric);
                             final Pose a=anchoredOdometry.anchorPose,m=metric;
@@ -883,11 +915,22 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     lastLoggedFrameNs=frame.getTimestamp();
                 }
             } else {
+                geoFusion.reset();geoStatus="GEO TRACK LOST";
                 stopTraceGuide();anchoredOdometry.reset();
                 odometer.lostTracking();
                 String why=camera.getTrackingFailureReason().toString();
                 trackingLabel="SEARCHING";
                 message="Tracking paused: "+why.replace('_',' ').toLowerCase(Locale.US);
+            }
+            if(odometer.isRecording()&&frame.getTimestamp()>0
+                  &&SystemClock.elapsedRealtime()-lastTrackingQualityMs>=1000L&&recorder.currentFile()!=null){
+                lastTrackingQualityMs=SystemClock.elapsedRealtime();
+                recorder.sidecar(recorder.currentFile(),"_tracking_quality.csv",
+                    "wall_time_ms,frame_time_ns,tracking_state,tracking_reason,pose_hz,segment,recording,gps_accuracy_m",
+                    String.format(Locale.US,"%d,%d,%s,%s,%.2f,%d,1,",
+                        System.currentTimeMillis(),frame.getTimestamp(),camera.getTrackingState(),
+                        camera.getTrackingFailureReason(),
+                        camera.getTrackingState()==TrackingState.TRACKING?cameraHz:0f,odometer.currentSegment()));
             }
             if(frame.getTimestamp()>0) previousFrameNs=frame.getTimestamp();
             latestPoseResult=poseResult;
@@ -925,7 +968,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 Odometer.Snapshot snap=odometer.snapshot(now);
                 String currentTracking=trackingLabel,currentMessage=message;
                 int marks=markerCount;
-                runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(guideText);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);});
+                runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(guideText);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.enabled?gps.status+" · "+geoStatus:gps.status);});
             }
         } catch(Exception ex) {
             trackingLabel="TRACK LOST";
