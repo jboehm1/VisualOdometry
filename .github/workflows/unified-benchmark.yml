@@ -1,0 +1,162 @@
+name: Unified benchmark • verified dataset and engine matrix
+
+on:
+  push:
+    branches:
+      - feature/unified-benchmark-cli
+      - feature/slam-explorer
+    paths:
+      - benchmark.py
+      - "tools/campaigns/unified.py"
+      - "tools/campaigns/tests/test_unified*.py"
+      - ".github/workflows/unified-benchmark.yml"
+  pull_request:
+    paths:
+      - benchmark.py
+      - "tools/campaigns/unified.py"
+      - "tools/campaigns/tests/test_unified*.py"
+      - ".github/workflows/unified-benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unified-benchmark-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Catalogue, anti-leakage and canonical fixture regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r tools/benchmark/requirements.txt
+      - name: Run all campaign contracts
+        run: python -m unittest discover -s tools/campaigns/tests -v
+      - name: Verify explicit compatibility catalogue and real-data readiness
+        run: |
+          mkdir -p campaign_results/unified_catalog
+          python benchmark.py catalog > campaign_results/unified_catalog/catalog.json
+          python benchmark.py plan --dataset simul --engine android-pdr > campaign_results/unified_catalog/simul_plan.json
+          python benchmark.py plan --dataset euroc_external --engine external-vins > campaign_results/unified_catalog/euroc_plan.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          entries={x["id"]:x for x in json.loads(Path("campaign_results/unified_catalog/catalog.json").read_text())}
+          assert entries["simul"]["run_status"]=="verified_real_public_pipeline"
+          assert entries["euroc_external"]["run_status"]=="verified_real_public_pipeline"
+          assert entries["ronin"]["supported_engines"]==[]
+          assert entries["tumvi"]["supported_engines"]==["sensor-index"]
+          PY
+          if python benchmark.py plan --dataset euroc --engine android-arcore; then
+            echo 'BUG: invalid ARCore/EuRoC combination was accepted' >&2
+            exit 1
+          fi
+      - name: Test canonical IMU through actual Python and pinned Java engines
+        run: |
+          python tools/campaigns/make_inertial_fixture.py --out campaign_results/fixture_input
+          python benchmark.py run --dataset canonical --engine python-pdr --input campaign_results/fixture_input/imu.csv --out campaign_results/unified_python
+          python benchmark.py run --dataset canonical --engine android-pdr --input campaign_results/fixture_input/imu.csv --out campaign_results/unified_java
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for name, engine in [("unified_python","Python_fixed_stride_peak_baseline"),
+                               ("unified_java","actual_pinned_Java_PdrEngine")]:
+            d=json.loads((Path("campaign_results")/name/"report.json").read_text())
+            assert d["status"]=="PASS"
+            assert d["measured_engine"]==engine
+            assert d["actual_estimator_executed"]
+            assert not d["reference_used_to_score"]
+            assert not d["metric_distance_accuracy_proven"]
+          PY
+      - name: Upload small manifests only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unified-benchmark-contracts
+          path: |
+            campaign_results/unified_catalog/*.json
+            campaign_results/unified_python/report.json
+            campaign_results/unified_java/report.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  simul:
+    name: Actual Java PdrEngine on 4 recorded human subjects
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run actual recorded SIMUL IMU against independent annotations
+        run: python benchmark.py run --dataset simul --engine android-pdr --out campaign_results/unified_simul
+      - name: Assert real run has separate engine identity and ONLY step metrics
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("campaign_results/unified_simul/report.json").read_text())
+          assert d["status"]=="PASS"
+          assert d["actual_estimator_executed"]
+          assert d["measured_engine"]=="actual_pinned_Java_PdrEngine"
+          assert d["additional_engine_executed"]=="python-pdr"
+          assert d["reference_kind"]=="annotated_step_intervals"
+          assert d["metrics"]["test_cases"]==12
+          assert d["metrics"]["original_sensor_timestamps"]>40_000
+          assert "ate_rmse_m" not in d["metrics"]
+          PY
+      - name: Upload real IMU scoring report, never raw sensor files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unified-benchmark-simul-real-java
+          path: |
+            campaign_results/unified_simul/report.json
+            campaign_results/unified_simul/public_data/chat_proof_receipt.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  euroc_external:
+    name: Published VINS-Mono real trajectory • evaluator only
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r tools/benchmark/requirements.txt
+      - name: Score real published EuRoC poses without fabricating app accuracy
+        run: python benchmark.py run --dataset euroc_external --engine external-vins --out campaign_results/unified_euroc
+      - name: Check estimator was NOT run and reference was genuine
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("campaign_results/unified_euroc/report.json").read_text())
+          assert d["status"]=="PASS"
+          assert not d["actual_estimator_executed"]
+          assert d["evaluator_executed"]
+          assert d["reference_used_to_score"]
+          assert d["metrics"]["pairs"]>=3000
+          assert d["metrics"]["ate_rmse_m"]>0
+          PY
+      - name: Upload external trajectory evaluation, NOT Android score
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unified-benchmark-euroc-external-vins
+          path: campaign_results/unified_euroc/report.json
+          if-no-files-found: ignore
+          retention-days: 30
