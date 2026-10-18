@@ -87,7 +87,7 @@ def render(data):
         contrib = sum(t["weight"] * task_pct(t) for t in phase["tasks"]) / 100.0
         lines.append("| %s — %s | %d %% | %.1f %% | %.2f pts |" % (phase["id"],phase["title"],tw,100*contrib/tw,contrib))
     lines += [
-        "| **TOTAL** | **100 %** | **%.1f %%** | **%.2f pts** |" % (overall,overall),
+        "| **TOTAL** | **100 %%** | **%.1f %%** | **%.2f pts** |" % (overall,overall),
         "",
         "## État démontré et limites prioritaires",
         "",
