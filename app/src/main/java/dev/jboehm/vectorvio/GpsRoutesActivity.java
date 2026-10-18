@@ -142,7 +142,7 @@ public final class GpsRoutesActivity extends Activity {
         if(s.route!=null&&s.status==GpsNavigator.Status.FOLLOWING&&s.fix!=null){
             IntersectionAdvisor.Hint hint=IntersectionAdvisor.upcoming(s.route,s.progress,s.fix.accuracy);
             if(hint!=null)detail+=String.format(Locale.FRANCE,
-                "\\nGPX : virage %.0f° dans %.0f m — vérifiez le terrain (pas une détection de chemin)",
+                "\nGPX : virage %.0f° dans %.0f m — vérifiez le terrain (pas une détection de chemin)",
                 Math.abs(hint.turnDegrees),hint.metersAhead);
         }
         return label+"\n"+detail+(s.recording?"\n● Enregistrement · "+s.recorded+" points":"")+(s.message.isEmpty()?"":"\n"+s.message);
