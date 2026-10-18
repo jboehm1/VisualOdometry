@@ -76,10 +76,12 @@ class SuiteContracts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "without reference"):
             runner.verify_report(report, VALID["jobs"][0])
         report["reference_used_to_score"] = True
-        runner.verify_report(report, VALID["jobs"][0])
+        scored_job = json.loads(json.dumps(VALID["jobs"][0]))
+        scored_job["checks"][1]["equals"] = True
+        runner.verify_report(report, scored_job)
         report["metrics"]["frames_processed"] = 20
         with self.assertRaisesRegex(ValueError, "below"):
-            runner.verify_report(report, VALID["jobs"][0])
+            runner.verify_report(report, scored_job)
 
     def fake_engine(self, command, timeout_s, cwd):
         if "make_inertial_fixture.py" in " ".join(command):
