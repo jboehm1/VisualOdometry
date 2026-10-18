@@ -84,7 +84,11 @@ def validate_manifest(m):
         raise ValueError("Missing dataset ID")
     if not _key(m, "config_id", str).strip():
         raise ValueError("Missing estimator configuration identifier")
-    _optional_nonnegative(m, "time_offset_ns")
+    # Calibrated clock offsets can be negative; do not optimize on held-out sequences.
+    if "time_offset_ns" in m:
+        offset=m["time_offset_ns"]
+        if type(offset) is not int or abs(offset)>10_000_000_000:
+            raise ValueError("time_offset_ns must be a signed integer within ±10 s")
     if m["evidence"] in {"real-offline", "physical-phone"}:
         if not _key(m, "license_or_consent_reviewed", bool):
             raise ValueError("Consent/license status must be reviewed before real claims")
@@ -111,20 +115,41 @@ def validate_manifest(m):
 
 
 def _check_metrics(metrics):
+    """Allow the actual nested outputs from all 3 evaluators; do not flatten away status/coverage.
+
+    This validates the *envelope shape*, not the estimator's accuracy. Nonfinite
+    numeric data and excessively deep/unbounded structures are rejected. Strings
+    can describe coverage/method but cannot attest independent truth.
+    """
     if not isinstance(metrics, dict):
-        raise ValueError("Metrics object required")
-    # Flat key-value numeric metrics only, bounded and nonnegative.
-    for key, value in metrics.items():
-        if not re.fullmatch(r"[a-z][a-z0-9_]{0,79}", key):
-            raise ValueError("Metric key malformed: " + str(key))
-        if value is None:
-            continue
-        if type(value) not in (int, float, bool):
-            raise ValueError("Metric " + key + " must be scalar")
-        if type(value) is not bool and (not math.isfinite(value) or value < 0):
-            # Signed yaw offset can be reported only under signed key.
-            if key not in {"alignment_yaw_deg", "yaw_error_deg", "time_offset_ns"} or not math.isfinite(value):
-                raise ValueError("Nonfinite or negative metric: " + key)
+        raise ValueError("Metrics JSON top level must be object")
+    remaining=[120_000]
+
+    def visit(node,depth=0):
+        remaining[0]-=1
+        if remaining[0]<0 or depth>12:
+            raise ValueError("Metric JSON too deeply nested or too many values")
+        if node is None or isinstance(node,bool):
+            return
+        if type(node) in (float,int):
+            if not math.isfinite(node):
+                raise ValueError("Nonfinite metric value")
+            return
+        if isinstance(node,str):
+            if len(node)>8192:
+                raise ValueError("Overlong metric text")
+            return
+        if isinstance(node,list):
+            for child in node:visit(child,depth+1)
+            return
+        if isinstance(node,dict):
+            for key,child in node.items():
+                if not isinstance(key,str) or len(key)>256:
+                    raise ValueError("Invalid metric field name")
+                visit(child,depth+1)
+            return
+        raise ValueError("Unsupported metric structure")
+    visit(metrics)
 
 
 def build(manifest, metrics, source_sha256=None):
