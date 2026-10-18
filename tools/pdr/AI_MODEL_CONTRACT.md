@@ -88,3 +88,16 @@ GitHub Actions PDR workflow validates the new Java module.
 
 These are **candidates**, not included software; their trained architecture,
 preprocessing, frames, weights and licenses do not match this tiny portable MLP.
+
+## Executable safety tests
+
+JUnit class `app/src/test/java/dev/jboehm/vectorvio/pdr/ai/NeuralFoundationTest.java`
+checks causality, 64-frame feature schema, nonfinite and out-of-order input,
+model hash/coordinate frame/truncation validation, deterministic Java neural
+layer arithmetic, detection of physically impossible output, and the crucial
+no-model/no-fusion behavior. Unit tests use **synthetic constant weights**
+labelled `TEST_ONLY`; they make **zero** model accuracy claims.
+
+The original PDR Java APK test workflow is unchanged. This text-only update
+triggers its existing PDR path filter and asks GitHub Actions to compile/test
+these independent source files.
