@@ -57,14 +57,31 @@
       "priority": "P0",
       "url": "https://robotics.upo.es/datasets/smoke/",
       "modalities": [
-        "radar",
-        "lidar",
-        "rgb"
+        "radar_iwr6843_4_units",
+        "radar_pointcloud",
+        "lidar_os1_16",
+        "rgb",
+        "robot_odom",
+        "imu_lidar",
+        "marker_pose_partial"
       ],
-      "smoke": "seven_synthetic_smoke_experiments",
-      "access": "download links on website, sizes not audited",
-      "licence": "unknown_verify_before_use",
-      "caveat": "verify independent GT, topic names and RF hardware"
+      "smoke": "multiple_levels_artificial_smoke_underground_12x6m",
+      "access": "7 public ROS1 bags plus exact rosbag info TXT; experiment_7 is smallest 2,183,007,782 bytes",
+      "licence": "CC-BY-NC-SA-3.0 (noncommercial)",
+      "caveat": "Most directly comparable to cheap 60GHz 4/3Tx radar; NOT downloaded, no thermal, robot not human; no claim of measured localization",
+      "published_min_experiment_bytes": 2183007782,
+      "min_experiment_id": 7,
+      "min_experiment_index_url": "https://robotics.upo.es/datasets/smoke/experiment_7.txt",
+      "min_experiment_duration_s": 168,
+      "min_experiment_expected_topics": [
+        "/ti_mmwave_left_radar/radar_scan_pcl",
+        "/ti_mmwave_right_radar/radar_scan_pcl",
+        "/os1_cloud_node/points_non_dense",
+        "/ground_truth",
+        "/fiducial_pose",
+        "/os1_cloud_node/imu"
+      ],
+      "independent_ground_truth": "partial AR-marker pose and odometry-smoothed positions; not independent for all frames"
     },
     {
       "reviewed_on": "2026-10-19",
