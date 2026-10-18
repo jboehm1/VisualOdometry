@@ -186,3 +186,57 @@ Android rotation-vector azimuth is relative to magnetic north while GNSS course 
 Prioritize RoNIN, OxIOD, TLIO, EqNIO and DeepILS for pedestrian displacement
 first; only compare robotics/multi-platform research after the basic S21 ground
 truth and body-heading problem have been addressed.
+
+## New camera-free UX safety and calibration (2026-10-18)
+
+The PDR screen now defaults to **DISTANCE ONLY** rather than silently assuming
+the device's top points along the person's travel direction. This is deliberately
+safer for pocket, bag, flexible-handheld and running experiments. Distance is
+still estimated from accepted steps and stride even without usable heading.
+
+Choose **PHONE FORWARD** before START only when the phone is approximately
+horizontal, screen facing upward, top edge pointing forward. Device azimuth is
+accepted only when the user opted in, screen normal is within 45 degrees of world
+up, the magnetometer strength is plausible (20–75 µT), magnetometer samples are
+no more than two seconds old and orientation accuracy is not reported unreliable.
+A direction report remains an **assumption**, not a certified body-heading
+measurement. GNSS course (if separately enabled and quality-gated) is usable
+independently of this opt-in.
+
+Other new UX features:
+- **WALK / RUN** switches independently stored manually calibrated step lengths.
+  These are **two fixed-stride settings**, not adaptive learned gait inference.
+  Default guesses (0.74 m walk / 1.05 m run) are not measured person-specific
+  values; neither implies verified accuracy.
+- **CALIBRATE LAST SESSION** accepts an independently measured course distance
+  and divides by detected accepted steps (at least five). Bounds 0.35–1.8 m;
+  calibrating against the same held-out evaluation course is forbidden.
+- The last completed snapshot and trajectory are held immutably for ZIP export,
+  even if the user changes the NEXT session's gait profile or stride.
+- The UI shows detected sensor availability and raw sample counts. These
+  diagnostics do **not** constitute an on-device S21 inventory or noise study.
+- Estimated steps/minute and m/s come from recent step timestamps and the
+  current fixed stride; they decay to zero after inactivity. They are not
+  inertial integration or a calibrated continuous-speed measurement.
+- The app explicitly requires an available Android step source before it starts.
+  A STEP_DETECTOR is only preferred when registration actually succeeds; it
+  otherwise falls back to accelerometer peak detection. Missing permissions
+  are handled before opening the session.
+- GNSS enabling that would request permission is deferred until after STOP,
+  since the Android permission dialog can pause and terminate this foreground
+  session. GNSS does not substitute its travelled distance for the PDR distance.
+- ZIP metadata includes gait profile and orientation policy. The processed
+  events stream records only accepted HEADING events, so the Java replay does
+  not manufacture disallowed phone yaw.
+
+### Still unsupported
+
+No learned phone-in-pocket body direction, inertial EKF, map matching,
+Wi-Fi RTT/BLE anchors, bike/drone inertial distance, foreground service or
+screen-off continuous tracking. The 45-degree face-up and magnetic thresholds
+are explicit conservative engineering gates, **not benchmark-calibrated
+probabilities**. No empirical percentage accuracy is established.
+
+Consult [camera-free option matrix](PDR_OPTIONS_STATUS.md) before describing
+a feature as completed. Test infrastructure and original OxIOD/RoNIN dataset
+campaigns are handled by a separate workstream.
