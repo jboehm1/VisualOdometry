@@ -30,7 +30,7 @@ jobs:
           python tools/campaigns/mobile_gvio_raw.py \
             --bag /tmp/actual_phone/indoor_2.bag \
             --calib /tmp/actual_phone/orbslam3.yaml \
-            --seconds 22 --skip 8 \
+            --seconds 22 --skip 295 \
             --out campaign_results/raw_phone
       - name: Evaluate only after estimation against original independent reference
         run: |
