@@ -44,10 +44,15 @@ def parse(path, fmt):
                 raise ValueError("Missing VECTOR _motion.csv fields")
             segment = 1
             previous = None
+            has_segments = "odometer_segment" in (reader.fieldnames or [])
             for row in reader:
                 ns = int(row["frame_time_ns"])
                 xyz = tuple(float(row[k]) for k in ["metric_x", "metric_y", "metric_z"])
-                if previous is not None and ns - previous > 700_000_000:
+                if has_segments:
+                    segment = int(row["odometer_segment"])
+                    if segment <= 0 or (samples and segment < samples[-1].segment):
+                        raise ValueError("Invalid or decreasing odometer segment")
+                elif previous is not None and ns - previous > 700_000_000:
                     segment += 1
                 samples.append(Sample(ns, xyz, segment))
                 previous = ns
