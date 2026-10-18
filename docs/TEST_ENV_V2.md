@@ -2,6 +2,8 @@
 
 Scope: deterministic suite orchestration atop the actual benchmark.py registry and the proven PR #7 Java PDR / SIMUL pipeline. This does NOT rewrite estimators, metrics or Android code.
 
+> **V3 extension (19 Oct 2026):** real ADVIO-09 and Mobile-GVIO smartphone datasets now have explicit registered engines and a standalone declarative two-case suite. See [Test Environment Phone V3](TEST_ENV_PHONE_V3.md); earlier V2 limitations below describe the original release, not its full V3 capability matrix.
+
 ## Architecture
 
 1. tools/testenv/contracts.py — validate suite JSON and consult tools/campaigns/unified.py for allowed engine-dataset combinations, reference kind and claim level.

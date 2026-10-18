@@ -70,6 +70,20 @@ RUNNERS = {
         "reference": "none_scored",
         "accuracy": "uncalibrated_stride_and_heading",
     },
+    "advio09": {
+        "engines": ("external-pixel-arcore",),
+        "input": "pinned_public",
+        "capability": "real_smartphone_video_gyro_ingest_plus_published_pixel_arcore_pose_score",
+        "reference": "fixation_aided_inertial_ground_trajectory",
+        "accuracy": "external_pixel_arcore_trajectory_only",
+    },
+    "mobile_gvio": {
+        "engines": ("research-mono-gyro",),
+        "input": "pinned_public",
+        "capability": "actual_smartphone_camera_and_gyro_pose_inference_plus_exploratory_sim3_shape_scoring",
+        "reference": "FastLIO2_lidar_inertial_posthoc_clock_and_scale_fit",
+        "accuracy": "research_shape_only_not_metric",
+    },
     "phone_csv": {
         "engines": ("csv-audit",),
         "input": "local_phone_export",
@@ -80,7 +94,8 @@ RUNNERS = {
 }
 
 ALIASES = {"java-pdr": "android-pdr"}
-REAL_DATA_EXECUTED = {"simul": True, "euroc_external": True}
+REAL_DATA_EXECUTED = {"simul": True, "euroc_external": True,
+                      "advio09": True, "mobile_gvio": True}
 LIMITATIONS = {
     "simul": [
         "Actual pinned Java PdrEngine is compiled from a parallel branch, not the current integrated Android APK",
@@ -111,6 +126,20 @@ LIMITATIONS = {
         "Source and coordinate frame provenance must be declared outside the canonical CSV",
         "No metric accuracy can be established without independent time-aligned position reference",
         "Java engine counts steps without using raw gyro as heading",
+    ],
+    "advio09": [
+        "Real iPhone video plus gyro are audited but NOT used to generate pose in this runner",
+        "Google Pixel ARCore poses were recorded independently before this test; VECTOR APK is not executed",
+        "Fixation-aided inertial trajectory reference is not fully independent optical ground truth",
+        "ATE uses a rigid SE3 alignment without fitting metric scale; not comparable with Mobile-GVIO Sim3",
+        "ADVIO data is CC BY-NC 4.0; do not use for commercial purposes without permission",
+    ],
+    "mobile_gvio": [
+        "Actual original images and real gyroscope drive a research Python baseline, not Android ARCore or full metric VIO",
+        "Translation directions are monocular and have unknown scale; no accelerometer-driven scale recovery",
+        "Clock shift and Sim3 scale are fitted using reference AFTER inference: exploratory shape RMSE only",
+        "Reference is LiDAR-IMU FastLIO2; camera/reference extrinsic lever arm remains unverified",
+        "A 951 MB compressed original is downloaded; extracted ROS bag occupies approximately 2.8 GB transiently",
     ],
     "phone_csv": [
         "Summarizes a CSV already exported by the phone; cannot run ARCore on this cloud host",
@@ -146,6 +175,19 @@ def available_catalog() -> list[dict]:
         "id": "canonical", "name": "Canonical timestamped IMU events",
         "scenario": "user-provided accel/gyro/baro recordings",
         "truth": "none unless separately measured",
+    }
+    names["advio09"] = {
+        "id": "advio09", "name": "ADVIO-09 smartphone walking",
+        "scenario": "real iPhone camera+gyro audit and PRECOMPUTED external Pixel ARCore trajectory",
+        "url": "https://doi.org/10.5281/zenodo.1476931",
+        "truth": "fixation-aided inertial trajectory; not pure external optical truth",
+        "license": "CC BY-NC 4.0",
+    }
+    names["mobile_gvio"] = {
+        "id": "mobile_gvio", "name": "Mobile-GVIO Indoor-2 smartphone",
+        "scenario": "recorded monocular camera+gyro research odometry; shape alignment only",
+        "url": "https://zenodo.org/records/20525157",
+        "truth": "FastLIO2 LiDAR-IMU poses, posthoc GT clock + scale fitted",
     }
     names["phone_csv"] = {
         "id": "phone_csv", "name": "VECTOR on-phone exported trajectory",
@@ -289,6 +331,105 @@ def _run_external_vins(base: dict, output: Path, timeout_s: int) -> None:
         "raw_outputs_directory": "published (public trajectories only)",
     })
 
+
+
+
+def _reject_public_override(args: argparse.Namespace, dataset: str) -> None:
+    if args.input or args.truth or args.root or args.estimate or args.heading_csv or args.heading_source or args.known_distance is not None:
+        raise ValueError(f"{dataset} uses pinned public inputs/GT; source and ground truth cannot be overridden")
+    if args.stride_m != 0.70 or args.yaw_axis != "z":
+        raise ValueError(f"{dataset} does not accept inertial PDR stride/yaw options")
+
+
+def _run_advio09(base: dict, output: Path, timeout_s: int) -> None:
+    # Raw camera and gyro are audited; the Pixel ARCore pose estimate was
+    # created by the original dataset authors, NEVER by this estimator.
+    _invoke([sys.executable, str(HERE / "advio09_real.py"),
+             "--out", str(output / "advio")], output, timeout_s=timeout_s)
+    raw = json.loads((output / "advio" / "report.json").read_text(encoding="utf-8"))
+    audit = raw["raw_multimodal_audit"]
+    score = raw["external_vision_imu_estimator_score"]
+    if (raw.get("status") != "PASS" or not audit["raw_camera_and_gyro_processed"] or
+            audit["estimated_pose_from_these_raw_signals"] is not False or
+            score["actual_app_VECT0R_estimator_executed"] is not False or
+            not raw["external_pose_is_not_our_android_app"] or
+            score["matched_external_phone_pose_pairs"] < 40):
+        raise ValueError("ADVIO returned insufficient or misleading raw/external evidence")
+    base.update({
+        "status": "PASS", "measured_engine": "precomputed_external_Google_Pixel_ARCore",
+        "actual_estimator_executed": False, "evaluator_executed": True,
+        "reference_used_to_score": True,
+        "reference_kind": score["reference_kind"],
+        "metric_distance_accuracy_proven": False,
+        "metrics": {
+            "original_camera_frames_decoded": audit["raw_video_frames_decoded"],
+            "original_gyro_samples": audit["real_gyro_samples_in_camera_window"],
+            "original_optical_tracks": audit["tracked_optical_flow_features"],
+            "external_pose_pairs": score["matched_external_phone_pose_pairs"],
+            "external_pixel_arcore_se3_ate_rmse_m": score["ate_rmse_m_rigid_SE3_no_scale_fitting"],
+        },
+        "provenance": {
+            "source": raw["source_record"], "verified_zip_md5": raw["source_zip_md5"],
+            "source_license": raw["license"], "raw_audit_only": True,
+            "reference": score["truth_independence_note"],
+            "original_report": raw,
+        },
+    })
+
+
+def _run_mobile_gvio(base: dict, output: Path, timeout_s: int) -> None:
+    # Original public archives are checksum-verified before inference. The
+    # estimator never receives the ground-truth file. Its pose scale is unmetric.
+    raw = output / "mobile_dataset"
+    _invoke([sys.executable, str(HERE / "mobile_gvio_fetch.py"),
+             "--out", str(raw)], output, timeout_s=timeout_s)
+    verified = json.loads((raw / "provenance.json").read_text(encoding="utf-8"))
+    inferred = output / "inferred"
+    _invoke([sys.executable, str(HERE / "mobile_gvio_raw.py"),
+             "--bag", str(raw / "indoor_2.bag"),
+             "--calib", str(raw / "orbslam3.yaml"),
+             "--seconds", "22", "--skip", "8", "--out", str(inferred)],
+            output, timeout_s=timeout_s)
+    # Truth is introduced ONLY after raw camera+gyro inference.
+    _invoke([sys.executable, str(HERE / "mobile_gvio_score.py"),
+             "--estimate", str(inferred / "estimate_unscaled.tum"),
+             "--truth", str(raw / "ground_truth.txt"),
+             "--infer-clock-from-reference-rotations",
+             "--out", str(inferred / "score.json")], output, timeout_s=timeout_s)
+    inference = json.loads((inferred / "inference.json").read_text(encoding="utf-8"))
+    score = json.loads((inferred / "score.json").read_text(encoding="utf-8"))
+    if (not inference["camera_images_and_imu_both_influence_pose"] or
+            inference["actual_images_processed"] < 25 or
+            inference["gyro_integrated_samples"] < 100 or
+            score["matched_pose_pairs"] < 30 or
+            score["estimator_metric_scale_observed"] is not False or
+            score["scale_optimized_from_gt_only_during_scoring"] is not True or
+            score["clock_shift_fitted_using_reference_after_inference"] is not True or
+            score["timestamp_calibration_independently_verified"] is not False):
+        raise ValueError("Mobile-GVIO result misclassified or failed real-data minimums")
+    base.update({
+        "status": "PASS", "measured_engine": "research_monocular_images_plus_measured_gyro",
+        "actual_estimator_executed": True, "evaluator_executed": True,
+        "reference_used_to_score": True,
+        "reference_kind": "FastLIO2_lidar_imu_posthoc_time_and_scale",
+        "metric_distance_accuracy_proven": False,
+        "metrics": {
+            "camera_frames_processed": inference["actual_images_processed"],
+            "gyro_integrated_samples": inference["gyro_integrated_samples"],
+            "visual_pose_direction_updates": inference["visual_essential_pose_updates"],
+            "matched_reference_pose_pairs": score["matched_pose_pairs"],
+            "posthoc_aligned_shape_rmse_m": score["sim3_shape_ate_rmse_m"],
+            "reference_fitted_time_shift_s": score["posthoc_clock_shift_seconds"],
+            "reference_fitted_sim3_scale": score["after_truth_similarity_scale"],
+        },
+        "provenance": {
+            "source_manifest": verified, "camera_calibration_sha256": inference["calibration_sha256"],
+            "clock_basis": inference["clock_basis"],
+            "estimation_without_ground_truth": True,
+            "time_and_scale_fitted_after_inference_using_GT": True,
+            "inference_report": inference, "shape_score_report": score,
+        },
+    })
 
 def _run_raw_index(base: dict, output: Path, dataset: str,
                    engine: str, args: argparse.Namespace) -> None:
@@ -450,6 +591,12 @@ def run(args: argparse.Namespace) -> dict:
             if args.input or args.truth or args.root or args.estimate:
                 raise ValueError("External EuRoC example uses a pinned public pair")
             _run_external_vins(base, output, args.timeout_s)
+        elif args.dataset == "advio09":
+            _reject_public_override(args, args.dataset)
+            _run_advio09(base, output, args.timeout_s)
+        elif args.dataset == "mobile_gvio":
+            _reject_public_override(args, args.dataset)
+            _run_mobile_gvio(base, output, args.timeout_s)
         elif args.dataset in ("euroc", "tumvi"):
             _run_raw_index(base, output, args.dataset, engine, args)
         elif args.dataset in ("oxiod", "canonical"):

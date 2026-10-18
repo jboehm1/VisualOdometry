@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "id": "real-phone",
+  "description": "Real smartphone validation: ADVIO09 independent EXTERNAL Pixel ARCore and Mobile-GVIO experimental camera+gyro research odometry; different metric contracts",
+  "jobs": [
+    {
+      "id": "advio09",
+      "dataset": "advio09",
+      "engine": "external-pixel-arcore",
+      "timeout_s": 1200,
+      "checks": [
+        {
+          "field": "status",
+          "equals": "PASS"
+        },
+        {
+          "field": "actual_estimator_executed",
+          "equals": false
+        },
+        {
+          "field": "reference_used_to_score",
+          "equals": true
+        },
+        {
+          "field": "metrics.original_camera_frames_decoded",
+          "min": 100
+        },
+        {
+          "field": "metrics.original_gyro_samples",
+          "min": 100
+        },
+        {
+          "field": "metrics.external_pose_pairs",
+          "min": 40
+        },
+        {
+          "field": "metrics.external_pixel_arcore_se3_ate_rmse_m",
+          "min": 0
+        }
+      ]
+    },
+    {
+      "id": "mobile-gvio",
+      "dataset": "mobile_gvio",
+      "engine": "research-mono-gyro",
+      "timeout_s": 2400,
+      "checks": [
+        {
+          "field": "actual_estimator_executed",
+          "equals": true
+        },
+        {
+          "field": "reference_used_to_score",
+          "equals": true
+        },
+        {
+          "field": "metric_distance_accuracy_proven",
+          "equals": false
+        },
+        {
+          "field": "metrics.camera_frames_processed",
+          "min": 25
+        },
+        {
+          "field": "metrics.gyro_integrated_samples",
+          "min": 100
+        },
+        {
+          "field": "metrics.matched_reference_pose_pairs",
+          "min": 30
+        },
+        {
+          "field": "metrics.posthoc_aligned_shape_rmse_m",
+          "min": 0
+        }
+      ]
+    }
+  ]
+}
