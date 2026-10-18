@@ -28,6 +28,7 @@ UPSTREAM_SHA = "ee7eb4e89bf33a17cafb4268207b802773427493"
 JAVA_REPO = "jboehm1/VisualOdometry"
 JAVA_SHA = "f8228aa7acbc453001d623c537bd8d7f0a9bc176"
 SEQUENCES = {
+    "subject17_short": "data/by-person/17/awindaRecording_20230403173917.csv",
     "subject24_short": "data/by-person/24/awindaRecording_20230506184711.csv",
     "subject25_short": "data/by-person/25/awindaRecording_20230124150358.csv",
 }
