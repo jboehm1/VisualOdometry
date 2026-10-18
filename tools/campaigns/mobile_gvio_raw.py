@@ -36,8 +36,17 @@ def read_real_imu_camera(path,seconds=22,skip=8,every=5):
             if dt<skip:continue
             if dt>skip+seconds:break
             m=reader.deserialize(b,c.msgtype)
+            # ROS bag-envelope time is NOT necessarily acquisition time.
+            # Device header.stamp is the authoritative source timestamp for
+            # synchronizing recorded camera and gyro against source GT.
+            if not hasattr(m,"header") or not hasattr(m.header,"stamp"):
+                raise ValueError("Camera/IMU header timestamp missing; cannot align truth")
+            stamp=m.header.stamp
+            header_time=int(stamp.sec)*1_000_000_000+int(stamp.nanosec)
+            if header_time<=0:
+                raise ValueError("Invalid device acquisition clock timestamp")
             if c.topic=="/imu0":
-                gyro.append((t,np.array([m.angular_velocity.x,m.angular_velocity.y,m.angular_velocity.z],float)))
+                gyro.append((header_time,np.array([m.angular_velocity.x,m.angular_velocity.y,m.angular_velocity.z],float)))
             else:
                 count+=1
                 if count%every:continue
@@ -49,8 +58,15 @@ def read_real_imu_camera(path,seconds=22,skip=8,every=5):
                     rgb=a.reshape(m.height,m.step)[:,:m.width*3].reshape(m.height,m.width,3)
                     image=cv2.cvtColor(rgb,cv2.COLOR_BGR2GRAY if enc=="bgr8" else cv2.COLOR_RGB2GRAY)
                 else:raise ValueError("Unsupported camera encoding "+enc)
-                frames.append((t,cv2.resize(image,None,fx=.5,fy=.5)))
+                frames.append((header_time,cv2.resize(image,None,fx=.5,fy=.5)))
     if len(frames)<25 or len(gyro)<220:raise ValueError("Too few genuine observations")
+    if any(b[0]<=a[0] for a,b in zip(frames,frames[1:])):
+        raise ValueError("Nonmonotonic true camera acquisition timestamps")
+    if any(b[0]<=a[0] for a,b in zip(gyro,gyro[1:])):
+        raise ValueError("Nonmonotonic true gyro acquisition timestamps")
+    print("PHONE_ACQUISITION_TIME_RANGE_SECONDS",
+          frames[0][0]/1e9,frames[-1][0]/1e9,
+          "gyro",gyro[0][0]/1e9,gyro[-1][0]/1e9,flush=True)
     return frames,gyro
 
 
@@ -107,6 +123,7 @@ def infer(bag,calib,out,seconds=22,skip=8):
     result={
       "engine":"research_monocular_visual_directions_with_gyro_orientation",
       "actual_images_processed":len(images),"raw_imu_gyro_samples":len(gyro),
+      "clock_basis":"ROS_msg_header.stamp_original_device_capture_time",
       "gyro_integrated_samples":used,"visual_essential_pose_updates":good,
       "visual_ransac_inliers":inliers,"visual_rejections":bad,
       "calibration_sha256":hashlib.sha256(Path(calib).read_bytes()).hexdigest(),
