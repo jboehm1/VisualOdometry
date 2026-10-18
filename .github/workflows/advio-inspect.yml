@@ -1,0 +1,40 @@
+name: ADVIO raw phone camera IMU source inspection
+on:
+  push:
+    branches: [feature/advio-mini-raw-vio]
+    paths: [".github/workflows/advio-inspect.yml"]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve MD5-pinned genuine 70 MB iPhone video and inertial records
+        run: |
+          python - <<'PY'
+          import urllib.request,json,hashlib,zipfile,pathlib
+          with urllib.request.urlopen("https://zenodo.org/api/records/1476931",timeout=25) as f:
+            record=json.load(f)
+          item=next(s for s in record["files"] if s["key"]=="advio-09.zip")
+          assert item["checksum"]=="md5:a5fedb98e2f50954c670e61d04642286"
+          dest=pathlib.Path("/tmp/advio-09.zip")
+          h=hashlib.md5();size=0
+          with urllib.request.urlopen(item["links"]["self"],timeout=90) as source,dest.open("wb") as output:
+            while block:=source.read(512*1024):
+              size+=len(block)
+              if size>80000000:raise ValueError("Unexpected archive size")
+              h.update(block);output.write(block)
+          assert size==item["size"] and ("md5:"+h.hexdigest())==item["checksum"]
+          print("VERIFIED_REAL_ADVIO_ARCHIVE",size,h.hexdigest(),flush=True)
+          with zipfile.ZipFile(dest) as z:
+            for x in z.infolist():
+              if x.filename.endswith(("/frames.mov","/iphone/gyro.csv","/iphone/frames.csv","/ground-truth/pose.csv","/pixel/arcore.csv")):
+                print("SOURCE_MEMBER",x.filename,x.file_size,flush=True)
+                if x.filename.endswith(".csv"):
+                  with z.open(x) as source:
+                    for i in range(4):
+                      line=source.readline().decode("utf8").strip()
+                      print("SOURCE_HEAD",x.filename,i,line[:250],flush=True)
+          PY
