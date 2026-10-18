@@ -68,10 +68,6 @@ public final class Odometer {
     private boolean recording = false, tracking = false;
     private Point reference;
     private Point lastObserved;
-    private double[] lastOrientation;
-    private double rotationSinceReference;
-    private static final double ROTATION_NOISE_METERS_PER_RADIAN=.20;
-    private static final double MAX_ROTATION_DEADBAND_METERS=.12;
     private double totalMeters, horizontalMeters, ascentMeters, descentMeters;
     private double netX, netY, netZ, speedMps;
     private long samples, outliers, gaps;
@@ -86,7 +82,6 @@ public final class Odometer {
         tracking = false;
         reference = null;
         lastObserved = null;
-        lastOrientation=null;rotationSinceReference=0;
         resumeTimeMs = nowMs;
         speedMps = 0;
     }
@@ -98,7 +93,6 @@ public final class Odometer {
         tracking = false;
         reference = null;
         lastObserved = null;
-        lastOrientation=null;rotationSinceReference=0;
         speedMps = 0;
     }
 
@@ -107,7 +101,6 @@ public final class Odometer {
         tracking = false;
         reference = null;
         lastObserved = null;
-        lastOrientation=null;rotationSinceReference=0;
         totalMeters = horizontalMeters = ascentMeters = descentMeters = 0;
         netX = netY = netZ = speedMps = 0;
         samples = outliers = gaps = 0;
@@ -121,22 +114,15 @@ public final class Odometer {
         tracking = false;
         reference = null;
         lastObserved = null;
-        lastOrientation=null;rotationSinceReference=0;
         speedMps = 0;
     }
 
     public synchronized Result onPose(double x,double y,double z,long timestampNs){
         return integrate(x,y,z,timestampNs,null);
     }
-    /** Orientation-aware live input. Noise gate expands during rotation; translations
-     * beyond the bounded gate retain their full displacement, including while turning. */
+    /** Compatibility input: orientation never changes accepted translation or distance. */
     public synchronized Result onPose(double x,double y,double z,float[] quaternion,long timestampNs){
-        if(!recording)return Result.INACTIVE;
-        if(quaternion==null||quaternion.length!=4)return Result.REJECTED;
-        double norm=0;for(float v:quaternion){if(!Float.isFinite(v))return Result.REJECTED;norm+=(double)v*v;}
-        if(norm<1e-12)return Result.REJECTED;
-        double[] q=new double[4];norm=Math.sqrt(norm);for(int i=0;i<4;i++)q[i]=quaternion[i]/norm;
-        return integrate(x,y,z,timestampNs,q);
+        return integrate(x,y,z,timestampNs,null);
     }
     private Result integrate(double x, double y, double z, long timestampNs,double[] orientation) {
         if (!recording) return Result.INACTIVE;
@@ -146,7 +132,6 @@ public final class Odometer {
         Point p = new Point(x, y, z);
         samples++;
         if (reference == null) {
-            lastOrientation=orientation;rotationSinceReference=0;
             reference = p;
             lastObserved = p;
             lastObservedNs = timestampNs;
@@ -164,7 +149,6 @@ public final class Odometer {
         lastObservedNs = timestampNs;
 
         if (frameDt > MAX_GAP_SECONDS) {
-            lastOrientation=orientation;rotationSinceReference=0;
             reference = p;
             referencePoseNs = timestampNs;
             speedMps = 0;
@@ -176,7 +160,6 @@ public final class Odometer {
         // Check instantaneous frame-to-frame motion for relocalization jumps,
         // including jumps after standing still for a long time.
         if (frameStep / frameDt > MAX_SPEED_MPS) {
-            lastOrientation=orientation;rotationSinceReference=0;
             reference = p;
             referencePoseNs = timestampNs;
             speedMps = 0;
@@ -186,18 +169,10 @@ public final class Odometer {
             return Result.REJECTED;
         }
 
-        if(orientation!=null&&lastOrientation!=null){
-            double dot=0;for(int i=0;i<4;i++)dot+=orientation[i]*lastOrientation[i];
-            rotationSinceReference+=2*Math.acos(Math.max(0,Math.min(1,Math.abs(dot))));
-        }
-        if(orientation==null)rotationSinceReference=0;
-        lastOrientation=orientation;
         double dt = (timestampNs - referencePoseNs) / 1_000_000_000.0;
         double step = p.distance(reference);
 
-        double minimumStep=orientation==null?MIN_STEP_METERS:Math.min(MAX_ROTATION_DEADBAND_METERS,
-            MIN_STEP_METERS+ROTATION_NOISE_METERS_PER_RADIAN*rotationSinceReference);
-        if (step < minimumStep) {
+        if (step < MIN_STEP_METERS) {
             // Keep the reference point so slow genuine movements accumulate.
             speedMps *= 0.91;
             return Result.NO_CHANGE;
@@ -216,7 +191,6 @@ public final class Odometer {
         double instantaneousMps = dt <= MAX_GAP_SECONDS ? step/dt : frameStep/frameDt;
         speedMps = speedMps == 0 ? instantaneousMps : 0.72*speedMps + 0.28*instantaneousMps;
         reference = p;
-        rotationSinceReference=0;
         referencePoseNs = timestampNs;
 
         Point last = trail.isEmpty() ? null : trail.get(trail.size()-1);
