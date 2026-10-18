@@ -11,6 +11,22 @@ public class GeoFusionTrackerTest {
         g.onPose(1,1_100_000_000L,1_105_000_000L,1,0);
         assertEquals(GeoFusionTracker.Status.WAITING_FOR_POSES,g.onFix(700_000_000L,48,7,4).status);
     }
+    @Test public void reportsContinuousMetricTravelBetweenGnssFixesWithoutInventingMotion(){
+        GeoFusionTracker g=new GeoFusionTracker();
+        long t=2_000_000_000L;
+        g.onPose(1,t,t,0,0);g.onPose(1,t+100_000_000L,t+100_000_000L,1,0);
+        GeoFusionTracker.Report first=g.onFix(t+50_000_000L,48,7,2);
+        assertTrue(Double.isNaN(first.vioTravelMeters));
+        assertEquals(0L,first.previousPairedFixNs);
+        g.onPose(1,t+200_000_000L,t+200_000_000L,1,2);
+        g.onPose(1,t+300_000_000L,t+300_000_000L,4,2);
+        GeoFusionTracker.Report second=g.onFix(t+250_000_000L,48,7,2);
+        assertEquals(4,second.vioTravelMeters,1e-6); // 0.5->1+2+1.5
+        assertEquals(t+50_000_000L,second.previousPairedFixNs);
+        g.onPose(2,t+350_000_000L,t+350_000_000L,4,2);
+        g.onPose(2,t+450_000_000L,t+450_000_000L,5,2);
+        assertTrue(Double.isNaN(g.onFix(t+400_000_000L,48,7,2).vioTravelMeters));
+    }
     @Test public void alignmentUsesMatchedTimesAndNeverClaimsAbsoluteAccuracy(){
         GeoFusionTracker g=new GeoFusionTracker();
         double rad=Math.PI/180;
