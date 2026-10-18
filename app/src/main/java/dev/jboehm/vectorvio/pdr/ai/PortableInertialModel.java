@@ -26,7 +26,7 @@ import java.util.Locale;
  * Output: dx metres, dy metres, log(scale_x metres), log(scale_y metres).
  * A scale is NOT a calibrated covariance or statistical confidence bound.
  */
-public final class PortableInertialModel {
+public final class PortableInertialModel implements NeuralMotionModel {
     public static final String MAGIC="PDR_AI_MLP_V1";
     public static final String FRAME="DEVICE_XY_METRES";
     public static final int INPUT=InertialWindow.FEATURES, HIDDEN=32, OUTPUT=4;
@@ -86,6 +86,12 @@ public final class PortableInertialModel {
         }catch(NoSuchAlgorithmException e){throw new AssertionError(e);}
     }
 
+    @Override public String modelId(){return modelId;}
+    @Override public String outputFrame(){return FRAME;}
+    @Override public NeuralMotionEstimate inferWindow(float[] samples,long endTimeNs,double seconds) {
+        return infer(InertialWindow.features(samples),endTimeNs,seconds);
+    }
+    /** Feature-level test and inference hook; the normal interface accepts raw windows. */
     public NeuralMotionEstimate infer(float[] rawFeatures,long endTimeNs,double windowSeconds) {
         if(endTimeNs<=0 || !Double.isFinite(windowSeconds)
             || windowSeconds<.7 || windowSeconds>2.5)

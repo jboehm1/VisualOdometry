@@ -7,11 +7,11 @@ package dev.jboehm.vectorvio.pdr.ai;
  */
 public final class NeuralDiagnosticRunner {
     private final InertialWindow buffer=new InertialWindow();
-    private final PortableInertialModel model;
+    private final NeuralMotionModel model;
     private long candidateCount, rejectedPredictions;
     private long lastInferenceNs=Long.MIN_VALUE;
     private NeuralMotionEstimate last;
-    public NeuralDiagnosticRunner(PortableInertialModel verifiedModelOrNull){
+    public NeuralDiagnosticRunner(NeuralMotionModel verifiedModelOrNull){
         model=verifiedModelOrNull;
     }
     public boolean hasModel(){return model!=null;}
@@ -29,8 +29,8 @@ public final class NeuralDiagnosticRunner {
             return null;
         lastInferenceNs=end;
         try{
-            NeuralMotionEstimate candidate=model.infer(
-                InertialWindow.features(buffer.snapshot()),end,buffer.durationSeconds());
+            NeuralMotionEstimate candidate=model.inferWindow(
+                buffer.snapshot(),end,buffer.durationSeconds());
             candidateCount++;last=candidate;return candidate;
         }catch(IllegalArgumentException|IllegalStateException e){
             rejectedPredictions++;return null;

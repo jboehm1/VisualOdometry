@@ -107,6 +107,9 @@ public final class NeuralFoundationTest {
         assertEquals(.4,a.modelScaleY,1e-7);
         assertEquals(PortableInertialModel.FRAME,a.outputFrame);
         assertFalse(a.covarianceCalibrated);
+        assertEquals(1.25,model.inferWindow(new float[InertialWindow.FRAMES*
+                                 InertialWindow.CHANNELS],2_000_000_000L,1.26)
+                                 .deviceXMetres,1e-7);
     }
 
     @Test public void checkpointTrustAndSchemaAreStrict() throws Exception {
@@ -114,7 +117,8 @@ public final class NeuralFoundationTest {
         String sha=PortableInertialModel.sha256(valid);
         try{PortableInertialModel.load(valid,null);fail();}
         catch(IOException expected){}
-        try{PortableInertialModel.load(valid,sha.replace('a','b'));fail();}
+        String changed=(sha.charAt(0)=='a'?"b":"a")+sha.substring(1);
+        try{PortableInertialModel.load(valid,changed);fail();}
         catch(IOException expected){}
         byte[] truncated=Arrays.copyOf(valid,valid.length-2);
         try{PortableInertialModel.load(truncated,
