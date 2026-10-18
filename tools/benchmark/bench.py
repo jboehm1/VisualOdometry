@@ -206,6 +206,138 @@ def prepare_collection(root, target):
     return summary
 
 
+def prepare_generic(root, config_path, target):
+    """Declarative CSV adapter for new camera, IMU, magnetometer and barometer corpora.
+
+    No hardcoded per-dataset columns. One sensor stream per config entry; all
+    timestamps are validated and merged without discarding intermediate samples.
+    """
+    import heapq
+    from decimal import Decimal, InvalidOperation
+    config = load_json(config_path)
+    if not isinstance(config.get("sensors", []), list):
+        raise ValueError("Generic adapter 'sensors' must be a list")
+    target.mkdir(parents=True, exist_ok=True)
+    factors = {"ns": 1, "us": 1000, "ms": 1000000, "s": 1000000000}
+
+    def resolve(value):
+        p = Path(value)
+        return (p if p.is_absolute() else root / p).resolve()
+
+    def timestamp(value, unit):
+        if unit not in factors:
+            raise ValueError(f"Unknown timestamp unit {unit!r}")
+        try:
+            number = Decimal(str(value)) * factors[unit]
+            converted = int(number.to_integral_value())
+        except (InvalidOperation, ValueError, TypeError) as exc:
+            raise ValueError(f"Invalid timestamp {value!r}") from exc
+        if converted <= 0:
+            raise ValueError("Timestamp must be positive")
+        return converted
+
+    def dictionaries(path):
+        p = resolve(path)
+        if not p.is_file():
+            raise FileNotFoundError(p)
+        opener = gzip.open if p.suffix == ".gz" else open
+        with opener(p, "rt", newline="", encoding="utf-8-sig") as f:
+            yield from csv.DictReader(f)
+
+    frame_count = 0
+    frame_spec = config.get("frames")
+    frames_out = target / "frames.csv"
+    with frames_out.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(("t_ns", "camera", "path"))
+        if frame_spec:
+            previous = None
+            for row in dictionaries(frame_spec["csv"]):
+                t = timestamp(row[frame_spec["time_column"]],
+                              frame_spec["time_unit"])
+                if previous is not None and t <= previous:
+                    raise ValueError("Generic frames have non-monotonic time")
+                resource = Path(row[frame_spec["resource_column"]].strip())
+                if resource.is_absolute() or ".." in resource.parts:
+                    raise ValueError("Frame resource must be relative to its resource root")
+                image_root = resolve(frame_spec["resource_root"])
+                resource_path = (image_root / resource).resolve()
+                if not resource_path.is_relative_to(image_root) or not resource_path.is_file():
+                    raise FileNotFoundError(f"Missing/unsafe frame resource {resource_path}")
+                writer.writerow((t, frame_spec.get("camera", "cam0"),
+                                 str(resource_path)))
+                previous = t
+                frame_count += 1
+
+    def sensor_records(spec):
+        kind = str(spec["type"]).upper()
+        if kind not in ("ACCEL", "GYRO", "MAG", "BARO"):
+            raise ValueError(f"Unsupported sensor type {kind}")
+        columns = spec["columns"]
+        if len(columns) not in (1, 3):
+            raise ValueError("Sensor columns must have 1 (barometer) or 3 axes")
+        if len(columns) == 1 and kind != "BARO":
+            raise ValueError("Single-axis CSV supported for BARO only")
+        last = None
+        for row in dictionaries(spec["csv"]):
+            t = timestamp(row[spec["time_column"]], spec["time_unit"])
+            if last is not None and t <= last:
+                raise ValueError(f"{kind} timestamps must be strictly increasing")
+            last = t
+            vals = [float(row[col]) for col in columns]
+            if not all(math.isfinite(v) for v in vals):
+                raise ValueError(f"Nonfinite {kind} sample")
+            if len(vals) == 1:
+                vals += [0.0, 0.0]
+            yield t, kind, *vals
+
+    streams = [sensor_records(item) for item in config.get("sensors", [])]
+    sensor_count = 0
+    imu_out = target / "imu.csv"
+    with imu_out.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(("t_ns","type","x","y","z"))
+        last_t = None
+        for row in heapq.merge(*streams, key=lambda x:x[0]):
+            if last_t is not None and row[0] < last_t:
+                raise ValueError("Merged sensor stream went backward")
+            writer.writerow(row)
+            last_t = row[0]
+            sensor_count += 1
+
+    if sensor_count < 2 and frame_count < 2:
+        raise ValueError("Need a usable camera or sensor observation stream")
+    gt = config.get("truth")
+    reference = resolve(gt["path"]) if gt else None
+    if reference is not None and not reference.is_file():
+        raise FileNotFoundError(f"Ground-truth file is missing: {reference}")
+    if gt and gt.get("format") not in ("tum","euroc"):
+        raise ValueError("Ground truth must have declared tum or euroc format")
+    calibration = [resolve(p) for p in config.get("calibration_files",[])]
+    for p in calibration:
+        if not p.is_file():
+            raise FileNotFoundError(f"Calibration file does not exist: {p}")
+    result = {
+        "schema":1, "dataset_kind":"generic", "adapter_config":str(Path(config_path).resolve()),
+        "adapter_sha256":sha256(config_path), "source_root":str(root.resolve()),
+        "frames":str(frames_out.resolve()), "imu":str(imu_out.resolve()),
+        "frame_count":frame_count, "imu_count":sensor_count,
+        "sensor_streams":config.get("sensors",[]), "calibration_files":[str(x) for x in calibration],
+        "pose_frame":config.get("pose_frame","unknown"),
+        "truth":str(reference) if reference else None,
+        "truth_format":gt.get("format") if gt else None,
+        "truth_frame":gt.get("frame") if gt else None,
+        "warnings":[
+            "raw native axes/units retained; configure and transform in external estimator",
+            "columns are declarative; clock offsets and calibration are not inferred",
+            "camera frames can be omitted for inertial-only PDR experiments",
+            "mag/baro data are optional extra rows in imu.csv, not fused by the benchmark"
+        ]
+    }
+    write_json(target/"manifest.json",result)
+    return result
+
+
 def quat_matrix(q):
     x, y, z, w = np.asarray(q, dtype=float)
     n = x*x + y*y + z*z + w*w
@@ -431,10 +563,11 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="action", required=True)
     sub.add_parser("catalog")
     prep = sub.add_parser("prepare")
-    prep.add_argument("--dataset", choices=("euroc", "tumvi", "vector_capture"), required=True)
+    prep.add_argument("--dataset", choices=("euroc", "tumvi", "vector_capture", "generic"), required=True)
     prep.add_argument("--root", type=Path, required=True)
     prep.add_argument("--out", type=Path, required=True)
     prep.add_argument("--truth", type=Path)
+    prep.add_argument("--config", type=Path, help="Declarative mapping JSON for --dataset generic")
     ev = sub.add_parser("evaluate")
     ev.add_argument("--truth", type=Path, required=True)
     ev.add_argument("--estimate", type=Path, required=True)
@@ -457,7 +590,11 @@ def main(argv=None):
         print(CATALOG.read_text(encoding="utf-8"))
         return 0
     if args.action == "prepare":
-        if args.dataset == "vector_capture":
+        if args.dataset == "generic":
+            if args.config is None:
+                raise ValueError("Use --config to supply a mapping for generic dataset")
+            result = prepare_generic(args.root, args.config, args.out)
+        elif args.dataset == "vector_capture":
             result = prepare_collection(args.root, args.out)
         else:
             result = prepare_mav(args.dataset, args.root, args.out, args.truth)
