@@ -242,7 +242,7 @@ def _run_simul(base: dict, output: Path, engine: str, timeout_s: int) -> None:
         "original_sensor_timestamps": receipt["real_sample_timestamps"],
         "absolute_step_count_error_mean_pct": sum(errors) / len(errors),
         "steps_predicted_total_across_placements": sum(steps),
-        "annotated_steps_total_across_placements": sum(p["reference_steps"] for p in positions),
+        "annotated_steps_total_across_placements": sum(seq["reference_steps"] * len(seq["positions"]) for seq in full["sequences"]),
     }
     if is_java:
         metrics["step_interval_f1_macro"] = sum(p["java_timed_step_score"]["f1"] for p in positions) / len(positions)
