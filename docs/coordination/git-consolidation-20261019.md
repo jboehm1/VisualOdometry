@@ -53,3 +53,18 @@ Ordre pragmatique : **(1)** garder la baseline centrale + FLP comme base ; **(2)
 Le **19 octobre 2026 (heure locale de Berlin)**, un autre agent a également fusionné **PR #18 — V3 real smartphone suites / modular testenv**, commit de merge `a9683c47452c00f48c68527dc8d92f6fd3c00d82` dans `feature/slam-explorer`. Ce travail apporte des scénarios dataset **ADVIO-09 / Mobile-GVIO** sur le pipeline de test, sans changer les nouveaux modules PDR/courses/FLP. L'état **17 PR / 11 fusionnées / 3 closes / 3 ouvertes** plus haut est donc **l'instantané pris AVANT** cette arrivée ; #18 est une douzième PR fusionnée, et la présente PR documentaire #19 est transitoirement ouverte puis à clôturer par fusion. **Ne pas compter #18 comme encore à merger.**
 
 En présence d'autres chats qui poussent en direct, **relever le SHA central à chaque fusion** : un bilan archivé à un instant donné ne reste pas automatiquement à jour. Les données vérifiables sont les dates/SHA GitHub, pas le compteur seul.
+
+
+## Contrôle précoce ajouté pour sécuriser les prochains merges
+
+`tools/coordination/android_menu_contract.py` inventorie en lecture seule les **cinq actions de menu** attendues et les activités non exportées du manifeste : GPS ROUTES, ARCORE REPLAY, FLP A/B, PDR et COURSES. `tools/tests/test_android_menu_contract.py` impose en CI le **socle actuel** (GPS, replay, FLP), et vérifie que l'absence actuelle de PDR/COURSES est déclarée plutôt que cachée.
+
+Usage après intégration finale (représentation statique, pas un test de clic réel) :
+
+```bash
+python3 tools/coordination/android_menu_contract.py
+# Une fois PDR et COURSES intégrés :
+python3 tools/coordination/android_menu_contract.py --require GPS_ROUTES ARCORE_REPLAY FLP_AB PDR COURSES
+```
+
+**Critère de fusion PDR / B1–B8** : tous les cinq modes détectés avec enregistrement manifeste valide **ET** CI/JUnit/rendu réel des cinq actions après la fusion. Une simple occurrence de texte dans le code ne garantit ni l'ordre des choix ni la validité des écrans ; l'audit indique donc explicitement `STATIC_ONLY_NOT_UI_TESTED`.
