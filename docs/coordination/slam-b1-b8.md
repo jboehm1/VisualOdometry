@@ -41,3 +41,11 @@ Le document de coordination central est un **instantané daté** et ne garantit 
 **Prochaine étape de ce chantier :** améliorer le banc de validation hors ligne des poses/mesures (provenance, métriques, règles d'horloge et segmentation) et ajouter des tests ciblés sur les sous-modules **sans toucher aux fichiers partagés**. L'intégrateur réunira ultérieurement PDR, replay/campagnes, modes courses et GPX+VIO avec actions de menu stables, manifeste cumulatif, et CI + smoke de l'APK combinée. Avant ce passage : relever à nouveau tous les SHA et contrôler chaque chemin conflictuel.
 
 **Handoff :** publier pour chaque lot le commit précis, les tests réellement exécutés et les limites restantes. Ne jamais présenter des pourcentages documentaires comme une qualification de sécurité en neige/brouillard ou une fiabilité centimétrique.
+
+## Mise à jour V5 — premiers commits isolés
+
+- Coordination créée au commit **`00a009480df4c41cd2ce9bd36ab5598243b34ad2`** sur la branche indiquée ci-dessus, avant tout nouveau travail V5.
+- Un premier lot **sans modification des fichiers partagés** ajoute `tools/eval/provenance.py`, `tools/tests/test_benchmark_provenance.py`, `tools/eval/examples/manifest-fixture.json`, `tools/eval/examples/metrics-fixture.json` et actualise `tools/eval/README.md`.
+- Fonction : enveloppe de provenance canonique des évaluations, nom réel du moteur, configuration et SHA, séparation référence indépendante/données synthétiques, refus des résultats numériques non finis. Les trois évaluateurs peuvent conserver leurs résultats structurés imbriqués sous `metrics` sans être combinés ou assimilés à la précision terrain. Un manifeste **déclare** la provenance sans la vérifier : le résultat conserve `qualified_for_safety_navigation=false`.
+- Revue et CI : PR **#8**, base `work/slam-roadmap-b1-b2-b8` (PR brouillon), tests en cours au moment de la première soumission. Le PR #3 ne change pas de base automatiquement et les conflits entre chantiers ne sont pas résolus par ce lot.
+- **Prochain jalon** : vérifier la CI au *dernier* commit de PR #8, relever les résultats exacts, préparer un rapport machine-readable sur les jeux réels obtenus *uniquement après téléchargement et acceptation des licences*, puis livrer ce module au responsable de l'intégration combinée. Ne pas fusionner automatiquement.
