@@ -48,6 +48,9 @@ def parse_rosbag_info(source: str, origin: str = "local_fixture"):
                 raise ValueError("bad ROS duration")
             duration = int(match.group(1))
         else:
+            # rosbag info prints the first topic on the same line as 'topics:'.
+            if stripped.startswith('topics:'):
+                line = line.split('topics:', 1)[1]
             match = TOPIC.fullmatch(line)
             if match:
                 name, count, kind = match.groups()
