@@ -24,6 +24,17 @@ public final class PdrSensorBridge implements SensorEventListener {
     private boolean registered, useStepDetector, magneticReliable, allowDeviceHeading;
     private long accelerationSamples, rotationSamples, magneticSamples, stepSensorSamples, fallbackSteps;
     private long firstSampleNs=Long.MIN_VALUE, latestSampleNs=Long.MIN_VALUE;
+    private long latestMagneticNs=Long.MIN_VALUE;
+    private static final long MAX_MAGNET_AGE_NS=2_000_000_000L;
+    private static final float MIN_WORLD_UP=0.70710678f; // cos(45 degrees)
+
+    static boolean usablePhoneHeading(boolean optedIn,float worldUp,
+                                      boolean magneticQuality,int accuracy,
+                                      long magneticAgeNs){
+        return optedIn && Float.isFinite(worldUp) && worldUp>=MIN_WORLD_UP
+             && magneticQuality && magneticAgeNs>=0 && magneticAgeNs<=MAX_MAGNET_AGE_NS
+             && accuracy!=SensorManager.SENSOR_STATUS_UNRELIABLE;
+    }
     private String stepMode="ACCEL FALLBACK";
     public PdrSensorBridge(Context c,PdrEngine e,Callback cb){
         manager=(SensorManager)c.getSystemService(Context.SENSOR_SERVICE);
@@ -57,6 +68,7 @@ public final class PdrSensorBridge implements SensorEventListener {
         register(manager.getDefaultSensor(Sensor.TYPE_PRESSURE),SensorManager.SENSOR_DELAY_NORMAL);
         accelerationSamples=rotationSamples=magneticSamples=stepSensorSamples=fallbackSteps=0;
         firstSampleNs=latestSampleNs=Long.MIN_VALUE;
+        latestMagneticNs=Long.MIN_VALUE;
         registered=true;
     }
     private void register(Sensor sensor,int rate){
@@ -95,6 +107,7 @@ public final class PdrSensorBridge implements SensorEventListener {
     public void stop(){
         if(manager!=null)manager.unregisterListener(this);
         registered=false;magneticReliable=false;
+        latestMagneticNs=Long.MIN_VALUE;
     }
     @Override public void onSensorChanged(SensorEvent e){
         if(!registered || !engine.isRecording())return;
@@ -128,6 +141,7 @@ public final class PdrSensorBridge implements SensorEventListener {
                 callback.sample("RAW_MAG",t,x,y,z,e.accuracy);
                 double strength=Math.sqrt(x*x+y*y+z*z);
                 magneticReliable=Double.isFinite(strength)&&strength>=20&&strength<=75;
+                latestMagneticNs=t;
                 break;
             case Sensor.TYPE_ROTATION_VECTOR:
                 rotationSamples++;
@@ -135,9 +149,9 @@ public final class PdrSensorBridge implements SensorEventListener {
                 // r[8] is the world-up component of device screen-normal.
                 // >= cos(45deg) means screen face up and within 45° of level.
                 SensorManager.getRotationMatrixFromVector(r,e.values);
-                boolean phoneLevel=r[8]>=0.70710678f;
-                if(allowDeviceHeading && phoneLevel && magneticReliable
-                        && e.accuracy!=SensorManager.SENSOR_STATUS_UNRELIABLE){
+                long age=latestMagneticNs==Long.MIN_VALUE?-1L:t-latestMagneticNs;
+                if(usablePhoneHeading(allowDeviceHeading,r[8],magneticReliable,
+                                      e.accuracy,age)){
                     SensorManager.getOrientation(r,orientation);
                     engine.deviceHeading(t,orientation[0]);
                     callback.sample("HEADING",t,orientation[0],0,0,e.accuracy);
