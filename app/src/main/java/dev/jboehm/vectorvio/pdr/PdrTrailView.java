@@ -37,6 +37,7 @@ public final class PdrTrailView extends View {
         p.setColor(0xFF60F2C7);p.setStrokeWidth(3*getResources().getDisplayMetrics().density);
         for(int i=1;i<path.size();i++){
             PdrEngine.Point a=path.get(i-1),b=path.get(i);
+            if(b.gapBefore)continue;
             c.drawLine((float)(w/2+(a.eastM-midE)*scale),(float)(h/2-(a.northM-midN)*scale),
                     (float)(w/2+(b.eastM-midE)*scale),(float)(h/2-(b.northM-midN)*scale),p);
         }

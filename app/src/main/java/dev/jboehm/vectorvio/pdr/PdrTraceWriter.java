@@ -20,19 +20,27 @@ public final class PdrTraceWriter {
         events=new File(dir,"events.csv");raw=new File(dir,"raw_sensors.csv");
         eventOut=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(events),StandardCharsets.UTF_8),32768);
         rawOut=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(raw),StandardCharsets.UTF_8),32768);
-        eventOut.write("t_ns,type,x,y,z\n");
-        rawOut.write("t_ns,type,x,y,z,accuracy\n");
+        eventOut.write("t_ns,type,x,y,z,bearing_accuracy_deg\n");
+        rawOut.write("t_ns,type,x,y,z,w,accuracy\n");
     }
     public void sample(String type,long t,double x,double y,double z,int accuracy) {
         if(eventOut==null)return;
         try{
             BufferedWriter target=type.startsWith("RAW_")?rawOut:eventOut;
             if(type.startsWith("RAW_"))target.write(String.format(Locale.US,
-                    "%d,%s,%.8f,%.8f,%.8f,%d%n",t,type,x,y,z,accuracy));
+                    "%d,%s,%.8f,%.8f,%.8f,,%d%n",t,type,x,y,z,accuracy));
             else target.write(String.format(Locale.US,
                     "%d,%s,%.8f,%.8f,%.8f%n",t,type,x,y,z));
             if(++written%256==0){eventOut.flush();rawOut.flush();}
         }catch(IOException e){throw new IllegalStateException("PDR trace write failed",e);}
+    }
+    /** Full quaternion for ML dataset; heading remains a separately derived event. */
+    public void rotationVector(long t,float[] v,int accuracy) {
+        if(rawOut==null)return;
+        try{
+            rawOut.write(String.format(Locale.US,"%d,RAW_ROTATION_VECTOR,%.9f,%.9f,%.9f,%.9f,%d%n",
+                t,v[0],v[1],v[2],v.length>3?v[3]:Double.NaN,accuracy));
+        }catch(IOException e){throw new IllegalStateException("rotation write failed",e);}
     }
     /** Store all GNSS course rejection inputs for bit-for-bit replay gating. */
     public void gpsCourse(long t,double radians,float speed,float horizontalAccuracy,float bearingAccuracy) {

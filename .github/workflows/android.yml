@@ -58,6 +58,8 @@ jobs:
           mkdir -p app/build/reports/pdr
           bash tools/pdr/run.sh > app/build/reports/pdr/synthetic.json
           python3 tools/pdr/check_fixture.py app/build/reports/pdr/synthetic.json
+          bash tools/pdr/run.sh tools/pdr/fixtures/gnss-stride.csv > app/build/reports/pdr/gnss-stride.json
+          python3 tools/pdr/check_quality_fixture.py app/build/reports/pdr/gnss-stride.json
       - name: GPS matching regression with noisy parallel paths and dense routes
         run: |
           mkdir -p app/build/reports/gps

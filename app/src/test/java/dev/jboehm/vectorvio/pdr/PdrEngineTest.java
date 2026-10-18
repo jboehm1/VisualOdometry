@@ -21,6 +21,15 @@ public final class PdrEngineTest {
         assertEquals(2,p.snapshot(5_000_000_000L).steps);
         assertEquals(1,p.snapshot(5_000_000_000L).stepsWithoutHeading);
         assertEquals(2,p.path().size());
+        assertFalse(p.path().get(1).gapBefore);
+    }
+    @Test public void pathHasGapAcrossUnknownHeading(){
+        PdrEngine p=new PdrEngine();p.start(1);
+        p.deviceHeading(1_000_000_000L,0);p.step(1_500_000_000L);
+        p.step(6_000_000_000L);
+        p.deviceHeading(6_500_000_000L,0);p.step(7_000_000_000L);
+        assertEquals(3,p.path().size());
+        assertTrue(p.path().get(2).gapBefore);
     }
     @Test public void gnssCourseQualityGateAndExpiry() {
         PdrEngine p=new PdrEngine();p.start(1);

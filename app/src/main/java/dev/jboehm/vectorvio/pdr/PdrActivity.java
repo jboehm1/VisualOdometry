@@ -75,6 +75,11 @@ public final class PdrActivity extends Activity {
                 log(type,t,x,y,z,accuracy);
             }
             @Override public void step(long t){if(writer!=null)writer.step(t);}
+            @Override public void rotationVector(long t,float[] values,int accuracy){
+                if(writer==null)return;
+                try{writer.rotationVector(t,values,accuracy);}
+                catch(RuntimeException e){note="STORAGE ERROR; STOPPED";finishSession(true);}
+            }
         });
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);
         LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);
@@ -105,7 +110,7 @@ public final class PdrActivity extends Activity {
         layout.addView(bottom);
         TextView notice=text("PDR distance = step count × calibrated step length. "
             +"Trajectory assumes phone TOP points forward unless GNSS course is valid. "
-            +"Pocket movement and turns can make the path wrong. No guaranteed accuracy. "
+            +"Use the phone nearly level, screen up, top pointing forward; pocket movement and turns can make the path wrong. No guaranteed accuracy. "
             +"No camera. Tracking stops when this screen is closed or backgrounded.",13,0xFF85A2AC);
         notice.setPadding(0,dp(16),0,0);layout.addView(notice);
         scroll.addView(layout);setContentView(scroll);

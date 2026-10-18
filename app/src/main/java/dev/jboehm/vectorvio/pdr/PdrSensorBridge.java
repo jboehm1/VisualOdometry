@@ -15,6 +15,7 @@ public final class PdrSensorBridge implements SensorEventListener {
     public interface Callback {
         void sample(String type, long tNs, double x, double y, double z, int accuracy);
         void step(long tNs);
+        void rotationVector(long tNs,float[] values,int accuracy);
     }
     private final SensorManager manager;
     private final PdrEngine engine;
@@ -81,7 +82,7 @@ public final class PdrSensorBridge implements SensorEventListener {
                 magneticReliable=Double.isFinite(strength)&&strength>=20&&strength<=75;
                 break;
             case Sensor.TYPE_ROTATION_VECTOR:
-                callback.sample("RAW_ROTATION_VECTOR",t,x,y,z,e.accuracy);
+                callback.rotationVector(t,e.values,e.accuracy);
                 if(magneticReliable && e.accuracy!=SensorManager.SENSOR_STATUS_UNRELIABLE){
                     SensorManager.getRotationMatrixFromVector(r,e.values);
                     SensorManager.getOrientation(r,orientation);

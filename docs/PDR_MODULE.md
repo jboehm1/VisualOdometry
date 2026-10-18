@@ -32,7 +32,7 @@ Graph:
 - `PdrEngine` pure Java 17, deterministic replay without SDK, Android, ARCore or ML.
 - All sample and step times are Android elapsedRealtimeNanos, monotonic since boot.
 - Device coordinates: Android sensor axes. Engine heading: radians clockwise from
-  magnetic/Android north. Output trajectory is **local East/North metres**.
+  magnetic/Android north. Output trajectory is **local East/North metres**. No path line is drawn across missing-heading gaps.
 - **No global georeferencing and no certified position accuracy.**
 - GNSS bearing is accepted only if speed >=1.2 m/s, horizontal accuracy <=20 m,
   reported bearing accuracy <=25°, and recently sampled. GNSS fix positions do not
@@ -50,7 +50,7 @@ Graph:
 ## 2. How to run on Galaxy S21
 1. Install the debug APK from the GitHub Actions Android workflow artifact.
 2. Open DATA -> PDR · NO CAMERA. You do **not** need camera permission.
-3. Hold phone upright top edge toward walking direction, press START, allow physical
+3. Hold phone approximately horizontal (screen UP), top edge forward, press START, allow physical
    activity permission for hardware step detection (fallback otherwise).
 4. Optionally enable GNSS ASSIST (location permission) to use its reliable course,
    but **not** GNSS path-distance as a hidden replacement for steps.
@@ -156,3 +156,5 @@ benchmarks are a separate reproducible job on local WSL / research runner.
 5. Integrate learned heading/displacement only if demonstrably superior on S21.
 6. Add ENU georeference and probabilistic fusion only after clock, frame, bias and
    GNSS course quality validation.
+
+Raw rotation vector events include quaternion w in raw_sensors.csv for future research. Missing-heading gaps are flagged in path.csv.

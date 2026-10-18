@@ -19,7 +19,8 @@ public final class PdrEngine {
     public static final class Point {
         public final long timeNs;
         public final double eastM, northM;
-        Point(long t, double e, double n) { timeNs=t; eastM=e; northM=n; }
+        public final boolean gapBefore;
+        Point(long t, double e, double n,boolean gap) { timeNs=t; eastM=e; northM=n; gapBefore=gap; }
     }
     public static final class Snapshot {
         public final boolean recording, hasTrajectory;
@@ -46,6 +47,7 @@ public final class PdrEngine {
     private double deviceHeadingRad, gpsHeadingRad, stepLengthM=.74, distanceM, eastM, northM;
     private double baselinePressureHpa=Double.NaN, elevationM=Double.NaN;
     private int steps, trajectorySteps, stepsWithoutHeading;
+    private boolean gapPending;
     private final ArrayList<Point> path=new ArrayList<>();
     private final StepPeakDetector fallback=new StepPeakDetector();
 
@@ -59,9 +61,9 @@ public final class PdrEngine {
         gpsTimeNs=Long.MIN_VALUE; distanceM=0; eastM=0; northM=0; steps=0;
         trajectorySteps=0; stepsWithoutHeading=0;
         elevationM=Double.NaN; baselinePressureHpa=Double.NaN;
-        fallback.reset(); path.clear(); path.add(new Point(timeNs,0,0));
+        fallback.reset();gapPending=false;path.clear();path.add(new Point(timeNs,0,0,false));
     }
-    public void pause() { recording=false; fallback.reset(); lastStepNs=Long.MIN_VALUE; }
+    public void pause() { recording=false; fallback.reset(); lastStepNs=Long.MIN_VALUE; gapPending=true; }
     public void resume() { recording=true; fallback.reset(); lastStepNs=Long.MIN_VALUE; }
     public boolean isRecording() { return recording; }
 
@@ -89,11 +91,12 @@ public final class PdrEngine {
                 && (timeNs<=lastStepNs || timeNs-lastStepNs<MIN_STEP_NS))) return false;
         lastStepNs=timeNs; ++steps; distanceM+=stepLengthM;
         Heading heading=headingAt(timeNs);
-        if (heading.source==HeadingSource.UNAVAILABLE) {++stepsWithoutHeading; return true;}
+        if (heading.source==HeadingSource.UNAVAILABLE) {++stepsWithoutHeading;gapPending=true;return true;}
         eastM+=stepLengthM*Math.sin(heading.radians);
         northM+=stepLengthM*Math.cos(heading.radians);
         trajectorySteps++;
-        path.add(new Point(timeNs,eastM,northM));
+        path.add(new Point(timeNs,eastM,northM,gapPending));
+        gapPending=false;
         return true;
     }
     /** Fallback used ONLY when Android's STEP_DETECTOR is missing or not permitted. */

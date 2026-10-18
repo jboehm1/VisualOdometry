@@ -52,9 +52,9 @@ public final class PdrReplay {
             rows,bad,s.steps,s.distanceM,s.eastM,s.northM,s.stepsWithoutHeading);
         if(args.length==2) {
             try(BufferedWriter out=Files.newBufferedWriter(Paths.get(args[1]),StandardCharsets.UTF_8)){
-                out.write("t_ns,east_m,north_m\n");
+                out.write("t_ns,east_m,north_m,gap_before\n");
                 for(PdrEngine.Point point:p.path())
-                    out.write(String.format(Locale.US,"%d,%.6f,%.6f%n",point.timeNs,point.eastM,point.northM));
+                    out.write(String.format(Locale.US,"%d,%.6f,%.6f,%s%n",point.timeNs,point.eastM,point.northM,point.gapBefore));
             }
         }
     }
