@@ -274,3 +274,13 @@ Additionally raw accelerometer events timestamped before session START are
 rejected *before* the fallback's rhythm state and the raw trace can consume
 them; the engine and bridge share the same session timestamp gate.
 Android and exported replay ZIP preserve accepted-event ordering.
+
+### GNSS source-loss policy (PDR 1.2)
+
+Do not keep an old, previously reliable GPS bearing after the user turns off
+GNSS ASSIST, the provider is disabled, or a fix arrives without a complete
+bearing/speed/accuracy tuple. `PdrActivity` emits an explicit
+`GPS_INVALID` event with a monotonic timestamp. Both the Android engine and
+`PdrReplay` revoke the course at that timestamp. Hardware sensors and
+PHONE FORWARD (if explicitly enabled) remain separate heading sources.
+This is not a GNSS position fix and does not change the distance counter.

@@ -59,8 +59,12 @@ public final class PdrActivity extends Activity {
     };
     private final LocationListener locationListener=new LocationListener(){
         @Override public void onLocationChanged(Location loc){
-            if(!engine.isRecording()||!loc.hasBearing()||!loc.hasSpeed()||
-               !loc.hasBearingAccuracy()||!loc.hasAccuracy())return;
+            if(!engine.isRecording())return;
+            if(!loc.hasBearing() || !loc.hasSpeed() ||
+               !loc.hasBearingAccuracy() || !loc.hasAccuracy()){
+                invalidateGnssCourse(loc.getElapsedRealtimeNanos());
+                return;
+            }
             float bearingAccuracy=loc.getBearingAccuracyDegrees();
             // Android rotation-vector azimuth is magnetic north; GNSS bearing is
             // true north. Convert GNSS course into the same MAGNETIC frame.
@@ -78,7 +82,9 @@ public final class PdrActivity extends Activity {
             }
         }
         @Override public void onProviderEnabled(String s){}
-        @Override public void onProviderDisabled(String s){}
+        @Override public void onProviderDisabled(String s){
+            invalidateGnssCourse(SystemClock.elapsedRealtimeNanos());
+        }
         @Override public void onStatusChanged(String s,int status,Bundle b){}
     };
 
@@ -327,8 +333,16 @@ public final class PdrActivity extends Activity {
               render();
           }).show();
     }
+    /** Explicit source-loss event keeps phone export and Java replay identical. */
+    private void invalidateGnssCourse(long timeNs){
+        if(engine.invalidateGpsCourse(timeNs))
+            log("GPS_INVALID",timeNs,0,0,0,0);
+    }
     private void toggleGps(){
-        if(gpsOn){gpsOn=false;stopGps();render();return;}
+        if(gpsOn){
+            gpsOn=false;invalidateGnssCourse(SystemClock.elapsedRealtimeNanos());
+            stopGps();render();return;
+        }
         if(engine.isRecording() &&
            checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                !=PackageManager.PERMISSION_GRANTED){
@@ -346,7 +360,10 @@ public final class PdrActivity extends Activity {
         if(!gpsOn||gps==null)return;
         if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)return;
         try{gps.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000,0,locationListener);}
-        catch(Exception e){note="GNSS unavailable: "+e.getMessage();}
+        catch(Exception e){
+            note="GNSS unavailable: "+e.getMessage();
+            invalidateGnssCourse(SystemClock.elapsedRealtimeNanos());
+        }
     }
     private void stopGps(){
         if(gps!=null)try{gps.removeUpdates(locationListener);}catch(SecurityException ignored){}

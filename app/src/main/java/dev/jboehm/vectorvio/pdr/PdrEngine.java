@@ -132,6 +132,14 @@ public final class PdrEngine {
         }
         gpsCourseAvailable=true;gpsHeadingRad=wrap(radians);
     }
+    /** Revoke GNSS direction immediately on provider/permission/measurement loss. */
+    public boolean invalidateGpsCourse(long timeNs) {
+        if(!recording || timeNs<sessionStartNs || timeNs<gpsTimeNs ||
+           !gpsCourseAvailable) return false;
+        gpsTimeNs=timeNs;
+        gpsCourseAvailable=false;
+        return true;
+    }
     public void pressure(long timeNs, double hPa) {
         if(!recording||timeNs<sessionStartNs||timeNs<=lastPressureNs ||
                 !Double.isFinite(hPa)||hPa<300||hPa>1100) return;

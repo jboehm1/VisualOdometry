@@ -39,3 +39,12 @@ For Galaxy S21 physical qualification, log permissions and sensor inventory firs
 - Added unit tests for per-source gaps, duplicate/out-of-order/future events,
   intentional sparse STEP/PRESSURE events, resets and stale acceleration,
   plus Robolectric export metadata. The timed real-S21 evidence is still missing.
+
+### Additional direction-source fail-safe
+
+A GNSS assist switch-off, provider disable or incomplete fix now emits
+`GPS_INVALID` and immediately removes stale GNSS course from the engine;
+`PdrReplay` applies the same event deterministically. A magnetic accuracy
+callback uses current monotonic time when invalidating device yaw instead
+of an older last-sensor time. Unit tests assert that invalidations cannot
+be undone by older buffered fixes and that explicit GPS loss is exported.

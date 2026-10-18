@@ -87,6 +87,27 @@ public final class PdrExportTest {
             }
         }finally{zipFile.delete();}
     }
+    @Test public void explicitGnssLossEventIsPreservedForOfflineReplay() throws Exception {
+        Application app=RuntimeEnvironment.getApplication();
+        PdrEngine p=new PdrEngine();p.start(1_000_000_000L);
+        PdrTraceWriter w=new PdrTraceWriter(app);
+        w.sample("START",1_000_000_000L,0,0,0,0);
+        w.gpsCourse(1_100_000_000L,Math.PI/2,2f,4f,5f);
+        p.gpsCourse(1_100_000_000L,Math.PI/2,2f,4f,5f);
+        assertTrue(p.invalidateGpsCourse(1_500_000_000L));
+        w.sample("GPS_INVALID",1_500_000_000L,0,0,0,0);
+        p.step(1_700_000_000L);w.step(1_700_000_000L);
+        File zipFile=new File(app.getCacheDir(),"pdr-gnss-"+System.nanoTime()+".zip");
+        try{
+            w.export(app,Uri.fromFile(zipFile),p.path(),
+                     p.snapshot(1_700_000_000L),"ANDROID STEP_DETECTOR");
+            try(ZipFile zip=new ZipFile(zipFile)){
+                String events=entry(zip,"events.csv");
+                assertTrue(events.contains("1500000000,GPS_INVALID,"));
+                assertEquals(1,p.snapshot(1_700_000_000L).stepsWithoutHeading);
+            }
+        }finally{zipFile.delete();}
+    }
     @Test public void directionLossIsExportedAsReplayableEventAndPathBreak() throws Exception {
         Application app=RuntimeEnvironment.getApplication();
         PdrEngine engine=new PdrEngine();

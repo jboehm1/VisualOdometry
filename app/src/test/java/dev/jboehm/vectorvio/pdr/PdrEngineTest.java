@@ -111,6 +111,24 @@ public final class PdrEngineTest {
         assertTrue(p.step(2_100_000_000L));
         assertTrue(p.path().get(2).gapBefore);
     }
+    @Test public void explicitGnssLossIsImmediateAndReplaySafe(){
+        PdrEngine p=new PdrEngine();p.start(1);
+        p.gpsCourse(1_000_000_000L,Math.PI/2,3f,3f,4f);
+        assertEquals(PdrEngine.HeadingSource.GNSS_COURSE,
+            p.snapshot(1_200_000_000L).headingSource);
+        assertTrue(p.invalidateGpsCourse(1_300_000_000L));
+        assertFalse(p.invalidateGpsCourse(1_500_000_000L));
+        assertEquals(PdrEngine.HeadingSource.UNAVAILABLE,
+            p.snapshot(1_400_000_000L).headingSource);
+        assertTrue(p.step(1_500_000_000L));
+        assertEquals(1,p.snapshot(1_500_000_000L).stepsWithoutHeading);
+        p.gpsCourse(1_100_000_000L,Math.PI/2,3f,3f,4f);
+        assertEquals(PdrEngine.HeadingSource.UNAVAILABLE,
+            p.snapshot(1_600_000_000L).headingSource);
+        p.gpsCourse(1_800_000_000L,0,3f,3f,4f);
+        assertTrue(p.step(2_000_000_000L));
+        assertTrue(p.path().get(1).gapBefore);
+    }
     @Test public void lowQualityGnssFixImmediatelyRevokesOldCourse(){
         PdrEngine p=new PdrEngine();p.start(1);
         p.gpsCourse(1_000_000_000L,Math.PI/2,2f,5f,5f);

@@ -172,7 +172,7 @@ public final class PdrSensorBridge implements SensorEventListener {
                 magneticReliable=Double.isFinite(strength)&&strength>=20&&strength<=75
                     &&e.accuracy!=SensorManager.SENSOR_STATUS_UNRELIABLE;
                 latestMagneticNs=t;
-                if(!magneticReliable)invalidateHeading(t,e.accuracy);
+                if(!magneticReliable)invalidateHeading(latestSampleNs,e.accuracy);
                 break;
             case Sensor.TYPE_ROTATION_VECTOR:
                 rotationSamples++;
@@ -208,7 +208,8 @@ public final class PdrSensorBridge implements SensorEventListener {
            accuracy==SensorManager.SENSOR_STATUS_UNRELIABLE){
             magneticReliable=false;
             if(latestSampleNs!=Long.MIN_VALUE)
-                invalidateHeading(latestSampleNs,accuracy);
+                invalidateHeading(Math.max(latestSampleNs,
+                    SystemClock.elapsedRealtimeNanos()),accuracy);
         }
     }
 }

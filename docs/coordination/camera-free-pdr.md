@@ -92,3 +92,14 @@ qualification shows sampling, buffering and actual interruptions, preserving
 the weighted 42.1% progress score for now. Next: exact SHA GitHub Actions
 (Android JUnit/Robolectric/lint/APK + native-schema fixtures), correct any
 failures, followed by held-out SIMUL / S21 testing by their respective owners.
+
+### PDR 1.2 — later GNSS/heading loss fixes
+
+Detected a fail-safe hole: switching GNSS ASSIST off, receiving an
+incomplete fix, or losing the GNSS provider left the accepted course active
+until timeout. Added explicit `GPS_INVALID` across `PdrActivity`,
+`PdrEngine`, `PdrReplay` and PDR tests. Also updated magnetic accuracy
+callbacks to invalidate using a current monotonic timestamp. All changes
+isolated to PDR code/tests/docs; no shared menu/Manifest/CI changes.
+The next CI must validate the exact new HEAD; SIMUL/S21 validation remains
+separately unproven and the 42.1% tracker unchanged.
