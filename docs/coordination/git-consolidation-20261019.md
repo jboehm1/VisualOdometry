@@ -57,7 +57,7 @@ En présence d'autres chats qui poussent en direct, **relever le SHA central à 
 
 ## Contrôle précoce ajouté pour sécuriser les prochains merges
 
-`tools/coordination/android_menu_contract.py` inventorie en lecture seule les **cinq actions de menu** attendues et les activités non exportées du manifeste : GPS ROUTES, ARCORE REPLAY, FLP A/B, PDR et COURSES. `tools/tests/test_android_menu_contract.py` impose en CI le **socle actuel** (GPS, replay, FLP), et vérifie que l'absence actuelle de PDR/COURSES est déclarée plutôt que cachée.
+`tools/coordination/android_menu_contract.py` inventorie en lecture seule les **cinq actions de menu** attendues et les activités non exportées du manifeste : GPS ROUTES, ARCORE REPLAY, FLP A/B, PDR et COURSES. `tools/tests/test_android_menu_contract.py` impose en CI le **socle actuel** (GPS, replay, FLP), et accepte l'arrivée future de PDR/COURSES sans casser les tests. Un scénario synthétique distinct vérifie qu'une configuration qui omet PDR/COURSES échoue si ces modes sont explicitement exigés.
 
 Usage après intégration finale (représentation statique, pas un test de clic réel) :
 
