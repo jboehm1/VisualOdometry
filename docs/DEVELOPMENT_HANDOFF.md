@@ -28,6 +28,8 @@ Conséquence : davantage de détail conservé dans la distance, mais le bruit de
 
 ## 3. Mathématiques et diagnostic à poursuivre
 
+Analyse approfondie ultérieure : [ROTATION_ANALYSIS.md](ROTATION_ANALYSIS.md), avec audit du repère ARCore révisable et démonstrateur `tools/rotation/RotationAudit.java`. Les différences de positions entre frames supposent un repère fixe, ce que le contrat ARCore ne garantit pas. Une mesure caméra relative à une même ancre est une piste à tester ; aucun correctif live ajouté par cet audit.
+
 ARCore fournit `camera.getPose()`, translation en mètres et quaternion de la caméra vers le monde local. MainActivity lit directement `getTranslation()` ; aucune multiplication erronée par la rotation n'a été trouvée dans ce chemin.
 
 Pour T1=(R1,t1), T2=(R2,t2), translation relative = transpose(R1)*(t2-t1). Sa norme égale celle de t2-t1. À position constante, toute rotation ajoute exactement zéro. Le compteur utilise cette norme dans le repère monde ; changer de repère par une rotation ne change pas la longueur.
