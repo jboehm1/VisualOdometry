@@ -5,6 +5,7 @@ on:
     branches:
       - feature/android-vio-odometer
       - feature/slam-explorer
+      - work/slam-roadmap-b1-b2-b8
   pull_request:
   workflow_dispatch:
 
