@@ -88,7 +88,8 @@ public final class PdrActivity extends Activity {
         gps=(LocationManager)getSystemService(Context.LOCATION_SERVICE);
         preferences=getSharedPreferences("camera_free_pdr",Context.MODE_PRIVATE);
         runningMode=preferences.getBoolean("running_profile",false);
-        phoneTopForward=preferences.getBoolean("allow_device_heading",false);
+        // Never silently reuse phone/body orientation assumptions between sessions.
+        phoneTopForward=false;
         engine.setStepLengthMeters(savedStride(runningMode));
         bridge=new PdrSensorBridge(this,engine,new PdrSensorBridge.Callback(){
             @Override public void sample(String type,long t,double x,double y,double z,int accuracy){
@@ -142,7 +143,7 @@ public final class PdrActivity extends Activity {
             +"DISTANCE ONLY is the safe default: no device yaw is treated as your travel direction. "
             +"PHONE FORWARD is experimental: hold screen facing up within 45° of level, top edge forward. "
             +"Valid GNSS course can supply direction in either mode. "
-            +"Running has an independent calibrated step length, not a learned running model. "
+            +"Running has an independent CONFIGURABLE stride guess, not a learned running model. "
             +"No camera; no accuracy guarantee; this screen must stay in the foreground.",13,0xFF85A2AC);
         notice.setPadding(0,dp(16),0,0);layout.addView(notice);
         scroll.addView(layout);setContentView(scroll);
@@ -187,8 +188,8 @@ public final class PdrActivity extends Activity {
     }
     private void togglePhoneHeading(){
         if(engine.isRecording())return;
+        // Explicit opt-in is session-local; it is never persisted.
         phoneTopForward=!phoneTopForward;
-        preferences.edit().putBoolean("allow_device_heading",phoneTopForward).apply();
         render();
     }
     private void calibrateLastSession(){
@@ -290,6 +291,9 @@ public final class PdrActivity extends Activity {
         if(!note.startsWith("Trace error")&&!note.startsWith("STORAGE ERROR"))
             note=background?"STOPPED · screen backgrounded":"COMPLETE · export ZIP";
         autoStopped=background;
+        // Reset the visual-heading assumption after every session. A new
+        // session must deliberately re-authorize PHONE FORWARD.
+        phoneTopForward=false;
         ui.removeCallbacks(tick);render();
     }
     private void editStepLength(){
