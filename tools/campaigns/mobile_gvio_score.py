@@ -31,7 +31,7 @@ def score(estimate,reference):
         if not 0<gap<.4:continue
         t=(row[0]-lo[0])/gap
         x.append(row[1:4]);y.append(lo[1:4]*(1-t)+hi[1:4]*t)
-    if len(x)<30:raise ValueError("Insufficient time-synchronized real position reference")
+    if len(x)<30:raise ValueError(f"Insufficient time-synchronized real position reference: matches={len(x)}, estimate_seconds=[{pred[0,0]:.6f},{pred[-1,0]:.6f}], truth_seconds=[{truth[0,0]:.6f},{truth[-1,0]:.6f}]")
     X,Y=np.asarray(x),np.asarray(y)
     xc,yc=X-X.mean(0),Y-Y.mean(0)
     U,S,Vt=np.linalg.svd(xc.T@yc)
