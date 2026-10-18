@@ -144,5 +144,44 @@ class BenchmarkTests(unittest.TestCase):
             self.assertNotIn("PRIVATE_TRUTH", json.dumps(result))
 
 
+    def test_generic_imu_only_with_magnetometer_and_barometer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root/"gyro.csv").write_text("time_s,gx,gy,gz\n1.00,0,0,0.1\n1.02,0,0,0.2\n")
+            (root/"accel.csv").write_text("time_s,ax,ay,az\n1.01,0,0,9.81\n1.03,0,0,9.80\n")
+            (root/"baro.csv").write_text("time_s,pressure_hpa\n1.00,1013.25\n")
+            cfg = {
+                "pose_frame":"device",
+                "sensors":[
+                    {"csv":"gyro.csv","time_column":"time_s","time_unit":"s",
+                     "type":"GYRO","columns":["gx","gy","gz"]},
+                    {"csv":"accel.csv","time_column":"time_s","time_unit":"s",
+                     "type":"ACCEL","columns":["ax","ay","az"]},
+                    {"csv":"baro.csv","time_column":"time_s","time_unit":"s",
+                     "type":"BARO","columns":["pressure_hpa"]}
+                ]
+            }
+            bench.write_json(root/"adapter.json",cfg)
+            result = bench.prepare_generic(root, root/"adapter.json", root/"out")
+            self.assertEqual(result["frame_count"],0)
+            self.assertEqual(result["imu_count"],5)
+            entries = list(bench.rows(root/"out"/"imu.csv"))
+            times = [int(row[0]) for row in entries[1:]]
+            self.assertEqual(times, sorted(times))
+            self.assertIn("BARO", [row[1] for row in entries[1:]])
+            self.assertIsNone(result["truth"])
+
+    def test_generic_blocks_resource_escape(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root/"frames.csv").write_text("time,image\n1.0,../private.png\n2.0,safe.png\n")
+            (root/"safe.png").write_bytes(b"x")
+            cfg = {"frames":{"csv":"frames.csv","time_column":"time",
+                             "time_unit":"s","resource_column":"image",
+                             "resource_root":".","camera":"cam0"}}
+            bench.write_json(root/"adapter.json",cfg)
+            with self.assertRaisesRegex(ValueError,"relative"):
+                bench.prepare_generic(root, root/"adapter.json", root/"out")
+
 if __name__ == "__main__":
     unittest.main()
