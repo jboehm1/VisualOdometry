@@ -10,3 +10,10 @@ captures/
 *.apk
 *.aab
 .DS_Store
+
+# Local large benchmark corpora, engine outputs and Python temp files
+benchmark_data/
+benchmark_results/
+**/__pycache__/
+*.pyc
+.venv/

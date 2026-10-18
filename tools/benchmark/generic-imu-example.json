@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "pose_frame": "device",
+  "comment": "IMU-only example with three CSV files; adapt column names/time units to the actual corpus. No independent GT included.",
+  "frames": null,
+  "sensors": [
+    {
+      "csv": "gyro.csv",
+      "time_column": "timestamp_s",
+      "time_unit": "s",
+      "type": "GYRO",
+      "columns": [
+        "gx_rad_s",
+        "gy_rad_s",
+        "gz_rad_s"
+      ],
+      "units": "rad/s"
+    },
+    {
+      "csv": "accel.csv",
+      "time_column": "timestamp_s",
+      "time_unit": "s",
+      "type": "ACCEL",
+      "columns": [
+        "ax_m_s2",
+        "ay_m_s2",
+        "az_m_s2"
+      ],
+      "units": "m/s^2 including gravity"
+    },
+    {
+      "csv": "mag.csv",
+      "time_column": "timestamp_s",
+      "time_unit": "s",
+      "type": "MAG",
+      "columns": [
+        "mx_uT",
+        "my_uT",
+        "mz_uT"
+      ],
+      "units": "microtesla"
+    },
+    {
+      "csv": "baro.csv",
+      "time_column": "timestamp_s",
+      "time_unit": "s",
+      "type": "BARO",
+      "columns": [
+        "pressure_hpa"
+      ],
+      "units": "hPa"
+    }
+  ],
+  "calibration_files": []
+}
