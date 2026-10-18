@@ -74,6 +74,7 @@ def ingest_simul(source, root, positions):
     streams = {}
     writers = {}
     count = 0
+    timestamps_ns = []
     activity_counts: dict[str, int] = {}
     previous = -1
     first_ts = None
@@ -105,6 +106,7 @@ def ingest_simul(source, root, positions):
                 if t_ns <= previous:
                     raise ValueError("Duplicate/unsorted SIMUL sensor time")
                 previous = t_ns
+                timestamps_ns.append(t_ns)
                 last_ts = timestamp
                 activity = row[1].strip()
                 activity_counts[activity] = activity_counts.get(activity, 0) + 1
@@ -134,7 +136,7 @@ def ingest_simul(source, root, positions):
             raise ValueError(f"Unexpected accel magnitude for sensor {n}: {median:.3f}; check units")
     return {"sample_count": count, "duration_s": last_ts-first_ts,
             "gravity_median_first_1200_ms2": gravity_med,
-            "activity_counts": activity_counts}
+            "activity_counts": activity_counts}, timestamps_ns
 
 
 def compile_java(root):
@@ -144,6 +146,7 @@ def compile_java(root):
         dest = root / "java_source" / path
         provenance.append(pull(JAVA_REPO, JAVA_SHA, path, dest, limit=100_000))
         sources.append(str(dest))
+    sources.append(str(HERE / "tools/campaigns/java/PdrStepTrace.java"))
     build = root / "java_classes"
     build.mkdir(exist_ok=True)
     subprocess.run(["javac", "-encoding", "UTF-8", "-d", str(build), *sources],
@@ -161,11 +164,25 @@ def run_java(java_build, canonical, output_path):
         str(replay), str(output_path)
     ], check=True, capture_output=True, text=True)
     report = json.loads(proc.stdout.strip().splitlines()[-1])
+    # Separate harness invokes the very same compiled PdrEngine, but exposes
+    # accepted step timestamps for comparison with foot-IMU annotation intervals.
+    trace_path = canonical.parent / (canonical.stem + ".steps.csv")
+    trace = subprocess.run([
+        "java","-cp",str(java_build),
+        "dev.jboehm.vectorvio.pdr.PdrStepTrace",str(replay),str(trace_path)
+    ],check=True,capture_output=True,text=True)
+    trace_summary=json.loads(trace.stdout.strip().splitlines()[-1])
+    with trace_path.open(newline="",encoding="utf-8") as trace_file:
+        step_times = [int(z["step_time_ns"]) for z in csv.DictReader(trace_file)]
+    if len(step_times)!=report["steps"] or trace_summary["steps"]!=report["steps"]:
+        raise ValueError("Step trace disagrees with official PdrReplay output")
     if report["rejected_rows"]:
         raise ValueError(f"Java replay rejected {report['rejected_rows']} records")
     return {"engine":"ANDROID_JAVA_PdrEngine_STEP_FALLBACK",
             "engine_git_sha":JAVA_SHA,
             "results":report,
+            "step_times":step_times,
+            "step_trace_sha256":hashlib.sha256(trace_path.read_bytes()).hexdigest(),
             "bridge":meta}
 
 
@@ -195,6 +212,44 @@ def read_step_reference(annotation):
     return steps
 
 
+def evaluate_timed_steps(predicted_ns, annotated_intervals, timestamps_ns, tolerance_ms=80):
+    """Greedy chronological one-to-one matching; fixed 80 ms window on each side.
+
+    The annotations are STEP INTERVALS, not foot-contact timestamps. We use
+    the full indexed interval plus tolerance and never select threshold
+    from the annotated validation data. No motion/position truth is fed in.
+    """
+    tolerance_ns = round(tolerance_ms*1_000_000)
+    n=len(timestamps_ns)
+    previous=-1
+    for start,end in annotated_intervals:
+        # The upstream Octave reader uses raw sample indices, 1-based. 1-sample
+        # uncertainty is negligible here; treat annotations as 1-based.
+        if start<1 or end>n or start<=previous:
+            raise ValueError("SIMUL step index outside sensor recording")
+        previous=end
+    pairs = 0
+    index = 0
+    for start,end in annotated_intervals:
+        earliest=timestamps_ns[start-1]-tolerance_ns
+        latest=timestamps_ns[end-1]+tolerance_ns
+        while index<len(predicted_ns) and predicted_ns[index]<earliest:
+            index+=1
+        if index<len(predicted_ns) and predicted_ns[index]<=latest:
+            pairs+=1
+            index+=1
+    precision = pairs/len(predicted_ns) if predicted_ns else 0.0
+    recall = pairs/len(annotated_intervals)
+    return {
+        "matched_steps":pairs, "predicted_steps":len(predicted_ns),
+        "reference_steps":len(annotated_intervals),
+        "precision":round(precision,6), "recall":round(recall,6),
+        "f1":round(2*precision*recall/(precision+recall),6) if precision+recall else 0.0,
+        "matching":"one-to-one ordered intervals, +-80ms tolerance",
+        "note":"time scores describe annotated step intervals, not navigation ATE"
+    }
+
+
 def evaluate_count(predicted, reference_steps):
     return {"count":predicted,
             "annotated_steps":reference_steps,
@@ -217,7 +272,7 @@ def campaign(out, names, positions):
         raw=folder/"original.csv"
         ann=folder/"original.stepNonoverlap"
         raw_provenance=pull(UPSTREAM_REPO,UPSTREAM_SHA,path,raw)
-        sensor=ingest_simul(raw,folder,positions)
+        sensor,timestamps_ns=ingest_simul(raw,folder,positions)
         sequence_runs=[]
         for sensor_id in positions:
             imu = folder/"canonical"/f"imu_{sensor_id}.csv"
@@ -233,7 +288,9 @@ def campaign(out, names, positions):
         ann_provenance=pull(UPSTREAM_REPO,UPSTREAM_SHA,path+".stepNonoverlap",ann,limit=500_000)
         reference=read_step_reference(ann)
         for run in sequence_runs:
+            step_times=run["java"].pop("step_times")
             run["java_step_count"]=evaluate_count(run["java"]["results"]["steps"],len(reference))
+            run["java_timed_step_score"]=evaluate_timed_steps(step_times,reference,timestamps_ns)
             run["python_step_count"]=evaluate_count(run["python"]["results"]["steps"],len(reference))
         results.append({"sequence":name,"data_source":raw_provenance,
                         "annotation_source":ann_provenance,
@@ -265,7 +322,8 @@ def campaign(out, names, positions):
             print(f"REAL {r['sequence']} {p['position']} Java {score['count']} "
                   f"reference {score['annotated_steps']} "
                   f"error {score['step_count_error_percent']:+.1f}% "
-                  f"Python {p['python_step_count']['count']}",flush=True)
+                  f"Python {p['python_step_count']['count']} "
+                  f"Java step F1 {p['java_timed_step_score']['f1']:.3f}",flush=True)
     return report
 
 
