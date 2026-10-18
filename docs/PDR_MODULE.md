@@ -1,5 +1,7 @@
 # VECTOR VIO — camera-free PDR module / development & validation manual
-Status: Android foreground working design, pending Android CI and real S21 measurements.
+
+**Pilotage :** [23 tâches, progrès chiffré, sous-tâches et preuves](PDR_PROGRESS.md) · [source JSON](PDR_TASKS.json).
+Status: Android CI green (2026-10-18), APK debug built; real S21 measurements NOT performed.
 Date: 2026-10-18. Base: feature/slam-explorer. Branch: feature/camera-free-pdr.
 
 ## 1. Decision and integration

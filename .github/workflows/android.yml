@@ -49,6 +49,8 @@ jobs:
         run: |
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --install 'platforms;android-36' 'build-tools;35.0.0'
+      - name: PDR roadmap evidence and percentage validation
+        run: python3 tools/pdr/progress.py --check
       - name: Python telemetry-analysis unit tests
         run: python3 -m unittest discover -s tools/tests -v
       - name: Unit tests and installable APK
