@@ -44,6 +44,7 @@ public final class PdrActivity extends Activity {
     private Button start,finish,export,gpsButton,stepLengthButton;
     private LocationManager gps;
     private boolean gpsOn,exportReady,autoStopped;
+    private boolean activityPermissionRequested;
     private String note="READY";
     private final Runnable tick=new Runnable(){
         @Override public void run(){render();ui.postDelayed(this,350);}
@@ -143,6 +144,16 @@ public final class PdrActivity extends Activity {
     /** Foreground-only; old data is exported before another recording overwrites it. */
     void startSession(){
         if(engine.isRecording())return;
+        // Request activity permission BEFORE opening a measurement session.
+        // Runtime permission UI may pause this Activity; starting before it
+        // appeared caused an immediate stop and an empty first recording.
+        if(android.os.Build.VERSION.SDK_INT>=29 && !stepPermissionGranted()
+                && !activityPermissionRequested){
+            activityPermissionRequested=true;
+            requestPermissions(new String[]{Manifest.permission.ACTIVITY_RECOGNITION},
+                ACTIVITY_REQUEST);
+            return;
+        }
         if(exportReady){
             new AlertDialog.Builder(this).setTitle("Replace last session?")
               .setMessage("Export the previous ZIP before starting a new session.")
@@ -165,8 +176,6 @@ public final class PdrActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if(gpsOn)startGps();
         ui.removeCallbacks(tick);ui.post(tick);
-        if(android.os.Build.VERSION.SDK_INT>=29 && !stepPermissionGranted())
-            requestPermissions(new String[]{Manifest.permission.ACTIVITY_RECOGNITION},ACTIVITY_REQUEST);
         render();
     }
     private boolean stepPermissionGranted(){
@@ -246,8 +255,13 @@ public final class PdrActivity extends Activity {
         if(request==LOCATION_REQUEST){if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED){
             gpsOn=true;if(engine.isRecording())startGps();
         }render();}
-        if(request==ACTIVITY_REQUEST&&engine.isRecording()){
-            bridge.start(stepPermissionGranted());render();
+        if(request==ACTIVITY_REQUEST){
+            // Denial is not fatal: the explicit experimental accel fallback
+            // is available. Do not restart a completed session here.
+            if(!engine.isRecording() && !exportReady && !isFinishing() && !isDestroyed())
+                startSession();
+            else if(engine.isRecording())bridge.start(stepPermissionGranted());
+            render();
         }
     }
     private void render(){
