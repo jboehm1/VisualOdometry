@@ -14,6 +14,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -22,9 +23,15 @@ from tools.testenv import presentation
 
 ROOT = Path(__file__).resolve().parents[2]
 BENCH = ROOT / "benchmark.py"
-PROVENANCE_CODE = (ROOT / "benchmark.py", ROOT / "tools/campaigns/unified.py",
-                   ROOT / "tools/campaigns/simul_real.py", Path(__file__),
-                   ROOT / "tools/testenv/contracts.py")
+PROVENANCE_CODE = tuple(ROOT / name for name in (
+    "benchmark.py", "tools/campaigns/unified.py", "tools/campaigns/run_dataset.py",
+    "tools/campaigns/imu_pdr.py", "tools/campaigns/oxiod.py",
+    "tools/campaigns/simul_real.py", "tools/campaigns/chat_real_proof.py",
+    "tools/campaigns/android_pdr_bridge.py", "tools/campaigns/public_trajectory.py",
+    "tools/campaigns/java/PdrStepTrace.java",
+    "tools/campaigns/make_inertial_fixture.py", "tools/benchmark/bench.py",
+    "tools/testenv/contracts.py", "tools/testenv/runner.py",
+    "tools/testenv/presentation.py", "tools/testenv/cli.py"))
 
 
 def sha256(path: Path) -> str:
@@ -113,24 +120,35 @@ def verify_report(report: dict, job: dict) -> None:
 
 
 def _subprocess(command: list[str], timeout_s: int, cwd: Path) -> tuple[int, str, str]:
-    options = {"cwd": cwd, "stdout": subprocess.PIPE, "stderr": subprocess.PIPE,
-               "text": True}
-    if os.name == "posix":
-        options["start_new_session"] = True
-    process = subprocess.Popen(command, **options)
-    try:
-        stdout, stderr = process.communicate(timeout=timeout_s)
-    except subprocess.TimeoutExpired:
+    """Bound peak RAM even if a research engine prints millions of log lines."""
+    def tail(stream):
+        stream.seek(0, os.SEEK_END)
+        stream.seek(max(0, stream.tell() - 16000))
+        return stream.read().decode("utf-8", errors="replace")
+
+    # Temporary disk-backed streams avoid subprocess.communicate() accumulating
+    # arbitrarily large full output in RAM. We retain only a short local tail.
+    with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+        options = {"cwd": cwd, "stdout": stdout, "stderr": stderr}
         if os.name == "posix":
-            os.killpg(process.pid, signal.SIGKILL)
-        elif os.name == "nt":
-            subprocess.run(["taskkill", "/T", "/F", "/PID", str(process.pid)],
-                           capture_output=True, check=False)
-        else:
-            process.kill()
-        stdout, stderr = process.communicate()
-        raise TimeoutError(f"Benchmark exceeded {timeout_s}s (process tree terminated)")
-    return process.returncode, stdout[-16000:], stderr[-16000:]
+            options["start_new_session"] = True
+        process = subprocess.Popen(command, **options)
+        try:
+            process.wait(timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            if os.name == "posix":
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            elif os.name == "nt":
+                subprocess.run(["taskkill", "/T", "/F", "/PID", str(process.pid)],
+                               capture_output=True, check=False)
+            else:
+                process.kill()
+            process.wait()
+            raise TimeoutError(f"Benchmark exceeded {timeout_s}s (process tree terminated)")
+        return process.returncode, tail(stdout), tail(stderr)
 
 
 def _fingerprint(job: dict, inputs: dict, code: dict) -> str:
