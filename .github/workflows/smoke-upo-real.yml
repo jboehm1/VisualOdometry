@@ -1,0 +1,75 @@
+name: Smoke UPO real-bag sensor benchmark (2.18GB)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/smoke-upo-real.yml'
+      - 'tools/smoke_rescue/upo_real.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: smoke-upo-real
+  cancel-in-progress: false
+jobs:
+  real-upo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    env:
+      ORIGINAL_URL: https://robotics.upo.es/datasets/smoke/experiment_7.bag
+      EXPECTED_BYTES: '2183007782'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned ROS1 decoder (ROS installation not needed)
+        run: python -m pip install --disable-pip-version-check rosbags==0.11.4
+      - name: Validate adapter and no-silent-accuracy contract
+        run: python -m unittest discover -s tools/smoke_rescue/tests -p 'test_*.py' -v
+      - name: Download EXACT original public UPO experiment 7 bag
+        timeout-minutes: 27
+        run: |
+          mkdir -p "$RUNNER_TEMP/upo"
+          # Original noncommercial dataset is transient, never an uploaded artifact.
+          curl --fail --show-error --location --retry 2 --retry-delay 5 \
+            --connect-timeout 30 --max-time 1500 \
+            --proto '=https' --tlsv1.2 \
+            --output "$RUNNER_TEMP/upo/experiment_7.bag" "$ORIGINAL_URL"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          data=Path(os.environ['RUNNER_TEMP'])/'upo/experiment_7.bag'
+          actual=data.stat().st_size
+          assert actual == int(os.environ["EXPECTED_BYTES"]), f"Not the full published recording: {actual} bytes"
+          print(f"ORIGINAL_PUBLIC_BAG_BYTES_VERIFIED={actual}")
+          PY
+      - name: Decode real sensor messages and compute measured statistics
+        timeout-minutes: 8
+        run: |
+          mkdir -p campaign_results/smoke-upo7
+          python tools/smoke_rescue/upo_real.py \
+            --bag "$RUNNER_TEMP/upo/experiment_7.bag" \
+            --max-seconds 60 \
+            --out campaign_results/smoke-upo7/real_sensor_report.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report=json.loads(Path("campaign_results/smoke-upo7/real_sensor_report.json").read_text())
+          assert report["mode"]=="DECODED_REAL_ROS1_BAG"
+          assert report["actual_estimator_executed"] is False
+          assert report["metric_distance_accuracy_proven"] is False
+          for name in ("radar_left","radar_right","lidar"):
+              assert report["metrics"][name]["frames"]>=10, f"No real decoded {name} frames"
+          print("Genuine original UPO radar/LiDAR ROS1 messages decoded; no odometry accuracy inferred.")
+          PY
+      - name: Publish bounded report (never original data)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-upo7-real-sensor-stats-only
+          path: campaign_results/smoke-upo7/real_sensor_report.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Delete local copyrighted original
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upo/experiment_7.bag"
