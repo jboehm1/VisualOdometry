@@ -38,6 +38,7 @@ import com.google.ar.core.CameraConfigFilter;
 import com.google.ar.core.Config;
 import com.google.ar.core.Frame;
 import com.google.ar.core.Pose;
+import com.google.ar.core.PlaybackStatus;
 import com.google.ar.core.Session;
 import com.google.ar.core.TrackingState;
 
@@ -53,7 +54,11 @@ import javax.microedition.khronos.opengles.GL10;
  * Tracking is deliberately suspended across app backgrounding / relocalization.
  */
 public final class MainActivity extends Activity implements GLSurfaceView.Renderer {
-    private static final int CAMERA_REQUEST=140, EXPORT_REQUEST=141, IMPORT_MAP_REQUEST=142, LOCATION_REQUEST=143;
+    private static final int CAMERA_REQUEST=140, EXPORT_REQUEST=141, IMPORT_MAP_REQUEST=142, LOCATION_REQUEST=143, IMPORT_REPLAY_REQUEST=144;
+    private static final String EXTRA_REPLAY_PATH="dev.jboehm.vectorvio.replay.path";
+    private File playbackFile;
+    private boolean playbackMode=false,playbackFinished=false;
+    private long playbackFrames=0,playbackTrackedFrames=0;
     private final Odometer odometer = new Odometer();
     private final AnchoredOdometry anchoredOdometry=new AnchoredOdometry();
     private final TraceGuide traceGuide=new TraceGuide();
@@ -126,6 +131,18 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
 
+        String requestedReplay=getIntent().getStringExtra(EXTRA_REPLAY_PATH);
+        if(requestedReplay!=null){
+            File requested=new File(requestedReplay);
+            File sessions=new File(getFilesDir(),"sessions");
+            File imported=new File(getFilesDir(),"replay_import");
+            try {
+                File resolved=requested.getCanonicalFile();
+                if(resolved.isFile() && resolved.length()>0 && (resolved.getParentFile().equals(sessions.getCanonicalFile()) || resolved.getParentFile().equals(imported.getCanonicalFile()))){
+                    playbackFile=resolved;playbackMode=true;
+                }
+            } catch(java.io.IOException ignored) { }
+        }
         recorder = new CsvRecorder(this);
         training=new TrainingCapture(this,recorder);
         gps=new GpsMonitor(this,(location,status)->{
@@ -206,6 +223,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             .setMessage("The torch is available during live AR tracking when the active ARCore camera configuration supports a flash. It can improve visibility in dim rooms, but may cause glare on reflective surfaces and can increase heat and battery use. SIM uses generated images and does not activate the phone LED.")
             .setPositiveButton("OK",null).show();return true;});
         setContentView(root);
+        if(playbackMode){liveModeRequested=true;recordingStartPending=true;message="ARCore replay: "+playbackFile.getName()+" (estimated poses, no independent truth)";}
         if(getIntent().getBooleanExtra("resume_after_collection",false)){
             liveModeRequested=true;recordingStartPending=true;
             getIntent().removeExtra("resume_after_collection");
@@ -282,7 +300,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         message=trainingEnabled?"Recording IMU, map and odometer — starting video":"Recording IMU, map and odometer — VIDEO OFF (enable in DATA)";
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         recordingStartPending=false;
-        if(trainingEnabled){surface.queueEvent(()->{try{training.start(arSession,recorder.currentFile());}catch(Exception e){runOnUiThread(()->Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show());}runOnUiThread(this::refreshHud);});}
+        if(playbackMode){recorder.event("PLAYBACK_SOURCE_"+playbackFile.getName(),System.currentTimeMillis());}
+        if(trainingEnabled&&!playbackMode){surface.queueEvent(()->{try{training.start(arSession,recorder.currentFile());}catch(Exception e){runOnUiThread(()->Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show());}runOnUiThread(this::refreshHud);});}
         refreshHud();
     }
 
@@ -320,8 +339,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private void powerHelp(){new AlertDialog.Builder(this).setTitle("Power · limits")
         .setMessage("Profiles change presentation only: camera preview, overlay preparation and HUD refresh. Tracking/odometry, map capture and frame metadata keep a 30 updates/s target in every profile. The actual rate can be lower if the device is busy; the HUD reports received pose cadence. No new pose-distance filter is applied.\n\nARCore opens the camera itself at a 30 FPS target and retains its internal tracking. Display at 5 FPS does not mean camera capture at 5 FPS. In Hold mode, press the image for a 30 FPS view; release for 5. The same latest-frame GL pipeline is used at every display rate.\n\nFor maximum autonomy, GPS ROUTES avoids the camera; COLLECT ONLY records video without live mapping. Battery savings require measurement on your phone.").setPositiveButton("OK",null).show();}
     private void dataMenu(){
-        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return"),"Unknown floor ribbon: "+(estimatedGround?"ESTIMATED — disable":"HIDDEN — enable height estimate"),"GPS ROUTES — import GPX / follow / record"};
+        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return"),"Unknown floor ribbon: "+(estimatedGround?"ESTIMATED — disable":"HIDDEN — enable height estimate"),"GPS ROUTES — import GPX / follow / record","ARCORE REPLAY — evaluate saved video with same odometer"};
         new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
+            if(i==9){playbackPicker();return;}
             if(i==8){startActivity(new Intent(this,GpsRoutesActivity.class));return;}
             if(i==7){estimatedGround=!estimatedGround;getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("estimated_ground",estimatedGround).apply();return;}
             if(i==6){
@@ -340,6 +360,88 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             }
             if(i==3)new AlertDialog.Builder(this).setTitle("Full camera frame · local data").setMessage("The reticle only selects the POI hit-test target. Cyan/violet polygons are detected planes, clipped for display; they do not crop the camera input. ARCore processes its camera stream.\n\nVIO speed measures motion relative to the viewed environment. Looking at a car interior can give near-zero VIO while the car moves: GPS ground speed is separate and is not silently fused.\n\nCSV: poses + diagnostic IMU. Dataset ZIP adds video parts only if armed, frame timestamps/intrinsics, device metadata and GPS fixes if enabled. ARCore poses are estimates, not training ground truth; camera/IMU offset and extrinsics need calibration. Simulation CSV is generated truth, not the estimated map or real footage.").setPositiveButton("OK",null).show();
         }).show();
+    }
+
+    /** Replay uses the exact MainActivity ARCore tracking, AnchoredOdometry and Odometer.
+     *  ARCore's own MP4 recordings are valid; regular H264 MP4 and EuRoC videos are NOT.
+     */
+    private void playbackPicker(){
+        if(odometer.isRecording()){
+            Toast.makeText(this,"PAUSE the current session before choosing a replay",Toast.LENGTH_LONG).show();return;
+        }
+        File directory=new File(getFilesDir(),"sessions");
+        File[] captures=directory.listFiles((dir,name)->name.matches("vector_vio_[0-9]{8}_[0-9]{6}_[0-9]{3}_part[0-9]{3}\\.mp4"));
+        if(captures==null)captures=new File[0];
+        java.util.Arrays.sort(captures,(a,b)->Long.compare(b.lastModified(),a.lastModified()));
+        final File[] existing=captures;
+        String[] options=new String[Math.min(existing.length,15)+1];
+        options[0]="Import an ARCore MP4 (Files / Drive offline copy)";
+        for(int j=1;j<options.length;j++)
+            options[j]=existing[j-1].getName()+" · "+(existing[j-1].length()/1024/1024)+" MiB";
+        new AlertDialog.Builder(this).setTitle("REAL PHONE · ARCore replay")
+            .setMessage("Play only MP4 datasets recorded by ARCore Recording API. The same tracking and odometer will run on the original sensor sequence. Replays are not independent ground truth; playback may produce different poses. Current camera/IMU capture will stop when the replay activity restarts.")
+            .setItems(options,(d,index)->{
+                if(index==0){
+                    Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    picker.addCategory(Intent.CATEGORY_OPENABLE);picker.setType("video/mp4");
+                    startActivityForResult(picker,IMPORT_REPLAY_REQUEST);
+                }else launchReplay(existing[index-1]);
+            }).setNegativeButton("CANCEL",null).show();
+    }
+    private void launchReplay(File source){
+        if(source==null||!source.isFile()||source.length()==0){
+            Toast.makeText(this,"Missing replay MP4",Toast.LENGTH_LONG).show();return;
+        }
+        // A clean Activity creates a fresh ARCore Session; no live camera/recording
+        // state is inherited. Existing CSV/map assets remain in private storage.
+        Intent restart=new Intent(this,MainActivity.class);
+        restart.putExtra(EXTRA_REPLAY_PATH,source.getAbsolutePath());
+        restart.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(restart);finish();
+    }
+    private void importReplay(Uri document){
+        Toast.makeText(this,"Importing MP4 into private, seekable storage…",Toast.LENGTH_LONG).show();
+        mapIo.execute(()->{
+            File dir=new File(getFilesDir(),"replay_import");
+            File target=null;
+            try {
+                if(!dir.exists()&&!dir.mkdirs())throw new java.io.IOException("Cannot create replay folder");
+                target=new File(dir,"arcore_"+System.currentTimeMillis()+".mp4");
+                long free=dir.getUsableSpace();
+                long limit=Math.min(1500L*1024*1024,Math.max(0,free-128L*1024*1024));
+                if(limit<1024)throw new java.io.IOException("Not enough free space");
+                long used=0;
+                try(java.io.InputStream in=getContentResolver().openInputStream(document);
+                    java.io.OutputStream out=new java.io.FileOutputStream(target)){
+                    if(in==null)throw new java.io.IOException("Cannot read MP4");
+                    byte[] buffer=new byte[65536];int n;
+                    while((n=in.read(buffer))!=-1){
+                        used+=n;
+                        if(used>limit)throw new java.io.IOException("File too large or device storage low");
+                        out.write(buffer,0,n);
+                    }
+                }
+                if(used==0)throw new java.io.IOException("Empty replay file");
+                File loaded=target;
+                runOnUiThread(()->launchReplay(loaded));
+            }catch(Exception error){
+                if(target!=null)target.delete();
+                runOnUiThread(()->new AlertDialog.Builder(this).setTitle("Replay import failed")
+                    .setMessage(error.toString()).setPositiveButton("OK",null).show());
+            }
+        });
+    }
+    private void endPlayback(){
+        if(!playbackMode||playbackFinished)return;
+        playbackFinished=true;
+        frameScheduler.stop();
+        long time=System.currentTimeMillis();
+        if(odometer.isRecording())odometer.pause(SystemClock.elapsedRealtime());
+        recorder.event("PLAYBACK_END_FRAMES_"+playbackFrames+"_TRACKED_"+playbackTrackedFrames,time);
+        Odometer.Snapshot snap=odometer.snapshot(SystemClock.elapsedRealtime());
+        message=String.format(Locale.US,"REPLAY FINISHED · %.1f m estimated · %d/%d tracking frames · export CSV",snap.totalMeters,playbackTrackedFrames,playbackFrames);
+        trackingLabel="REPLAY DONE";
+        runOnUiThread(()->{recordButton.setText("FINISHED");refreshHud();});
     }
 
     private void stopTraceGuide(){
@@ -486,6 +588,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     runOnUiThread(()->startActivity(new Intent(this,MapActivity.class).putExtra("map",target.getName())));
                 } catch(Exception e){runOnUiThread(()->Toast.makeText(this,"Import failed: "+e.getMessage(),Toast.LENGTH_LONG).show());}
             });
+            return;
+        }
+        if(request==IMPORT_REPLAY_REQUEST){
+            if(result==RESULT_OK&&data!=null&&data.getData()!=null)importReplay(data.getData());
             return;
         }
         if(request!=EXPORT_REQUEST || result!=RESULT_OK || data==null||data.getData()==null||exportFile==null) return;
@@ -640,8 +746,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             startActivity(new Intent(this,CollectionActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
             return;
         }
-        imu.start();
-        gps.start();
+        if(!playbackMode){imu.start();gps.start();}
         if(liveModeRequested)startAr();
     }
     private void startAr() {
@@ -674,14 +779,24 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 config.setDepthMode(Config.DepthMode.DISABLED);
                 config.setUpdateMode(Config.UpdateMode.LATEST_CAMERA_IMAGE);
                 created.configure(config);
+                if(playbackMode)created.setPlaybackDatasetUri(Uri.fromFile(playbackFile));
                 arSession=created;
                 textureAssigned=false;
+            }
+            if(playbackMode&&arSession!=null){
+                if(playbackFinished || !recordingStartPending){
+                    // Pausing playback skips source frames: always restart from the beginning.
+                    arSession.setPlaybackDatasetUri(Uri.fromFile(playbackFile));
+                    odometer.reset();needsNewFile=true;recordingStartPending=true;
+                    anchoredOdometry.reset();playbackFrames=playbackTrackedFrames=0;
+                    playbackFinished=false;
+                }
             }
             arSession.resume();
             surface.onResume();
             rendererRunning=true;
             frameScheduler.start();
-            message="Move slowly, looking at textured static objects";
+            message=playbackMode?"REPLAY · "+playbackFile.getName()+" · no independent ground truth":"Move slowly, looking at textured static objects";
             if(recordingStartPending)beginRecording();
         } catch(Exception e) {
             recordingStartPending=false;
@@ -828,6 +943,11 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             s.setDisplayGeometry(getWindowManager().getDefaultDisplay().getRotation(),width,height);
             long phaseStartNs=SystemClock.elapsedRealtimeNanos();
             Frame frame=s.update();latestFrame=frame;
+            if(playbackMode){
+                if(s.getPlaybackStatus()==PlaybackStatus.FINISHED){endPlayback();return;}
+                if(frame.getTimestamp()>0){playbackFrames++;
+                    if(frame.getCamera().getTrackingState()==TrackingState.TRACKING)playbackTrackedFrames++;}
+            }
             if(!poseRate.accept(frame.getTimestamp()))return;
             cameraHz=poseRate.hz();lastPoseReceivedMs=SystemClock.elapsedRealtime();
             arUpdateMs=(SystemClock.elapsedRealtimeNanos()-phaseStartNs)/1_000_000L;

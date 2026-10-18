@@ -156,3 +156,7 @@ See [Real Dataset Benchmark Pipeline](docs/BENCHMARK_PIPELINE.md) for source cat
     python tools/benchmark/bench.py catalog
 
 **Honest limitation:** This host-side harness is not an ARCore emulator and does not yet execute the Android engine or an installed ORB-SLAM3/OpenVINS pipeline on a full real dataset. See the documentation for implemented versus planned work.
+
+### Three executable validation campaigns (2026-10-18)
+
+See [Three Campaigns — real external EuRoC evaluation, IMU-only PDR, and same-engine Android ARCore replay](docs/THREE_CAMPAIGNS.md). The hosted A job has scored **published VINS-Mono EuRoC poses**, B has run a camera-free PDR baseline on **synthetic** sensor fixtures, and C has compiled an APK with **official ARCore dataset playback** through the existing odometer. These do not yet establish our APK's accuracy. A private Google Drive folder is ready for actual datasets; a separately authorized manual cloud sync can evaluate user-provided inputs once credentials and sources exist.
