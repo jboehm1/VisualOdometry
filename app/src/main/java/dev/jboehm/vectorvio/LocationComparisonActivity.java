@@ -48,7 +48,16 @@ public final class LocationComparisonActivity extends Activity {
     private LocationCallback fusedCallback;
     private LocationComparisonRecorder recorder;
     private final LocationPairer pairer=new LocationPairer();
-    private LocationSample lastGps,lastFused;
+    private volatile LocationSample lastGps,lastFused;
+    private volatile LocationPairer.Snapshot latestStats;
+    private final Runnable freshnessTicker=new Runnable(){
+        @Override public void run(){
+            if(!running)return;
+            LocationPairer.Snapshot state=latestStats;
+            if(state!=null)render(state,lastGps,lastFused);
+            main.postDelayed(this,1000);
+        }
+    };
     private File lastSession;
     private LocationComparisonRepository sessions;
     private volatile boolean running,stopping;
@@ -147,10 +156,13 @@ public final class LocationComparisonActivity extends Activity {
             message("Activer le GPS natif du téléphone pour lancer la comparaison.");return;
         }
         pairer.reset();lastGps=lastFused=null;lastUiMs=0;
+        latestStats=pairer.snapshot();
         running=true;
         startStop.setText("ARRÊTER ET SAUVEGARDER");exportButton.setEnabled(false);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         message("Ouverture du GPS et de Google FLP…");
+        main.removeCallbacks(freshnessTicker);
+        main.postDelayed(freshnessTicker,1000);
         sensorThread=new HandlerThread("VioLocationAB");
         sensorThread.start();worker=new Handler(sensorThread.getLooper());
         worker.post(()->{
@@ -198,6 +210,7 @@ public final class LocationComparisonActivity extends Activity {
         try{recorder.record(sample,pair,System.currentTimeMillis());}
         catch(IOException e){main.post(()->stopComparison("WRITE_ERROR:"+e.getClass().getSimpleName()));return;}
         if(source==LocationSample.Source.GPS_PROVIDER)lastGps=sample;else lastFused=sample;
+        latestStats=pairer.snapshot();
         long now=SystemClock.elapsedRealtime();
         if(now-lastUiMs>=750){
             lastUiMs=now;
@@ -208,9 +221,11 @@ public final class LocationComparisonActivity extends Activity {
     }
     private static String format(LocationSample s,int count,int rejected){
         if(s==null)return count+" observations · première position attendue";
+        double currentAgeMs=(SystemClock.elapsedRealtimeNanos()-s.fixElapsedNs)/1_000_000d;
+        String freshness=currentAgeMs>5000?"PÉRIMÉ : aucune position récente":"Dernière position";
         return String.format(Locale.FRANCE,
-            "%d fixes · %d exclus des paires\nPrécision annoncée ±%.1f m · âge %.0f ms\n%s\n%.6f°, %.6f°",
-            count,rejected,s.accuracyMeters,s.ageMs(),s.validity(),s.latitude,s.longitude);
+            "%d fixes · %d exclus des paires\nPrécision annoncée ±%.1f m · âge actuel %.0f ms\n%s · %s\n%.6f°, %.6f°",
+            count,rejected,s.accuracyMeters,currentAgeMs,s.validity(),freshness,s.latitude,s.longitude);
     }
     private void render(LocationPairer.Snapshot stats,LocationSample gps,LocationSample fused){
         gpsText.setText(format(gps,stats.gpsCount,stats.rejectedGps));
@@ -225,6 +240,7 @@ public final class LocationComparisonActivity extends Activity {
     private void stopComparison(String reason){
         if(!running||stopping)return;
         running=false;stopping=true;
+        main.removeCallbacks(freshnessTicker);
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         startStop.setEnabled(false);
         message("Arrêt et clôture des CSV en cours…");
