@@ -53,8 +53,8 @@ public final class PdrReplay {
         if(args.length==2) {
             try(BufferedWriter out=Files.newBufferedWriter(Paths.get(args[1]),StandardCharsets.UTF_8)){
                 out.write("t_ns,east_m,north_m\n");
-                for(PdrEngine.Point p:p.path())
-                    out.write(String.format(Locale.US,"%d,%.6f,%.6f%n",p.timeNs,p.eastM,p.northM));
+                for(PdrEngine.Point point:p.path())
+                    out.write(String.format(Locale.US,"%d,%.6f,%.6f%n",point.timeNs,point.eastM,point.northM));
             }
         }
     }
