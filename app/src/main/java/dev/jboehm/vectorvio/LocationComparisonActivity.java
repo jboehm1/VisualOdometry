@@ -147,6 +147,10 @@ public final class LocationComparisonActivity extends Activity {
     @android.annotation.SuppressLint("MissingPermission")
     private void startComparison(){
         if(running||stopping)return;
+        // Do not contaminate a controlled A/B experiment with the app's GPS navigator.
+        if(GpsNavigationService.running){
+            message("Arrêter d'abord GPS ROUTES pour un test A/B isolé.");return;
+        }
         int available=GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(this);
         if(available!=ConnectionResult.SUCCESS){
             message("Google Play Services indisponible (code "+available+"). Aucune substitution silencieuse.");return;
