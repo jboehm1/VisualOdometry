@@ -97,6 +97,35 @@ public final class PdrEngineTest {
         assertEquals(3,p.path().size());
         assertTrue(p.path().get(2).gapBefore);
     }
+    @Test public void invalidPhoneHeadingStopsTrajectoryImmediatelyAndRejectsOlderSamples(){
+        PdrEngine p=new PdrEngine();p.start(1);
+        p.deviceHeading(1_000_000_000L,Math.PI/2);
+        assertTrue(p.step(1_200_000_000L));
+        assertTrue(p.invalidateDeviceHeading(1_400_000_000L));
+        assertFalse(p.invalidateDeviceHeading(1_500_000_000L));
+        p.deviceHeading(1_100_000_000L,Math.PI/2); // buffered stale sample
+        assertTrue(p.step(1_700_000_000L));
+        assertEquals(1,p.snapshot(1_700_000_000L).stepsWithoutHeading);
+        assertEquals(PdrEngine.HeadingSource.UNAVAILABLE,p.snapshot(1_700_000_000L).headingSource);
+        p.deviceHeading(1_800_000_000L,0);
+        assertTrue(p.step(2_100_000_000L));
+        assertTrue(p.path().get(2).gapBefore);
+    }
+    @Test public void badGnssAccuracyAndOutOfOrderPressureAreRejected(){
+        PdrEngine p=new PdrEngine();p.start(1);
+        p.gpsCourse(1_000_000_000L,0,2f,-1f,5f);
+        p.gpsCourse(1_000_000_001L,0,2f,5f,-1f);
+        assertEquals(PdrEngine.HeadingSource.UNAVAILABLE,p.snapshot(1_500_000_000L).headingSource);
+        p.pressure(3_000_000_000L,1013.25);
+        p.pressure(4_000_000_000L,1012.0);
+        double elevation=p.snapshot(4_000_000_000L).elevationM;
+        p.pressure(3_500_000_000L,970.0);
+        p.pressure(4_000_000_000L,970.0);
+        assertEquals(elevation,p.snapshot(5_000_000_000L).elevationM,1e-9);
+        p.start(6_000_000_000L);
+        p.pressure(6_000_000_000L,1000);
+        assertEquals(0,p.snapshot(6_000_000_000L).elevationM,1e-9);
+    }
     @Test public void accelerationFallbackDetectsDistinctSyntheticPeaks() {
         PdrEngine p=new PdrEngine();p.start(1);
         long t=1_000_000_000L;

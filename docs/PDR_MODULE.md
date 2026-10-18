@@ -242,3 +242,10 @@ a feature as completed. Test infrastructure and original OxIOD/RoNIN dataset
 campaigns are handled by a separate workstream.
 
 **Safety detail:** PHONE FORWARD opt-in is reset every time a session ends and every time the Activity is launched. Never persist a position-accuracy assumption between phone placements. Walk/run stride calibrations, by contrast, are stored by profile.
+
+## PDR 1.1 reliability work (2026-10-19)
+
+- Fallback step counting is now explicitly *rhythm-gated* and time-filtered (no isolated startup shock counted). This is a heuristic trade-off: the first isolated candidate of a new walking bout is not counted, and gait transitions/short bouts can undercount. Old SIMUL +43.7% remains the **last real-data baseline** until rerun on the new SHA; there is **no claim** that these tweaks improved its metrics.
+- Phone heading is invalidated when magnetic quality or the screen-facing/up posture gate fails; an explicit `HEADING_INVALID` trace event permits replay of the same direction gaps. GNSS course remains an independent, separately gated source. Default sensor bridge overload now opts **out** of assumed phone direction.
+- Pressure discards out-of-order/duplicate timestamps, negative GNSS accuracy values are rejected, and actual Android step/accelerometer listener registration is required to start a live session. No change to shared menus, Manifest or workflows.
+- Added Java/Robolectric regression tests for these safeguards. The synthetic cadence samples are **NOT** proof of physical step accuracy; all real IMU placements, independent distance, S21 installation and energy/thermal tests remain pending.

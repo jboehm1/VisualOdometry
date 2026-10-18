@@ -57,6 +57,8 @@ public final class PdrEngine {
     /** A sensor sample arriving from before START must never move this session. */
     private long sessionStartNs=Long.MIN_VALUE;
     private long lastStepNs=Long.MIN_VALUE, deviceTimeNs=Long.MIN_VALUE, gpsTimeNs=Long.MIN_VALUE;
+    private long lastPressureNs=Long.MIN_VALUE;
+    private boolean deviceHeadingAvailable;
     private double deviceHeadingRad, gpsHeadingRad, stepLengthM=.74, distanceM, eastM, northM;
     private double baselinePressureHpa=Double.NaN, elevationM=Double.NaN;
     private double smoothedStepPeriodNs=Double.NaN;
@@ -74,7 +76,8 @@ public final class PdrEngine {
         if(timeNs<=0)throw new IllegalArgumentException("session start timestamp must be positive");
         sessionStartNs=timeNs;
         recording=true; lastStepNs=Long.MIN_VALUE; deviceTimeNs=Long.MIN_VALUE;
-        gpsTimeNs=Long.MIN_VALUE; distanceM=0; eastM=0; northM=0; steps=0;
+        gpsTimeNs=Long.MIN_VALUE; lastPressureNs=Long.MIN_VALUE;
+        deviceHeadingAvailable=false; distanceM=0; eastM=0; northM=0; steps=0;
         trajectorySteps=0; stepsWithoutHeading=0;
         elevationM=Double.NaN; baselinePressureHpa=Double.NaN;
         smoothedStepPeriodNs=Double.NaN;
@@ -88,26 +91,40 @@ public final class PdrEngine {
         recording=true;fallback.reset();lastStepNs=Long.MIN_VALUE;
         smoothedStepPeriodNs=Double.NaN;
         deviceTimeNs=Long.MIN_VALUE;gpsTimeNs=Long.MIN_VALUE;
-        gapPending=true;
+        deviceHeadingAvailable=false;gapPending=true;
     }
     public boolean isRecording() { return recording; }
 
     /** Android SensorManager azimuth: radians clockwise from north; phone top Y axis. */
     public void deviceHeading(long timeNs, double radians) {
         if (!recording||timeNs<sessionStartNs||timeNs<=deviceTimeNs||!Double.isFinite(radians)) return;
-        deviceTimeNs=timeNs; deviceHeadingRad=wrap(radians);
+        deviceTimeNs=timeNs; deviceHeadingRad=wrap(radians); deviceHeadingAvailable=true;
+    }
+    /**
+     * Immediately stop using the phone azimuth when posture or magnet quality fails.
+     * It is also recorded as HEADING_INVALID so offline replay gets the same gaps.
+     * Keep the timestamp high-water mark to reject late buffered older rotations.
+     */
+    public boolean invalidateDeviceHeading(long timeNs) {
+        if(!recording || timeNs<sessionStartNs || timeNs<deviceTimeNs
+                || !deviceHeadingAvailable) return false;
+        deviceTimeNs=timeNs;
+        deviceHeadingAvailable=false;
+        return true;
     }
     /** GNSS course must first be converted TRUE -> MAGNETIC north by Android adapter. */
     public void gpsCourse(long timeNs, double radians, float speedMps,
                           float horizontalAccuracyM, float bearingAccuracyDeg) {
         if (!recording || timeNs<sessionStartNs || timeNs<=gpsTimeNs || !Double.isFinite(radians) ||
             !Float.isFinite(speedMps) || speedMps<1.2f ||
-            !Float.isFinite(horizontalAccuracyM) || horizontalAccuracyM>20f ||
-            !Float.isFinite(bearingAccuracyDeg) || bearingAccuracyDeg>25f) return;
+            !Float.isFinite(horizontalAccuracyM) || horizontalAccuracyM<0f || horizontalAccuracyM>20f ||
+            !Float.isFinite(bearingAccuracyDeg) || bearingAccuracyDeg<0f || bearingAccuracyDeg>25f) return;
         gpsTimeNs=timeNs; gpsHeadingRad=wrap(radians);
     }
     public void pressure(long timeNs, double hPa) {
-        if(!recording||timeNs<sessionStartNs||!Double.isFinite(hPa)||hPa<300||hPa>1100) return;
+        if(!recording||timeNs<sessionStartNs||timeNs<=lastPressureNs ||
+                !Double.isFinite(hPa)||hPa<300||hPa>1100) return;
+        lastPressureNs=timeNs;
         if(!Double.isFinite(baselinePressureHpa)) baselinePressureHpa=hPa;
         elevationM=44330.0*(1.0-Math.pow(hPa/baselinePressureHpa,0.190294957));
     }
@@ -143,7 +160,7 @@ public final class PdrEngine {
     private Heading headingAt(long t) {
         if(gpsTimeNs!=Long.MIN_VALUE && t>=gpsTimeNs && t-gpsTimeNs<=GNSS_MAX_AGE_NS)
             return new Heading(HeadingSource.GNSS_COURSE,gpsHeadingRad);
-        if(deviceTimeNs!=Long.MIN_VALUE && t>=deviceTimeNs && t-deviceTimeNs<=HEADING_MAX_AGE_NS)
+        if(deviceHeadingAvailable && deviceTimeNs!=Long.MIN_VALUE && t>=deviceTimeNs && t-deviceTimeNs<=HEADING_MAX_AGE_NS)
             return new Heading(HeadingSource.DEVICE_ASSUMED,deviceHeadingRad);
         return new Heading(HeadingSource.UNAVAILABLE,Double.NaN);
     }

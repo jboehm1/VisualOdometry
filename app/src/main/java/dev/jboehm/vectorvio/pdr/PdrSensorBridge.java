@@ -21,7 +21,7 @@ public final class PdrSensorBridge implements SensorEventListener {
     private final PdrEngine engine;
     private final Callback callback;
     private final float[] r=new float[9], orientation=new float[3];
-    private boolean registered, useStepDetector, magneticReliable, allowDeviceHeading;
+    private boolean registered, useStepDetector, accelerometerRegistered, magneticReliable, allowDeviceHeading;
     private long accelerationSamples, rotationSamples, magneticSamples, stepSensorSamples, fallbackSteps;
     private long firstSampleNs=Long.MIN_VALUE, latestSampleNs=Long.MIN_VALUE;
     private long latestMagneticNs=Long.MIN_VALUE;
@@ -45,7 +45,7 @@ public final class PdrSensorBridge implements SensorEventListener {
      * ACTIVITY_RECOGNITION, use acceleration fallback, not a hidden permission bypass.
      */
     public void start(boolean stepPermission) {
-        start(stepPermission, true);
+        start(stepPermission, false);
     }
     /**
      * A phone's yaw is NOT the person's heading. Device-heading use is explicitly
@@ -55,14 +55,16 @@ public final class PdrSensorBridge implements SensorEventListener {
      */
     public void start(boolean stepPermission,boolean phoneTopForward) {
         stop();allowDeviceHeading=phoneTopForward;
-        if(manager==null){stepMode="NO SENSOR MANAGER";return;}
+        if(manager==null){stepMode="NO SENSOR MANAGER";registered=false;return;}
         Sensor detector=stepPermission?manager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR):null;
         // A sensor can be advertised by Android but its listener registration
         // may still fail. Never disable acceleration fallback unless subscribed.
         useStepDetector=detector!=null && register(detector,SensorManager.SENSOR_DELAY_NORMAL);
-        stepMode=useStepDetector?"ANDROID STEP_DETECTOR":"ACCEL FALLBACK (EXPERIMENTAL)";
-        // Accelerometer always recorded, also used for fallback.
-        register(manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),SensorManager.SENSOR_DELAY_GAME);
+        // Accelerometer always recorded if registration succeeds; otherwise there
+        // must be a registered STEP_DETECTOR before the session can proceed.
+        accelerometerRegistered=register(manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),SensorManager.SENSOR_DELAY_GAME);
+        stepMode=useStepDetector?"ANDROID STEP_DETECTOR":
+            (accelerometerRegistered?"ACCEL FALLBACK (EXPERIMENTAL)":"NO ACTIVE STEP SOURCE");
         register(manager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),SensorManager.SENSOR_DELAY_GAME);
         register(manager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),SensorManager.SENSOR_DELAY_GAME);
         register(manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR),SensorManager.SENSOR_DELAY_GAME);
@@ -78,6 +80,7 @@ public final class PdrSensorBridge implements SensorEventListener {
         catch(SecurityException exception){return false;}
     }
     public String stepMode(){return stepMode;}
+    public boolean hasActiveStepSource(){return registered && (useStepDetector || accelerometerRegistered);}
     public boolean hasStepSource(boolean permissionGranted){
         return manager!=null &&
             ((permissionGranted && manager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)!=null)
@@ -109,8 +112,13 @@ public final class PdrSensorBridge implements SensorEventListener {
     }
     public void stop(){
         if(manager!=null)manager.unregisterListener(this);
-        registered=false;magneticReliable=false;
+        registered=false;useStepDetector=false;accelerometerRegistered=false;
+        magneticReliable=false;allowDeviceHeading=false;
         latestMagneticNs=Long.MIN_VALUE;
+    }
+    private void invalidateHeading(long t,int accuracy){
+        if(engine.invalidateDeviceHeading(t))
+            callback.sample("HEADING_INVALID",t,0,0,0,accuracy);
     }
     @Override public void onSensorChanged(SensorEvent e){
         if(!registered || !engine.isRecording())return;
@@ -143,11 +151,18 @@ public final class PdrSensorBridge implements SensorEventListener {
                 magneticSamples++;
                 callback.sample("RAW_MAG",t,x,y,z,e.accuracy);
                 double strength=Math.sqrt(x*x+y*y+z*z);
-                magneticReliable=Double.isFinite(strength)&&strength>=20&&strength<=75;
+                magneticReliable=Double.isFinite(strength)&&strength>=20&&strength<=75
+                    &&e.accuracy!=SensorManager.SENSOR_STATUS_UNRELIABLE;
                 latestMagneticNs=t;
+                if(!magneticReliable)invalidateHeading(t,e.accuracy);
                 break;
             case Sensor.TYPE_ROTATION_VECTOR:
                 rotationSamples++;
+                if(e.values.length<3 || !Float.isFinite(e.values[0]) ||
+                   !Float.isFinite(e.values[1]) || !Float.isFinite(e.values[2]) ||
+                   (e.values.length>3 && !Float.isFinite(e.values[3]))){
+                    invalidateHeading(t,e.accuracy);break;
+                }
                 callback.rotationVector(t,e.values,e.accuracy);
                 // r[8] is the world-up component of device screen-normal.
                 // >= cos(45deg) means screen face up and within 45° of level.
@@ -158,7 +173,7 @@ public final class PdrSensorBridge implements SensorEventListener {
                     SensorManager.getOrientation(r,orientation);
                     engine.deviceHeading(t,orientation[0]);
                     callback.sample("HEADING",t,orientation[0],0,0,e.accuracy);
-                }
+                } else invalidateHeading(t,e.accuracy);
                 break;
             case Sensor.TYPE_PRESSURE:
                 callback.sample("RAW_PRESSURE",t,x,0,0,e.accuracy);

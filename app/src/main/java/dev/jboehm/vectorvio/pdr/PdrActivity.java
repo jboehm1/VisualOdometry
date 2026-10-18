@@ -263,6 +263,14 @@ public final class PdrActivity extends Activity {
         log("STEP_LENGTH",startNs,
             engine.snapshot(SystemClock.elapsedRealtimeNanos()).stepLengthM,0,0,0);
         bridge.start(stepPermissionGranted(),recordedPhoneTopForward);
+        if(!bridge.hasActiveStepSource()){
+            // Advertised availability is not a successful Android subscription.
+            bridge.stop();engine.pause();
+            try{writer.close();}catch(Exception ignored){}
+            writer=null;exportReady=false;
+            note="NO ACTIVE STEP SOURCE: sensor registration failed";
+            render();return;
+        }
         recordedStepMode=bridge.stepMode();
         autoStopped=false;exportReady=false;note="RECORDING";
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);

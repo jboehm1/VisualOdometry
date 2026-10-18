@@ -7,7 +7,7 @@ import java.util.*;
 
 /**
  * Deterministic replay of canonical trace rows: t_ns,type,x,y,z[,bearing_accuracy_deg].
- * Types: START (session time), STEP_LENGTH, HEADING, GPS_COURSE (x rad,
+ * Types: START (session time), STEP_LENGTH, HEADING, HEADING_INVALID, GPS_COURSE (x rad,
  * y speed, z horizontal accuracy, bearing_accuracy_deg), STEP, ACCEL, PRESSURE.
  * Ground truth and camera tracks MUST NOT be used as engine inputs.
  */
@@ -40,6 +40,7 @@ public final class PdrReplay {
                         case "STEP":p.step(t);break;
                         case "ACCEL":p.acceleration(t,x,y,z);break;
                         case "HEADING":p.deviceHeading(t,x);break;
+                        case "HEADING_INVALID":p.invalidateDeviceHeading(t);break;
                         case "STEP_LENGTH":p.setStepLengthMeters(x);break;
                         case "GPS_COURSE":
                             if(f.length>=6)
