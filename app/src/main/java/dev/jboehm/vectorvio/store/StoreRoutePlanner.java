@@ -90,6 +90,47 @@ public final class StoreRoutePlanner {
         Collections.reverse(rev);Path path=new Path(dist.get(to),List.copyOf(rev));cache.put(cacheKey,path);
         return path;
     }
+    /** Exact dynamic-programming optimum on the declared graph for small lists.
+     * The shortest-path metric preserves optimal walk length even when legs pass
+     * another stop earlier. For >11 stops the bounded heuristic is used.
+     */
+    private ArrayList<String> optimalOrder(List<String> available,String start,String finish){
+        int n=available.size();
+        if(n>11)return null;
+        if(n==0)return new ArrayList<>();
+        final int count=1<<n;
+        double[][] best=new double[count][n];
+        int[][] previous=new int[count][n];
+        for(int mask=0;mask<count;mask++){
+            Arrays.fill(best[mask],Double.POSITIVE_INFINITY);
+            Arrays.fill(previous[mask],-1);
+        }
+        for(int j=0;j<n;j++)best[1<<j][j]=shortest(start,available.get(j)).length;
+        for(int mask=1;mask<count;mask++)for(int end=0;end<n;end++){
+            if((mask&(1<<end))==0 || !Double.isFinite(best[mask][end]))continue;
+            for(int next=0;next<n;next++)if((mask&(1<<next))==0){
+                int newMask=mask|(1<<next);
+                double cost=best[mask][end]+shortest(available.get(end),available.get(next)).length;
+                if(cost+1e-9<best[newMask][next]){
+                    best[newMask][next]=cost;previous[newMask][next]=end;
+                }
+            }
+        }
+        int full=count-1,last=-1;double min=Double.POSITIVE_INFINITY;
+        for(int i=0;i<n;i++){
+            double value=best[full][i]+shortest(available.get(i),finish).length;
+            if(value+1e-9<min){min=value;last=i;}
+        }
+        if(last<0 || !Double.isFinite(min))throw new IllegalStateException("Unreachable stops in exact planner");
+        ArrayList<String> reversed=new ArrayList<>();int mask=full;
+        while(last>=0){
+            reversed.add(available.get(last));
+            int prior=previous[mask][last];mask^=1<<last;last=prior;
+        }
+        Collections.reverse(reversed);
+        return reversed;
+    }
+
     private double cost(List<String> order,String start,String finish){
         String curr=start;double total=0;
         for(String s:order){total+=shortest(curr,s).length;curr=s;}
@@ -111,15 +152,18 @@ public final class StoreRoutePlanner {
             if(!Double.isFinite(shortest(entrance,n).length)||!Double.isFinite(shortest(n,checkout).length))unreachable.add(n);
             else remaining.add(n);
         }
-        ArrayList<String> ordered=new ArrayList<>();String cur=entrance;
-        while(!remaining.isEmpty()){
+        ArrayList<String> ordered=optimalOrder(remaining,entrance,checkout);
+        boolean heuristic=ordered==null;
+        if(heuristic)ordered=new ArrayList<>();
+        String cur=entrance;
+        while(heuristic&&!remaining.isEmpty()){
             String best=null;double nearest=Double.POSITIVE_INFINITY;
             for(String candidate:remaining){double dist=shortest(cur,candidate).length;
                 if(dist<nearest){nearest=dist;best=candidate;}}
             ordered.add(best);remaining.remove(best);cur=best;
         }
-        // Bounded deterministic 2-opt, with fixed entrance and checkout.
-        for(int pass=0;pass<3;pass++){
+        // Bounded deterministic 2-opt only for larger lists.
+        for(int pass=0;heuristic&&pass<3;pass++){
             boolean better=false;double old=cost(ordered,entrance,checkout);
             for(int i=0;i<ordered.size()&&!better;i++)for(int j=i+1;j<ordered.size();j++){
                 Collections.reverse(ordered.subList(i,j+1));double candidate=cost(ordered,entrance,checkout);
@@ -139,6 +183,6 @@ public final class StoreRoutePlanner {
         }
         for(String n:ordered)items.addAll(byNode.get(n));
         boolean good=unassigned.isEmpty()&&unreachable.isEmpty();
-        return new Plan(good,items,stops,path,unassigned,unreachable,meters,good?"Itineraire calcule sur passages declares (non verifie sur place)":"Carte incomplete: articles ou rayons non accessibles");
+        return new Plan(good,items,stops,path,unassigned,unreachable,meters,good?(heuristic?"Itineraire heuristique sur passages declares (non verifie sur place)":"Itineraire minimal sur passages declares (non verifie sur place)"):"Carte incomplete: articles ou rayons non accessibles");
     }
 }
