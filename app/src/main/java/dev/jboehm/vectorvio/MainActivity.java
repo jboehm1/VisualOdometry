@@ -176,7 +176,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 long prior=report==null?0:report.previousPairedFixNs;
                 preview.updateWithVio(fix,SystemClock.elapsedRealtimeNanos(),meters,prior);
                 lastLiveGpxFixMs=SystemClock.elapsedRealtime();
-                liveGpxText=describeLiveGpx(preview,Double.isFinite(meters)&&prior>0);
+                liveGpxText=describeLiveGpx(preview,Double.isFinite(meters)&&prior>0,location.getAccuracy());
             }
             refreshHud();
         });
@@ -407,7 +407,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         return guideText;
     }
 
-    private String describeLiveGpx(GpsNavigator nav,boolean pairedVio){
+    private String describeLiveGpx(GpsNavigator nav,boolean pairedVio,double gpsAccuracy){
         final GpsNavigator.Status state=nav.status;
         String quality=pairedVio?" · déplacement VIO disponible":" · GPS seul";
         switch(state){
@@ -415,7 +415,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 String answer=String.format(Locale.FRANCE,"GPX estimé · reste %.0f m%s",
                     Math.max(0,nav.route.length-nav.progress),quality);
                 // A bend on GPX is never proof of a real physical intersection.
-                IntersectionAdvisor.Hint bend=IntersectionAdvisor.upcoming(nav.route,nav.progress,12);
+                IntersectionAdvisor.Hint bend=IntersectionAdvisor.upcoming(nav.route,nav.progress,gpsAccuracy);
                 if(bend!=null)answer+=String.format(Locale.FRANCE," · GPX tourne dans %.0f m",bend.metersAhead);
                 return answer;
             }
