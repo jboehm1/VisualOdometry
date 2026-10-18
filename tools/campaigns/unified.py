@@ -162,6 +162,14 @@ def available_catalog() -> list[dict]:
         "scenario": "user-provided accel/gyro/baro recordings",
         "truth": "none unless separately measured",
     }
+    names["upo_smoke"] = {
+        "id": "upo_smoke",
+        "name": "University Pablo de Olavide original indoor artificial-smoke ROS1 bag",
+        "scenario": "Real radar and LiDAR point clouds, under varying artificial smoke; exp7 selected",
+        "url": "https://robotics.upo.es/datasets/smoke/",
+        "license": "CC-BY-NC-SA-3.0",
+        "truth": "AR markers + odometry-smoothed partial reference, descriptive only, not used for estimator accuracy",
+    }
     names["phone_csv"] = {
         "id": "phone_csv", "name": "VECTOR on-phone exported trajectory",
         "scenario": "audit an actual CSV from VECTOR app",
