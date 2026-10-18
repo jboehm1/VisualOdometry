@@ -2,7 +2,7 @@ name: Odometry • Real Dataset Harness
 
 on:
   push:
-    branches: [feature/real-dataset-benchmark]
+    branches: [feature/slam-explorer, feature/real-dataset-benchmark]
     paths:
       - "tools/benchmark/**"
       - ".github/workflows/benchmark.yml"
