@@ -21,6 +21,8 @@
         <meta-data android:name="com.google.ar.core" android:value="optional" />
         <service android:name=".GpsNavigationService" android:exported="false" android:foregroundServiceType="location" />
         <activity android:name=".GpsRoutesActivity" android:exported="false" />
+        <!-- Foreground-only, explicitly launched location A/B diagnostic. -->
+        <activity android:name=".LocationComparisonActivity" android:exported="false" android:screenOrientation="portrait" />
         <service android:name=".CollectionService" android:exported="false" android:foregroundServiceType="camera|location" />
         <activity android:name=".CollectionActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".SimulationActivity" android:screenOrientation="portrait" android:exported="false" />
