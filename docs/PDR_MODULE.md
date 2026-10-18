@@ -161,3 +161,26 @@ Raw rotation vector events include quaternion w in raw_sensors.csv for future re
 
 ### Magnetic vs geographical heading
 Android rotation-vector azimuth is relative to magnetic north while GNSS course is relative to true north. The Android activity converts a GNSS fix to magnetic course via GeomagneticField before fusion. Path coordinates remain locally aligned to magnetic north and are not global WGS84 ENU. A future georeferencing adapter must explicitly transform frames using calibrated declination; do not mix magnetic and true azimuth directly.
+
+## Research check — 2026 extensions to the shortlist
+- [DeepILS (2025)](https://github.com/OmerTariq-KAIST/DeepILS-IoT-Journal-2025):
+  lightweight neural inertial localisation comparisons and a linked Android
+  demonstrator; relevant for mobile inference feasibility and benchmarking.
+  Needs device/data/license validation before reusing any code or weights.
+- [IMUNet (2024)](https://github.com/BehnamZeinali/IMUNet):
+  alternative smaller-model baseline with phone dataset and Android recording
+  examples. Ground truth for part of their data uses ARCore; not independent
+  of visual localisation.
+- [KISS-IMU (ICRA 2026)](https://github.com/sparolab/KISS-IMU):
+  self-supervised IMU learning with uncertainty-aware inference; relies on
+  LiDAR odometry pseudo-labels and is not a drop-in pedestrian model.
+  Code is BSD-3.0 **for academic use only**, commercial use requires permission.
+- [TartanIMU Challenge (IROS 2026)](https://superodometry.com/imuchallenge/):
+  useful open cross-platform generalization benchmark, **not** an official
+  validation of this S21 step-based distance algorithm.
+- [2026 inertial regression benchmark](https://doi.org/10.1016/j.rineng.2026.109727):
+  compares 13 techniques and emphasizes data augmentation across six datasets.
+
+Prioritize RoNIN, OxIOD, TLIO, EqNIO and DeepILS for pedestrian displacement
+first; only compare robotics/multi-platform research after the basic S21 ground
+truth and body-heading problem have been addressed.
