@@ -25,6 +25,27 @@ public class StoreRoutePlannerTest {
         StoreRoutePlanner.Plan p=g.plan(List.of("item"),"start","start");
         assertFalse(p.success);assertEquals(List.of("finish"),p.unreachable);assertEquals(0,p.distanceMeters,0);
     }
+    @Test public void exactOptimumFindsBetterOrderThanNearestNeighbour(){
+        // A star-and-shortcut graph: greedy visits the nearby branch first;
+        // exact DP compares all orders for global walk distance.
+        StoreRoutePlanner g=new StoreRoutePlanner();
+        for(String n:new String[]{"start","A","B","C","finish"})g.addNode(n,0,0);
+        g.connect("start","A",1);g.connect("start","B",2);
+        g.connect("A","C",20);g.connect("B","C",2);
+        g.connect("C","finish",1);g.connect("A","finish",22);
+        g.assignProduct("a","A");g.assignProduct("b","B");g.assignProduct("c","C");
+        StoreRoutePlanner.Plan plan=g.plan(List.of("a","b","c"),"start","finish");
+        assertTrue(plan.message,plan.success);
+        assertTrue(plan.message,plan.message.contains("minimal"));
+        // Brute force reference on the graph: include start->A->start->B->C->finish = 1+1+2+2+1=7.
+        assertEquals(7,plan.distanceMeters,1e-8);
+    }
+    @Test public void canHandleZeroStopsWithoutInventedDistance(){
+        StoreRoutePlanner g=new StoreRoutePlanner();g.addNode("start",0,0);g.addNode("end",0,0);g.connect("start","end",7);
+        StoreRoutePlanner.Plan result=g.plan(List.of(),"start","end");
+        assertTrue(result.success);assertEquals(7,result.distanceMeters,0);
+        assertTrue(result.productsInVisitOrder.isEmpty());
+    }
     @Test public void refusesBadInputs(){
         StoreRoutePlanner g=new StoreRoutePlanner();g.addNode("A",0,0);
         try{g.connect("A","A",1);fail("self-edge");}catch(IllegalArgumentException expected){}
