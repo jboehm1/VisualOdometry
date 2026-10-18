@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "dataset_unit": "downloaded_bytes=0 indicates NOT acquired, never use references as benchmark proof",
+  "dataset_unit": "downloaded_bytes means original recording PERSISTENTLY stored in repo (always zero); verified_ephemeral_ci_bytes records a successfully downloaded GitHub Actions original without retaining dataset",
   "sources": [
     {
       "reviewed_on": "2026-10-19",
@@ -48,9 +48,9 @@
     },
     {
       "reviewed_on": "2026-10-19",
-      "status": "discovered_not_downloaded",
+      "status": "verified_ephemeral_ci_original_ros1_decoded",
       "downloaded_bytes": 0,
-      "parsed_frames": 0,
+      "parsed_frames": 2131,
       "scored_frames": 0,
       "gt_verified": false,
       "id": "upo-smoke",
@@ -81,7 +81,19 @@
         "/fiducial_pose",
         "/os1_cloud_node/imu"
       ],
-      "independent_ground_truth": "partial AR-marker pose and odometry-smoothed positions; not independent for all frames"
+      "independent_ground_truth": "partial AR-marker pose and odometry-smoothed positions; not independent for all frames",
+      "verified_ephemeral_ci_bytes": 2183007782,
+      "real_decoded_pointcloud_frames": {
+        "radar_left": 781,
+        "radar_right": 750,
+        "lidar": 600
+      },
+      "real_decoded_reference_messages": 479,
+      "result_scope": "first 60s bag receipt time; 39.795s of radar stream present; point-cloud observability not map/odometry accuracy",
+      "evidence_run": "https://github.com/jboehm1/VisualOdometry/actions/runs/39178059836",
+      "exact_head": "d92e86f7f1bed31e3fed9dce252e86912defe4a9",
+      "pipeline_suite": "tools/testenv/suites/smoke-upo7-real.json",
+      "dataset_persistence": "original deleted from runner after execution; SHA recorded in downloadable result, public source URL remains"
     },
     {
       "reviewed_on": "2026-10-19",
