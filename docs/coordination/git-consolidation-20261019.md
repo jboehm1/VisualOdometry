@@ -46,3 +46,10 @@ Ordre pragmatique : **(1)** garder la baseline centrale + FLP comme base ; **(2)
 - [Anciennes 41 tâches B1–B8](https://github.com/jboehm1/VisualOdometry/blob/work/slam-roadmap-b1-b2-b8/docs/ROADMAP_EXECUTION.md)
 
 **Prochaine décision à documenter :** derniers SHA PDR/B1–B8 et CI sur une combinaison réelle de `MainActivity`, manifeste et dépendances. Aucune fermeture de PR active #3/#5/#17 ne doit être utilisée pour cacher un conflit.
+
+
+## Événement Git survenu pendant l'audit
+
+Le **19 octobre 2026 (heure locale de Berlin)**, un autre agent a également fusionné **PR #18 — V3 real smartphone suites / modular testenv**, commit de merge `a9683c47452c00f48c68527dc8d92f6fd3c00d82` dans `feature/slam-explorer`. Ce travail apporte des scénarios dataset **ADVIO-09 / Mobile-GVIO** sur le pipeline de test, sans changer les nouveaux modules PDR/courses/FLP. L'état **17 PR / 11 fusionnées / 3 closes / 3 ouvertes** plus haut est donc **l'instantané pris AVANT** cette arrivée ; #18 est une douzième PR fusionnée, et la présente PR documentaire #19 est transitoirement ouverte puis à clôturer par fusion. **Ne pas compter #18 comme encore à merger.**
+
+En présence d'autres chats qui poussent en direct, **relever le SHA central à chaque fusion** : un bilan archivé à un instant donné ne reste pas automatiquement à jour. Les données vérifiables sont les dates/SHA GitHub, pas le compteur seul.
