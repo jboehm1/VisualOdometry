@@ -1,6 +1,6 @@
 # Mobile-GVIO • real smartphone images and IMU benchmark
 
-Status: **experimental**, pending a successful time-overlapping independent reference evaluation. This is a research benchmark, not a release-quality odometer, and does not test Android ARCore.
+Status: **experimental benchmark confirmed executed on real raw camera+IMU data and scored with explicitly posthoc time + scale fitted against the external reference**. It is NOT a validated metric VIO odometer. This is a research benchmark, not a release-quality odometer, and does not test Android ARCore.
 
 ## What was genuinely executed
 
@@ -47,3 +47,22 @@ A **production-quality** metric visual+inertial benchmark will need a calibrated
 ## Comparison with inertial-only
 
 SIMUL, already integrated in the unified benchmark, is the correct current reproducible **real-data step-detection** test for the pinned Android Java PDR engine. It has four different participants and twelve participant/placement combinations; annotated steps support true count and interval F1 but **not** independent distance or trajectory ATE. Mobile-GVIO contributes the complementary camera+IMU modality.
+
+## Verified complete run — October 18, 2026
+
+[GitHub Actions run 39170361901](https://github.com/jboehm1/VisualOdometry/actions/runs/39170361901) returned **SUCCESS** on git commit `ce8bd4141dfdd334887ad91530035c7814b12fe7`.
+
+**Measured results (22-second actual recording window):**
+- 131 genuine 1280x720 phone frames decoded and processed after downsampling; 2,200 raw gyro samples, 2,185 actually integrated.
+- 130 accepted image essential-matrix pose-direction updates; 14,313 real tracked RANSAC inliers.
+- 124 pose timestamps paired to a LiDAR-IMU reference after **post-hoc time alignment**.
+- Rotation-signal correlation 0.815; posthoc time shift **282.95965 seconds** inferred by matching the estimated rotation-change signal to ground-truth orientation changes. The dataset does **not** supply a verified, independent phone↔LiDAR clock calibration.
+- **Sim(3)-aligned trajectory-shape RMSE 0.40149 m**; fitted scale 0.213705. Both time shift and metric scale are fitted with reference **only after inference**, hence the result is *not* independent metric accuracy, *not* a valid absolute distance RMSE and cannot be compared directly to SE3/metric VIO results.
+- Real raw archive byte length, independent upstream MD5 checksums and calibration were checked before inference.
+- Workflow also asserts the reference-based clock shift was **not independently calibrated** and that the estimator did not observe absolute metric scale.
+
+The report was copied via connected GitHub → Drive tools and its metadata was read back:
+[Download the small report in the user's private SLAM_BENCHMARKS/04_REPORTS folder](https://drive.google.com/file/d/1OkFbRBkj6kgoHM1HAHTxogOMUKdnxL_t/view).
+No raw smartphone sensor recording was added to Git or the user's Drive.
+
+**Next research-quality criterion:** run a genuine **metric** tightly-coupled VIO on the same images+accelerometer+gyro, obtain independent timestamp calibration, verify LiDAR-vs-phone extrinsics, and report SE3 ATE/RPE on held-out sequences. The 0.401 m figure above is not this criterion.
