@@ -57,9 +57,10 @@ public final class PdrSensorBridge implements SensorEventListener {
         stop();allowDeviceHeading=phoneTopForward;
         if(manager==null){stepMode="NO SENSOR MANAGER";return;}
         Sensor detector=stepPermission?manager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR):null;
-        useStepDetector=detector!=null;
+        // A sensor can be advertised by Android but its listener registration
+        // may still fail. Never disable acceleration fallback unless subscribed.
+        useStepDetector=detector!=null && register(detector,SensorManager.SENSOR_DELAY_NORMAL);
         stepMode=useStepDetector?"ANDROID STEP_DETECTOR":"ACCEL FALLBACK (EXPERIMENTAL)";
-        if(useStepDetector)register(detector,SensorManager.SENSOR_DELAY_NORMAL);
         // Accelerometer always recorded, also used for fallback.
         register(manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),SensorManager.SENSOR_DELAY_GAME);
         register(manager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),SensorManager.SENSOR_DELAY_GAME);
@@ -71,8 +72,10 @@ public final class PdrSensorBridge implements SensorEventListener {
         latestMagneticNs=Long.MIN_VALUE;
         registered=true;
     }
-    private void register(Sensor sensor,int rate){
-        if(sensor!=null)manager.registerListener(this,sensor,rate);
+    private boolean register(Sensor sensor,int rate){
+        if(sensor==null)return false;
+        try {return manager.registerListener(this,sensor,rate);}
+        catch(SecurityException exception){return false;}
     }
     public String stepMode(){return stepMode;}
     public boolean hasStepSource(boolean permissionGranted){
