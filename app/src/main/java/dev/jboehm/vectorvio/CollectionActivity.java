@@ -9,24 +9,34 @@ import android.widget.*;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
-/** Small controller for independent screen-off collection. No camera preview or ARCore. */
+/** Visible controller attaches to an existing capture without restarting it. */
 public final class CollectionActivity extends Activity {
     private final Handler main=new Handler(Looper.getMainLooper());
     private final ExecutorService io=Executors.newSingleThreadExecutor();
-    private TextView status;private CheckBox high;private File exportDirectory;
-    private final Runnable refresh=new Runnable(){public void run(){status.setText(CollectionService.status+"\n\n"+(CollectionService.currentDirectory==null?"":CollectionService.currentDirectory.getName()));high.setEnabled(!CollectionService.running);main.postDelayed(this,1000);}};
-    @Override public void onCreate(Bundle b){super.onCreate(b);
+    private TextView status;private Spinner profile;private File exportDirectory;
+    private boolean returnToAr,exporting;
+    private final Runnable refresh=new Runnable(){public void run(){
+        if(returnToAr&&!CollectionService.running){returnToAr=false;startActivity(new Intent(CollectionActivity.this,MainActivity.class).putExtra("resume_after_collection",true).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP));finish();return;}
+        if(!exporting)status.setText((returnToAr?"Finalizing before live AR…\n":"")+CollectionService.status+"\n\n"+(CollectionService.currentDirectory==null?"":CollectionService.currentDirectory.getName()));
+        profile.setEnabled(!CollectionService.running);main.postDelayed(this,1000);
+    }};
+    @Override public void onCreate(Bundle b){super.onCreate(b);if(b!=null)returnToAr=b.getBoolean("return_to_ar",false);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(24,40,24,24);root.setBackgroundColor(0xFF0B1822);
-        TextView title=text("COLLECT · video / GPS / IMU",22);root.addView(title);
-        root.addView(text("Independent capture: no ARCore, map or odometer. Start here while the screen is on; then you can lock the phone. A visible notification provides STOP. Screen-off reliability needs a short test on your phone before a long trip.",15));
-        high=new CheckBox(this);high.setText("1080p / 6 Mbps (≈2.7 GB/h video)\nUnchecked: 720p / 3 Mbps (≈1.35 GB/h)");high.setTextColor(Color.WHITE);root.addView(high);
-        root.addView(text("200 Hz requested per IMU sensor; GPS about 1 Hz when available. Sensor logs use lossless gzip; H.264 video is lossy. No audio. Video parts: up to 10 min / 256 MiB, with possible gaps at changes. Stops on low storage. No automatic restart after an error.",14));
-        status=text("Stopped",17);root.addView(status,new LinearLayout.LayoutParams(-1,(int)(90*getResources().getDisplayMetrics().density)));
-        button(root,"START COLLECTION",()->permissions());
-        button(root,"STOP AND FINALIZE",()->{if(CollectionService.running)startService(new Intent(this,CollectionService.class).setAction(CollectionService.STOP));});
+        root.addView(text("WALK · screen-off capture",22));
+        root.addView(text("Video + IMU + optional GPS, without ARCore, preview or mapping. Start here, then lock the phone. Unlock and open VECTOR or its notification to return to this controller; recording continues.",15));
+        profile=new Spinner(this);ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Complete · 720p30 · ≈1.35 GB/h video","Light · 720p15 · ≈0.68 GB/h video","Detail · 1080p30 · ≈2.7 GB/h video"});profile.setAdapter(adapter);
+        profile.setSelection(getPreferences(MODE_PRIVATE).getInt("profile",0));root.addView(profile);
+        root.addView(text("All profiles request IMU 200 Hz and GPS 1 Hz. Light reduces video frame rate and bitrate, so fast motion/detail may be less useful. Batching keeps original sensor timestamps and values. No microphone. Battery savings and screen-off reliability need a test on your phone.",14));
+        root.addView(text("Live AR and screen-off recording use the same camera. Switching to AR finalizes this capture and starts a new tracking segment; no map is computed while the screen is off. Video part changes may have gaps. Do not cover the lens if you need useful images.",14));
+        status=text("Stopped",16);root.addView(status);
+        button(root,"START SCREEN-OFF CAPTURE",this::permissions);
+        button(root,"STOP AND FINALIZE",()->{returnToAr=false;stop();});
+        button(root,"FINALIZE AND RESUME LIVE AR",()->{returnToAr=true;stop();});
         button(root,"EXPORT A COLLECTION ZIP",this::chooseExport);
-        button(root,"BACK",this::finish);ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.addView(root);setContentView(scroll);
+        button(root,"HOME · KEEP RECORDING",()->moveTaskToBack(true));
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.addView(root);setContentView(scroll);
     }
+    private void stop(){if(CollectionService.running)startService(new Intent(this,CollectionService.class).setAction(CollectionService.STOP));}
     private TextView text(String value,int size){TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(Color.WHITE);t.setPadding(0,8,0,8);return t;}
     private void button(LinearLayout parent,String name,Runnable action){Button b=new Button(this);b.setText(name);b.setOnClickListener(v->action.run());parent.addView(b);}
     private void permissions(){if(CollectionService.running)return;
@@ -35,11 +45,15 @@ public final class CollectionActivity extends Activity {
         if(need.isEmpty())start();else requestPermissions(need.toArray(new String[0]),91);
     }
     private void start(){if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED){Toast.makeText(this,"Camera permission required",Toast.LENGTH_LONG).show();return;}
-        if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){Toast.makeText(this,"Allow notifications to keep the recording STOP control visible",Toast.LENGTH_LONG).show();return;}
-        try{startForegroundService(new Intent(this,CollectionService.class).putExtra("high",high.isChecked()));}catch(Exception e){Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show();}}
+        if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){Toast.makeText(this,"Allow notifications for capture status and STOP",Toast.LENGTH_LONG).show();return;}
+        int selected=profile.getSelectedItemPosition();getPreferences(MODE_PRIVATE).edit().putInt("profile",selected).apply();
+        String id=selected==1?"light":selected==2?"detail":"full";
+        try{startForegroundService(new Intent(this,CollectionService.class).putExtra("profile",id));}catch(Exception e){Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show();}}
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){super.onRequestPermissionsResult(request,permissions,grants);if(request==91)start();}
     @Override public void onResume(){super.onResume();main.post(refresh);}
     @Override public void onPause(){main.removeCallbacks(refresh);super.onPause();}
+    @Override public void onSaveInstanceState(Bundle b){b.putBoolean("return_to_ar",returnToAr);super.onSaveInstanceState(b);}
+    @Override public void onBackPressed(){if(CollectionService.running)moveTaskToBack(true);else super.onBackPressed();}
     private void chooseExport(){
         if(CollectionService.running){Toast.makeText(this,"STOP and wait for finalization before export",Toast.LENGTH_LONG).show();return;}
         File root=new File(getFilesDir(),"collections");File[] sessions=root.listFiles(f->f.isDirectory()&&CollectionFiles.isSession(f.getName()));
@@ -48,8 +62,9 @@ public final class CollectionActivity extends Activity {
         new AlertDialog.Builder(this).setTitle("Collection sessions · UTC").setItems(names,(d,i)->{exportDirectory=sessions[i];Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/zip").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,exportDirectory.getName()+".zip");startActivityForResult(intent,92);}).show();
     }
     @Override public void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request!=92||result!=RESULT_OK||data==null||data.getData()==null)return;
-        final File dir=exportDirectory;final android.net.Uri destination=data.getData();status.setText("Exporting… keep this screen open");
-        io.execute(()->{String message;try(OutputStream out=getContentResolver().openOutputStream(destination)){if(out==null)throw new IOException("No export stream");CollectionFiles.zip(dir,out);message="Collection ZIP exported";}catch(Exception e){message="Export failed: "+e.getMessage();}final String value=message;main.post(()->Toast.makeText(this,value,Toast.LENGTH_LONG).show());});
+        final File dir=exportDirectory;if(dir==null){Toast.makeText(this,"Select the collection again",Toast.LENGTH_LONG).show();return;}
+        final android.net.Uri destination=data.getData();exporting=true;status.setText("Exporting… keep this screen open");
+        io.execute(()->{String message;try(OutputStream out=getContentResolver().openOutputStream(destination)){if(out==null)throw new IOException("No export stream");CollectionFiles.zip(dir,out);message="Collection ZIP exported";}catch(Exception e){message="Export failed: "+e.getMessage();}final String value=message;main.post(()->{exporting=false;Toast.makeText(this,value,Toast.LENGTH_LONG).show();});});
     }
     @Override public void onDestroy(){io.shutdown();super.onDestroy();}
 }

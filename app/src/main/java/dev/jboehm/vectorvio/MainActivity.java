@@ -182,6 +182,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             .setMessage("The torch is available during live AR tracking when the active ARCore camera configuration supports a flash. It can improve visibility in dim rooms, but may cause glare on reflective surfaces and can increase heat and battery use. SIM uses generated images and does not activate the phone LED.")
             .setPositiveButton("OK",null).show();return true;});
         setContentView(root);
+        if(getIntent().getBooleanExtra("resume_after_collection",false)){
+            liveModeRequested=true;recordingStartPending=true;
+            getIntent().removeExtra("resume_after_collection");
+        }
 
         recordButton.setOnClickListener(v->toggleRecording());
         mark.setOnClickListener(v->mark());
@@ -564,8 +568,18 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         hud.update(odometer.snapshot(SystemClock.elapsedRealtime()),trackingLabel,message,markerCount);
         hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);
     }
+    @Override protected void onNewIntent(Intent intent){
+        super.onNewIntent(intent);setIntent(intent);
+        if(intent.getBooleanExtra("resume_after_collection",false)){
+            liveModeRequested=true;recordingStartPending=true;intent.removeExtra("resume_after_collection");
+        }
+    }
     @Override protected void onResume() {
         super.onResume();
+        if(CollectionService.running){
+            startActivity(new Intent(this,CollectionActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+            return;
+        }
         imu.start();
         gps.start();
         if(liveModeRequested)startAr();

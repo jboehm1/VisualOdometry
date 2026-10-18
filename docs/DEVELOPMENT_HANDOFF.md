@@ -8,6 +8,10 @@ Les sections historiques ci-dessous décrivent la baseline cc2533c. Le nouveau l
 
 Une aide optionnelle DATA -> Return along current trace fige le segment courant en coordonnées métriques et indique retour/rejoindre la trace, distance restante, écart et gauche/droite. Guidage interrompu sur perte de référence ; pas de recalage d'anciennes cartes. Les poses monde brutes destinées à l'export et l'historique visuel restent distincts du trajet métrique. Les anciennes priorités de ce document concernant l'implémentation de cette référence ou du retour sont désormais partiellement réalisées ; tests terrain et projection cohérente de toute l'ancienne carte restent ouverts.
 
+## Actualisation : WALK / énergie
+
+Le contrôleur CollectionActivity reprend une capture existante au retour écran allumé ; le lanceur principal redirige vers lui si une capture est active. Bouton explicite de finalisation puis reprise AR (nouveau segment). Profils Complete 720p30 / Light 720p15 / Detail 1080p30, avec compromis vidéo explicite et mêmes cibles IMU/GPS. Batching matériel, flush capteurs à l'arrêt avec timeout journalisé, flush fichiers toutes les 5 s. Voir CAPTURE_FORMAT.md : le changement n'ajoute pas d'ARCore écran éteint, de reconstruction différée ou de GPX. Énergie et continuité physique S21 encore non validées. Les anciennes descriptions de profil/flush/contrôleur ci-dessous sont historiques.
+
 ## 1. Reprendre le projet
 
 - Dépôt : https://github.com/jboehm1/VisualOdometry

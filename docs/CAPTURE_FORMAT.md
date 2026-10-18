@@ -79,3 +79,27 @@ START émet DISTANCE_ANCHOR_RELATIVE_V4_NO_DEADBAND. Le compteur live utilise de
 DATA -> Return along current trace active/désactive une aide locale au retour. Activer pendant l'enregistrement après avoir parcouru une trace continue : le parcours est figé, le HUD indique distance restante le long de la trace, écart à la trace et direction gauche/droite par rapport à l'orientation caméra. Si l'écart dépasse environ 1 m, REJOIN pointe vers la trace proche ; une fois dessus, RETURN suit le sens inverse. La cible regarde environ 1,5 m en arrière et la recherche reste dans une fenêtre de 20 m pour limiter les sauts aux croisements. Ces tolérances de guidage ne filtrent aucune mesure de distance. Arrivée annoncée comme estimée, non certifiée. Les croisements, étages proches et grandes sorties de route peuvent rester ambigus ; aucune détection d'obstacle.
 
 Seul le segment courant est utilisé ; perte de suivi/référence, pause et reset arrêtent le guidage. Une carte sauvegardée d'une session antérieure ne peut pas être recalée automatiquement. La capture conserve la suite du trajet mais ne rallonge pas la route retour figée. Pas de navigation GPS, partage live, voix ni marqueurs AR de distance dans cette version.
+
+## WALK : contrôleur écran éteint et profils énergie (18 octobre 2026)
+
+DATA -> COLLECT ONLY ouvre maintenant WALK. Lancer la capture avec l'activité visible et les permissions, puis verrouiller l'écran. Rouvrir VECTOR ou sa notification revient au contrôleur actif sans relancer le service ni la vidéo. HOME / Retour pendant la capture laisse le service travailler. FINALIZE AND RESUME LIVE AR attend la fermeture des fichiers et de la caméra, puis reprend le live dans un nouveau segment ; il n'y a pas de carte/odométrie ARCore calculée pendant WALK et pas de reconstruction rétroactive automatique.
+
+| Profil explicite | Vidéo cible | Budget vidéo | IMU / GPS demandés |
+|---|---|---|---|
+| Complete, défaut | 720p30 H264 3 Mbps | ~1,35 Go/h | 200 Hz / ~1 Hz |
+| Light | 720p15 H264 1,5 Mbps | ~0,675 Go/h | identiques |
+| Detail | 1080p30 H264 6 Mbps | ~2,7 Go/h | identiques |
+
+Light perd de la résolution temporelle et du détail de compression vidéo : ce n'est pas une optimisation sans compromis pour le futur VIO/training. Aucun changement automatique à l'extinction de l'écran. Le profil complet garde les cibles vidéo initiales. Le contrôleur mémorise le choix explicite. AE_TARGET_FPS_RANGE choisit une plage supportée dont la borne haute égale la cible ; cadence réelle variable sous contrôle AE. Si cette cible n'est pas supportée, la capture échoue explicitement plutôt que prétendre appliquer 15 Hz tout en faisant travailler la caméra à 30 Hz.
+
+Les gains structurels sont l'absence d'ARCore, de rendu caméra/overlays, de mapping et de boucle UI hors écran visible. La caméra/encodeur, GPS et acquisition 200 Hz consomment toujours. Pas de promesse de pourcentage d'économie ni d'autonomie mesurée.
+
+SensorManager peut livrer des lots avec latence demandée jusqu'à 250 ms, bornée par une fraction de la capacité FIFO annoncée ; sans FIFO, livraison immédiate. Fréquence d'échantillonnage demandée, timestamps et valeurs restent identiques. Un partial wake lock est conservé pour protéger la livraison des capteurs non wake-up écran éteint ; le retirer sans qualification matérielle risquerait des pertes. Au STOP, le service demande le flush des capteurs et attend les callbacks, au plus 2 s. Seuls les échantillons datés avant l'arrêt sont acceptés. Flush indisponible/échoué/timeout est journalisé comme possible perte de fin, sans garantie trompeuse de zéro perte.
+
+Flush gzip et contrôle maintenance passent de 1 à 5 s. Arrêt normal ferme les flux ; arrêt brutal peut perdre une fin de journal plus longue et le MP4 courant. Le statut ne se met à jour que toutes les 5 s côté service, le contrôleur interroge seulement lorsqu'il est visible. Le résumé inclut batterie % début/fin, indicateur grossier dépendant de l'OS, pas une mesure isolée de puissance de l'application. Métadonnées : profil, cible FPS, plage AE, latence batching maximale et intervalle flush.
+
+À tester sur S21 : 15–30 min écran verrouillé pour chaque profil, réouverture répétée et HOME/autres apps, arrêt notification, transition AR, nombre/intervalle des samples capteurs et frames, lecture de chaque MP4, passage de partie vidéo, consommation et chauffe. Restrictions constructeur/batterie, interruptions caméra et pertes système restent possibles. Les tests automatisés ne remplacent pas ce contrôle.
+
+Références Android : https://developer.android.com/reference/android/hardware/SensorManager ; https://developer.android.com/develop/background-work/services/fgs/service-types .
+
+GPX et création de routes restent à implémenter : guidage géographique GPS distinct de la trace AR ; import et sauvegarde de routes enregistrées avant d'ajouter dessin/édition cartographique et calcul de routage. Aucun parseur GPX ni navigation GPS ne sont livrés par ce changement.
