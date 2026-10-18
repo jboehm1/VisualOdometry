@@ -154,4 +154,44 @@ class DatasetPipelineTest(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 datasets.prepare_oxiod(imu,root/"prepared")
 
+
+    def test_batch_prevents_cross_split_subject_leakage(self):
+        import batch
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            imu,_=create_oxiod(root/"src")
+            plan={"schema_version":1,"sequences":[
+                {"id":"s1","dataset":"oxiod","split":"train","subject_id":"person_A",
+                 "imu":str(imu),"step_length_m":.74},
+                {"id":"s2","dataset":"oxiod","split":"test","subject_id":"person_A",
+                 "imu":str(imu),"step_length_m":.74}]}
+            src=root/"plan.json"
+            src.write_text(json.dumps(plan))
+            with self.assertRaisesRegex(ValueError,"leakage"):
+                batch.load_manifest(src)
+            plan["sequences"][1]["subject_id"]="person_B"
+            src.write_text(json.dumps(plan))
+            self.assertEqual(len(batch.load_manifest(src)["sequences"]),2)
+
+    @unittest.skipUnless(JDK and HDF5,"Java plus h5py required for batch integration")
+    def test_batch_executes_native_oxiod_and_ronin_with_true_java_engine(self):
+        import batch
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            imu,_=create_oxiod(root/"data"/"ox")
+            ronin=create_ronin(root/"data"/"ronin")
+            plan={"schema_version":1,"sequences":[
+                {"id":"ox","dataset":"oxiod","split":"exploratory","subject_id":"person_A",
+                 "imu":str(imu),"step_length_m":.74},
+                {"id":"ro","dataset":"ronin","split":"test","subject_id":"person_B",
+                 "sequence":str(ronin),"step_length_m":.74}]}
+            source=root/"plan.json";source.write_text(json.dumps(plan))
+            result=batch.run_batch(source,root/"output")
+            self.assertEqual(result["sequence_count"],2)
+            self.assertEqual(result["score_count"],0)
+            self.assertTrue(result["subjects_split_validated"])
+            self.assertFalse(result["accuracy_verified_on_device"])
+            self.assertTrue((root/"output"/"ro"/"java"/"summary.json").is_file())
+            self.assertTrue((root/"output"/"ox"/"java"/"summary.json").is_file())
+
 if __name__=="__main__":unittest.main()
