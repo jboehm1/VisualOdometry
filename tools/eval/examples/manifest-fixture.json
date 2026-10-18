@@ -1,0 +1,12 @@
+{
+  "run_id": "demo-synthetic-fixture",
+  "engine": "arcore-android",
+  "engine_commit": "0000000000000000000000000000000000000000",
+  "dataset_id": "synthetic-example-only",
+  "config_id": "demo-not-calibrated",
+  "evidence": "fixture",
+  "truth_type": "synthetic-fixture",
+  "timebase": "camera-ns",
+  "alignment": "yaw-translation",
+  "scale_fitted": false
+}
