@@ -91,7 +91,11 @@ public final class GeoAlignment {
             }
         }
         acc/=count;
-        if(baseline<MIN_BASELINE_M)return result(State.NEED_BASELINE,0,0,0,baseline,0,acc,0);
+        // If the claimed GPS uncertainty is of the same order as movement,
+        // yaw is weakly observable. Reject an apparently precise candidate.
+        // This cannot detect common-mode multipath bias, only poor geometry.
+        if(baseline<Math.max(MIN_BASELINE_M,4*acc))
+            return result(State.NEED_BASELINE,0,0,0,baseline,0,acc,0);
         double[] weights=new double[count];
         for(int i=0;i<count;i++)weights[i]=1/Math.pow(Math.max(2,samples.get(i).accuracy),2);
         double theta=0, tx=0,ty=0,rms=0;
