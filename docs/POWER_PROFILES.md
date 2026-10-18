@@ -50,7 +50,7 @@ Full/Light/Detail conservent leur sélection stricte de borne haute. Tous demand
 
 ## Validation
 
-Tests du scheduler (même cadence de traitement pour tous les profils, boost visuel sans requête de pose supplémentaire, arrêt/reprise), coalescence/bornes en cas de consommateur lent/erreur, comptage des frames distinctes, geste Android/menu (annulation et focus) et sélection de plage caméra avec repli. CI : unit tests, lint, APK debug/release et régressions GPS/AR. À vérifier sur appareil : gestes multitouch, cadence réelle, transitions, températures et autonomie. Mesurer plusieurs profils à luminosité, scène et durée identiques ; ne pas déduire une consommation proportionnelle aux FPS.
+Une trajectoire cinématique courbe à 5 m/s vérifie que le scheduler alimente le même compteur de distance dans tous les profils ; ce test ne valide pas le suivi visuel de la course réelle. Tests du scheduler (même cadence de traitement pour tous les profils, boost visuel sans requête de pose supplémentaire, arrêt/reprise), coalescence/bornes en cas de consommateur lent/erreur, comptage des frames distinctes, geste Android/menu (annulation et focus) et sélection de plage caméra avec repli. CI : unit tests, lint, APK debug/release et régressions GPS/AR. À vérifier sur appareil : gestes multitouch, cadence réelle, transitions, températures et autonomie. Mesurer plusieurs profils à luminosité, scène et durée identiques ; ne pas déduire une consommation proportionnelle aux FPS.
 
 Sources :
 - https://developers.google.com/ar/reference/java/com/google/ar/core/CameraConfig.TargetFps

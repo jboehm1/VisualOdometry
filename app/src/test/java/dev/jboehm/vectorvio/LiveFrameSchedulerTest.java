@@ -36,4 +36,17 @@ public class LiveFrameSchedulerTest {
         s.setMode(LiveFrameScheduler.Mode.HOLD);s.setPressed(true);s.setMode(LiveFrameScheduler.Mode.BALANCED);
         assertFalse(s.pressed());assertEquals(15,s.fps());s.setPressed(true);assertEquals(15,s.fps());s.stop();
     }
+    @Test public void curvedRunningPathKeepsIdenticalDistanceAcrossDisplayModes(){
+        double expected=-1;
+        for(LiveFrameScheduler.Mode mode:LiveFrameScheduler.Mode.values()){
+            Odometer odometer=new Odometer();odometer.start(0);AtomicInteger samples=new AtomicInteger();
+            LiveFrameScheduler s=new LiveFrameScheduler(new Handler(Looper.getMainLooper()),()->{
+                int i=samples.getAndIncrement();double angle=i/30.0; // radius 5 m, speed 5 m/s
+                odometer.onPose(5*Math.cos(angle),0,5*Math.sin(angle),1_000_000_000L+i*33_333_333L);
+            },()->{});
+            s.setMode(mode);s.start();advance(9999);s.stop();Odometer.Snapshot result=odometer.snapshot(10000);
+            assertTrue(result.totalMeters>49);assertEquals(0,result.gaps);
+            if(expected<0)expected=result.totalMeters;assertEquals(expected,result.totalMeters,1e-10);
+        }
+    }
 }
