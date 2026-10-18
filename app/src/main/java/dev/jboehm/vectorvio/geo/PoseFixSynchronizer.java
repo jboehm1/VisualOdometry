@@ -18,16 +18,20 @@ public final class PoseFixSynchronizer {
     public static final class Pose {
         public final int segment;
         public final long ns;
-        public final double x, z;
-        Pose(int segment,long ns,double x,double z){this.segment=segment;this.ns=ns;this.x=x;this.z=z;}
+        public final double x, z, distanceMeters;
+        Pose(int segment,long ns,double x,double z,double distanceMeters){
+            this.segment=segment;this.ns=ns;this.x=x;this.z=z;this.distanceMeters=distanceMeters;
+        }
     }
     public synchronized void reset(){history.clear();segment=0;lastNs=0;}
     public synchronized boolean push(int currentSegment,long elapsedRealtimeNs,double x,double z){
         if(currentSegment<=0 || elapsedRealtimeNs<=0 || !Double.isFinite(x)||!Double.isFinite(z))return false;
         if(segment!=currentSegment || (lastNs>0&&elapsedRealtimeNs-lastNs>700_000_000L))reset();
         if(elapsedRealtimeNs<=lastNs)return false;
+        Pose prior=history.peekLast();
+        double traveled=prior==null?0:prior.distanceMeters+Math.hypot(x-prior.x,z-prior.z);
         segment=currentSegment;lastNs=elapsedRealtimeNs;
-        history.addLast(new Pose(currentSegment,elapsedRealtimeNs,x,z));
+        history.addLast(new Pose(currentSegment,elapsedRealtimeNs,x,z,traveled));
         while(history.size()>LIMIT)history.removeFirst();
         return true;
     }
@@ -42,7 +46,8 @@ public final class PoseFixSynchronizer {
                 long span=b.ns-a.ns;
                 if(span<=0||span>MAX_INTERVAL_NS||b.segment!=a.segment)return null;
                 double t=(double)(fixElapsedRealtimeNs-a.ns)/span;
-                return new Pose(a.segment,fixElapsedRealtimeNs,a.x+t*(b.x-a.x),a.z+t*(b.z-a.z));
+                return new Pose(a.segment,fixElapsedRealtimeNs,a.x+t*(b.x-a.x),
+                    a.z+t*(b.z-a.z),a.distanceMeters+t*(b.distanceMeters-a.distanceMeters));
             }
             a=b;
         }
