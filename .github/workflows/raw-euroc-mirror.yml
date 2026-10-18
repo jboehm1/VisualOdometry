@@ -23,7 +23,7 @@ jobs:
           python - <<'PY'
           import gdown,pathlib,hashlib,os
           dst="/tmp/euroc/source"
-          result=gdown.download(id="1LFrdiMU6UBjtFfXPHzjJ4L7iDIXcdhvh",output=dst,quiet=False,fuzzy=True)
+          result=gdown.download(id="1LFrdiMU6UBjtFfXPHzjJ4L7iDIXcdhvh",output=dst,quiet=False)
           if not result: raise RuntimeError("Source is unavailable")
           f=pathlib.Path(dst)
           print("DOWNLOADED", f.stat().st_size, "BYTES", flush=True)
