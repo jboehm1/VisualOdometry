@@ -75,4 +75,14 @@ public class GpsCoreTest {
             String text=new String(Files.readAllBytes(f.toPath()),StandardCharsets.UTF_8);assertTrue(text.contains(",100.0,"));assertEquals(2,GpsTrackJournal.recover(f).size());
         }finally{f.delete();}
     }
+    @Test public void journalByteLimitIncludesBufferedRejectedFixes()throws Exception{
+        File f=File.createTempFile("gps-limit",".journal");boolean limited=false;
+        try{
+            try(GpsTrackJournal journal=new GpsTrackJournal(f)){
+                GpsNavigator.Fix bad=fix(0,0,100,1);
+                for(int i=0;i<1000000;i++)try{journal.append(bad,bad.ns);}catch(IOException expected){limited=true;break;}
+            }
+            assertTrue(limited);assertTrue(f.length()<=GpxIO.MAX_BYTES);
+        }finally{f.delete();}
+    }
 }

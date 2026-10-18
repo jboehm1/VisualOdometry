@@ -6,19 +6,24 @@ import java.util.*;
  * GPS validity/continuity gates affect the derived GPX, not an AR/VIO stream. */
 public final class GpsTrackJournal implements Closeable {
     private final File file;private final FileOutputStream bytes;private final BufferedWriter out;
-    private GpsNavigator.Fix previous;private boolean gap=true;
+    private GpsNavigator.Fix previous;private boolean gap=true;private long writtenBytes;
     public int count;
-    public GpsTrackJournal(File file)throws IOException{this.file=file;bytes=new FileOutputStream(file,false);out=new BufferedWriter(new OutputStreamWriter(bytes,StandardCharsets.UTF_8),32768);out.write("VECTOR_GPS_TRACK_V2\n");out.flush();}
+    public GpsTrackJournal(File file)throws IOException{this.file=file;bytes=new FileOutputStream(file,false);out=new BufferedWriter(new OutputStreamWriter(bytes,StandardCharsets.UTF_8),32768);writeRecord("VECTOR_GPS_TRACK_V2\n");out.flush();}
     public boolean append(GpsNavigator.Fix f,long now)throws IOException{
-        if(count>=GpsRoute.MAX_POINTS||file.length()>GpxIO.MAX_BYTES)throw new IOException("Recording limit reached; save this track");
+        if(count>=GpsRoute.MAX_POINTS)throw new IOException("Recording limit reached; save this track");
         // Preserve received coordinates/accuracy even if unsuitable for a derived route.
-        out.write("R,"+f.lat+","+f.lon+","+(Double.isFinite(f.ele)?f.ele:"")+","+f.ns+","+f.accuracy+","+f.speed+","+f.bearing+"\n");
+        writeRecord("R,"+f.lat+","+f.lon+","+(Double.isFinite(f.ele)?f.ele:"")+","+f.ns+","+f.accuracy+","+f.speed+","+f.bearing+"\n");
         if(!Geo.valid(f.lat,f.lon)||!Double.isFinite(f.accuracy)||f.accuracy<=0||f.accuracy>30||f.ns<=0||f.ns>now||now-f.ns>5_000_000_000L){gap=true;return false;}
         if(previous!=null&&f.ns<=previous.ns)return false;
         if(previous!=null){double dt=(f.ns-previous.ns)*1e-9;if(dt>15)gap=true;
             if(!GpsFixRules.plausible(previous,f)){previous=null;gap=true;return false;}}
-        if(gap){out.write("B\n");gap=false;}
-        out.write("P,"+f.lat+","+f.lon+","+(Double.isFinite(f.ele)?f.ele:"")+","+f.ns+","+f.accuracy+"\n");count++;previous=f;return true;
+        if(gap){writeRecord("B\n");gap=false;}
+        writeRecord("P,"+f.lat+","+f.lon+","+(Double.isFinite(f.ele)?f.ele:"")+","+f.ns+","+f.accuracy+"\n");count++;previous=f;return true;
+    }
+    private void writeRecord(String row)throws IOException{
+        int size=row.getBytes(StandardCharsets.UTF_8).length;
+        if(writtenBytes+size>GpxIO.MAX_BYTES)throw new IOException("Recording byte limit reached; save this track");
+        out.write(row);writtenBytes+=size;
     }
     public void flush()throws IOException{out.flush();}
     @Override public void close()throws IOException{try{out.flush();bytes.getFD().sync();}finally{try{out.close();}finally{bytes.close();}}}
