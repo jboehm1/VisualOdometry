@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   real_java_pdr:
-    name: Real annotated walking • Java and Python • 2 subjects x 3 placements
+    name: Real annotated walking • Java and Python • 3 subjects x 3 placements
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -49,7 +49,7 @@ jobs:
           from pathlib import Path
           f=Path("campaign_results/real_simul/real_step_report.json")
           d=json.loads(f.read_text())
-          assert len(d["sequences"])==2
+          assert len(d["sequences"])==3
           for s in d["sequences"]:
             assert s["reference_steps"]>20
             assert s["measurement"]["sample_count"]>200
