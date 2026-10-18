@@ -4,10 +4,13 @@ import android.widget.TextView;
 import android.view.View;
 import android.view.ViewGroup;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.Robolectric;
 import org.robolectric.android.controller.ActivityController;
 
 /** Screen construction never silently subscribes to either location provider. */
+@RunWith(RobolectricTestRunner.class)
 public class LocationComparisonActivityTest {
     @Test public void screenPresentsExplicitOptInAndExportControls(){
         ActivityController<LocationComparisonActivity> c=
