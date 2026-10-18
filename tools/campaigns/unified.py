@@ -339,11 +339,31 @@ def _run_inertial(base: dict, output: Path, dataset: str, engine: str,
         import simul_real
         java_path, sources = simul_real.compile_java(output)
         from android_pdr_bridge import convert
+        import csv
         replay = output / "java_input.csv"
         bridge = convert(canonical, replay, args.heading_csv, args.heading_source)
-        java = simul_real.run_java(java_path, canonical, output / "java_path.csv")
-        java.pop("step_times", None)  # no direct annotation GT for this dataset
-        measured = java["results"]
+        if not 0.35 <= args.stride_m <= 1.8:
+            raise ValueError("Java PdrEngine stride must be within [0.35, 1.8] m")
+        # Inject the legitimate STEP_LENGTH configuration event, which the
+        # actual Java PdrReplay supports, BEFORE any recorded sensor event.
+        # Keep the converter's original output immutable/hash-verifiable.
+        configured = output / "java_configured_events.csv"
+        with replay.open(newline="", encoding="utf-8") as src, configured.open(
+            "w", newline="", encoding="utf-8") as dst:
+            reader = csv.reader(src)
+            writer = csv.writer(dst)
+            writer.writerow(next(reader))
+            writer.writerow((1, "STEP_LENGTH", args.stride_m, 0, 0))
+            writer.writerows(reader)
+        _invoke(
+            ["java", "-cp", str(java_path),
+             "dev.jboehm.vectorvio.pdr.PdrReplay",
+             str(configured), str(output / "java_path.csv")],
+            output, timeout_s=args.timeout_s,
+        )
+        measured = json.loads((output / "engine_stdout.log").read_text().strip().splitlines()[-1])
+        if measured.get("rejected_rows"):
+            raise ValueError("Java PdrReplay rejected sensor records")
         base.update({
             "status": "PASS",
             "measured_engine": "actual_pinned_Java_PdrEngine",
@@ -355,6 +375,8 @@ def _run_inertial(base: dict, output: Path, dataset: str, engine: str,
                 "sensor_input_sha256": hash_file(source),
                 "Java_PdrEngine_commit": simul_real.JAVA_SHA,
                 "Java_source_files": sources,
+                "configured_stride_m": args.stride_m,
+                "configured_replay_sha256": hash_file(configured),
                 "bridge_manifest": bridge,
             },
         })
