@@ -39,6 +39,7 @@ jobs:
           python tools/campaigns/mobile_gvio_score.py \
             --estimate campaign_results/raw_phone/estimate_unscaled.tum \
             --truth /tmp/actual_phone/ground_truth.txt \
+            --infer-clock-from-reference-rotations \
             --out campaign_results/raw_phone/score.json
       - name: Check both raw image and real IMU were consumed
         run: |
@@ -52,6 +53,8 @@ jobs:
           assert i["gyro_integrated_samples"]>=100
           assert i["visual_essential_pose_updates"]>=8
           assert s["matched_pose_pairs"]>=30
+          assert s["clock_shift_fitted_using_reference_after_inference"] is True
+          assert s["timestamp_calibration_independently_verified"] is False
           assert i["clock_basis"]=="ROS_msg_header.stamp_original_device_capture_time"
           assert s["estimator_metric_scale_observed"] is False
           print("REAL_CAMERA_AND_IMU_PROVEN",i["actual_images_processed"],
