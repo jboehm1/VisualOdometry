@@ -61,6 +61,30 @@ public final class PdrEngineTest {
         assertTrue(p.snapshot(3).elevationM>9);
         assertEquals(.85,p.snapshot(3).stepLengthM,1e-10);
     }
+    @Test public void rejectsBufferedPreSessionEvents() {
+        PdrEngine p=new PdrEngine();
+        p.start(10_000_000_000L);
+        p.deviceHeading(9_000_000_000L,Math.PI/2);
+        p.gpsCourse(9_000_000_000L,Math.PI/2,2f,3f,2f);
+        p.pressure(9_000_000_000L,1000);
+        assertFalse(p.step(9_000_000_000L));
+        assertTrue(p.step(10_500_000_000L));
+        assertEquals(1,p.snapshot(10_500_000_000L).stepsWithoutHeading);
+        assertTrue(Double.isNaN(p.snapshot(10_500_000_000L).elevationM));
+    }
+    @Test public void resumeNeverReusesOldHeadingOrBridgesPausedMovement() {
+        PdrEngine p=new PdrEngine();
+        p.start(1);
+        p.deviceHeading(1_000_000_000L,0);
+        p.step(1_500_000_000L);
+        p.pause();p.resume();
+        p.step(1_800_000_000L);
+        assertEquals(1,p.snapshot(1_800_000_000L).stepsWithoutHeading);
+        p.deviceHeading(2_000_000_000L,0);
+        p.step(2_500_000_000L);
+        assertEquals(3,p.path().size());
+        assertTrue(p.path().get(2).gapBefore);
+    }
     @Test public void accelerationFallbackDetectsDistinctSyntheticPeaks() {
         PdrEngine p=new PdrEngine();p.start(1);
         long t=1_000_000_000L;

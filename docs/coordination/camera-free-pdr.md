@@ -37,3 +37,6 @@ Seulement `app/src/main/java/dev/jboehm/vectorvio/pdr/{PdrEngine,PdrActivity,Pdr
 **P0 : renforcer le contrat de replay/évaluation PDR Java sur données réalistes** : corriger les ambiguïtés distance totale vs longueur de trajectoire (trous de cap), synchronisation/tri des événements et fidélité export/replay, créer des tests de non-régression cohérents, puis lancer la CI sur le **nouveau SHA**. Ensuite : capteurs/permissions/replay S21 et benchmarks réels indépendants. Les performances de terrain et l'usage en poche restent **non validés**.
 
 **Intégration :** PR #5 demeure en brouillon, sans fusion sur `feature/slam-explorer`. Recontrôler les têtes et résoudre les conflits inter-chantiers uniquement dans une intégration revue et testée.
+
+### Intervention de fiabilisation — PDR export/replay (2026-10-18)
+Changements limités au module : **PdrEngine**, **PdrTraceWriter**, tests JUnit et outils d'évaluation PDR. Protection contre échantillons d'avant START et anciennes orientations réutilisées après pause ; `path.csv` exporté avec `gap_before` comme le replay Java. Ne modifie pas le menu DATA, le manifeste ni les workflows partagés. La CI du nouveau commit devra être contrôlée avant toute intégration.

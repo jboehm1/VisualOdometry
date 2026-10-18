@@ -43,6 +43,8 @@ public final class PdrEngine {
     private static final long HEADING_MAX_AGE_NS=3_000_000_000L;
     private static final long GNSS_MAX_AGE_NS=4_000_000_000L;
     private boolean recording;
+    /** A sensor sample arriving from before START must never move this session. */
+    private long sessionStartNs=Long.MIN_VALUE;
     private long lastStepNs=Long.MIN_VALUE, deviceTimeNs=Long.MIN_VALUE, gpsTimeNs=Long.MIN_VALUE;
     private double deviceHeadingRad, gpsHeadingRad, stepLengthM=.74, distanceM, eastM, northM;
     private double baselinePressureHpa=Double.NaN, elevationM=Double.NaN;
@@ -57,6 +59,8 @@ public final class PdrEngine {
         stepLengthM=meters;
     }
     public void start(long timeNs) {
+        if(timeNs<=0)throw new IllegalArgumentException("session start timestamp must be positive");
+        sessionStartNs=timeNs;
         recording=true; lastStepNs=Long.MIN_VALUE; deviceTimeNs=Long.MIN_VALUE;
         gpsTimeNs=Long.MIN_VALUE; distanceM=0; eastM=0; northM=0; steps=0;
         trajectorySteps=0; stepsWithoutHeading=0;
@@ -64,30 +68,34 @@ public final class PdrEngine {
         fallback.reset();gapPending=false;path.clear();path.add(new Point(timeNs,0,0,false));
     }
     public void pause() { recording=false; fallback.reset(); lastStepNs=Long.MIN_VALUE; gapPending=true; }
-    public void resume() { recording=true; fallback.reset(); lastStepNs=Long.MIN_VALUE; }
+    public void resume() {
+        recording=true;fallback.reset();lastStepNs=Long.MIN_VALUE;
+        deviceTimeNs=Long.MIN_VALUE;gpsTimeNs=Long.MIN_VALUE;
+        gapPending=true;
+    }
     public boolean isRecording() { return recording; }
 
     /** Android SensorManager azimuth: radians clockwise from north; phone top Y axis. */
     public void deviceHeading(long timeNs, double radians) {
-        if (!recording||timeNs<=deviceTimeNs||!Double.isFinite(radians)) return;
+        if (!recording||timeNs<sessionStartNs||timeNs<=deviceTimeNs||!Double.isFinite(radians)) return;
         deviceTimeNs=timeNs; deviceHeadingRad=wrap(radians);
     }
     /** GNSS course must first be converted TRUE -> MAGNETIC north by Android adapter. */
     public void gpsCourse(long timeNs, double radians, float speedMps,
                           float horizontalAccuracyM, float bearingAccuracyDeg) {
-        if (!recording || timeNs<=gpsTimeNs || !Double.isFinite(radians) ||
+        if (!recording || timeNs<sessionStartNs || timeNs<=gpsTimeNs || !Double.isFinite(radians) ||
             !Float.isFinite(speedMps) || speedMps<1.2f ||
             !Float.isFinite(horizontalAccuracyM) || horizontalAccuracyM>20f ||
             !Float.isFinite(bearingAccuracyDeg) || bearingAccuracyDeg>25f) return;
         gpsTimeNs=timeNs; gpsHeadingRad=wrap(radians);
     }
     public void pressure(long timeNs, double hPa) {
-        if(!recording||!Double.isFinite(hPa)||hPa<300||hPa>1100) return;
+        if(!recording||timeNs<sessionStartNs||!Double.isFinite(hPa)||hPa<300||hPa>1100) return;
         if(!Double.isFinite(baselinePressureHpa)) baselinePressureHpa=hPa;
         elevationM=44330.0*(1.0-Math.pow(hPa/baselinePressureHpa,0.190294957));
     }
     public boolean step(long timeNs) {
-        if (!recording || timeNs<=0 || (lastStepNs!=Long.MIN_VALUE
+        if (!recording || timeNs<sessionStartNs || (lastStepNs!=Long.MIN_VALUE
                 && (timeNs<=lastStepNs || timeNs-lastStepNs<MIN_STEP_NS))) return false;
         lastStepNs=timeNs; ++steps; distanceM+=stepLengthM;
         Heading heading=headingAt(timeNs);

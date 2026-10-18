@@ -30,7 +30,7 @@ public final class PdrTraceWriter {
             if(type.startsWith("RAW_"))target.write(String.format(Locale.US,
                     "%d,%s,%.8f,%.8f,%.8f,,%d%n",t,type,x,y,z,accuracy));
             else target.write(String.format(Locale.US,
-                    "%d,%s,%.8f,%.8f,%.8f%n",t,type,x,y,z));
+                    "%d,%s,%.8f,%.8f,%.8f,%n",t,type,x,y,z));
             if(++written%256==0){eventOut.flush();rawOut.flush();}
         }catch(IOException e){throw new IllegalStateException("PDR trace write failed",e);}
     }
@@ -64,12 +64,13 @@ public final class PdrTraceWriter {
             try(ZipOutputStream zip=new ZipOutputStream(dst,StandardCharsets.UTF_8)){
                 addFile(zip,events,"events.csv");addFile(zip,raw,"raw_sensors.csv");
                 zip.putNextEntry(new ZipEntry("path.csv"));
-                zip.write("t_ns,east_m,north_m\n".getBytes(StandardCharsets.UTF_8));
+                zip.write("t_ns,east_m,north_m,gap_before\n".getBytes(StandardCharsets.UTF_8));
                 for(PdrEngine.Point p:points)zip.write(String.format(Locale.US,
-                    "%d,%.6f,%.6f%n",p.timeNs,p.eastM,p.northM).getBytes(StandardCharsets.UTF_8));
+                    "%d,%.6f,%.6f,%s%n",p.timeNs,p.eastM,p.northM,p.gapBefore).getBytes(StandardCharsets.UTF_8));
                 zip.closeEntry();
                 zip.putNextEntry(new ZipEntry("metadata.txt"));
                 zip.write(("VECTOR VIO PDR, no camera\n"+
+                    "Format version: PDR-2 (gap_before in path.csv)\n"+
                     "Coordinate frame: local magnetic north/east-like metres (not WGS84).\n"+
                     "Timestamps: Android elapsedRealtimeNanos since boot.\n"+
                     "Distance: detected steps times configured step length; not ground truth.\n"+
