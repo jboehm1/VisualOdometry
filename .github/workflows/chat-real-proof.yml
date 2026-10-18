@@ -2,7 +2,7 @@ name: Chat proof • genuine pedestrian IMU Java benchmark
 
 on:
   push:
-    branches: [feature/chat-live-dataset-proof-20261018]
+    branches: [feature/chat-live-dataset-proof-20261018, feature/slam-explorer]
     paths:
       - "tools/campaigns/chat_real_proof.py"
       - ".github/workflows/chat-real-proof.yml"
