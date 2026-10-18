@@ -25,7 +25,8 @@ final class SceneMapper {
         final float confidence;
         float heading,pitch,targetMeters=-1;
         float cameraX,cameraZ;
-        boolean groundEstimated,cameraPoseValid;
+        boolean groundEstimated,groundMissing,cameraPoseValid;
+        int groundPoints;
         Snapshot(List<Shape> shapes,int h,int v,int p,int a,float q){this(shapes,h,v,p,a,q,new ArrayList<>(),new ArrayList<>(),new ArrayList<>(),new ArrayList<>(),0);}
         Snapshot(List<Shape> shapes,int h,int v,int p,int a,float q,List<MapPoint> mapPoints,List<MapSurface> surfaces,List<float[]> path,List<MapArchive.Poi> pois){this(shapes,h,v,p,a,q,mapPoints,surfaces,path,pois,0);}
         Snapshot(List<Shape> shapes,int h,int v,int p,int a,float q,List<MapPoint> mapPoints,List<MapSurface> surfaces,List<float[]> path,List<MapArchive.Poi> pois,int segment) {
@@ -36,6 +37,7 @@ final class SceneMapper {
     static final class MapPoint {final float x,y,z,confidence;MapPoint(float x,float y,float z,float q){this.x=x;this.y=y;this.z=z;confidence=q;}}
     static final class MapSurface {final float[] xz;final boolean vertical;MapSurface(float[] xz,boolean vertical){this.xz=xz;this.vertical=vertical;}}
     boolean worldRendering;
+    boolean allowEstimatedGround;
     private final ArrayList<Anchor> trail=new ArrayList<>();
     private final LinkedHashMap<Long,MapPoint> mapPoints=new LinkedHashMap<>();
     private final float[] view=new float[16],projection=new float[16],vp=new float[16];
@@ -68,7 +70,10 @@ final class SceneMapper {
             float[] xy=worldRendering?EMPTY:Projection.polygon(vp,xyz);
             float[] xz=new float[xyz.length/3*2];for(int i=0,j=0;i<xyz.length;i+=3){xz[j++]=xyz[i];xz[j++]=xyz[i+2];}
             if(surfaces.size()<24)surfaces.add(new MapSurface(xz,vertical));
-            if(plane.getType()==Plane.Type.HORIZONTAL_UPWARD_FACING)floors.add(new GroundTrail.Floor(center.ty(),xz));
+            if(plane.getType()==Plane.Type.HORIZONTAL_UPWARD_FACING){
+                float[] normal=center.getYAxis();
+                floors.add(new GroundTrail.Floor(center.tx(),center.ty(),center.tz(),normal[0],normal[1],normal[2],xz));
+            }
             if(worldRendering||xy.length>=6)shapes.add(new Shape(xy,vertical?1:0,"",worldRendering?xyz:null));
         }
         int points=0;float confidence=0;
@@ -91,16 +96,21 @@ final class SceneMapper {
         // Project the recorded world path. No per-breadcrumb native anchors.
         // Breaks remain explicit; no fabricated motion through tracking outages.
         ArrayList<float[]> path=new ArrayList<>();
-        Odometer.Point previous=null;float[] previousGround=null;boolean groundEstimated=false;
+        Odometer.Point previous=null;float[] previousGround=null;boolean groundEstimated=false,groundMissing=false;int groundPoints=0;
         for(Odometer.Point point:history) {
             float ground=GroundTrail.floorY(point,floors);
-            if(!Float.isFinite(ground)){ground=(float)point.y-1.5f;groundEstimated=true;}
+            path.add(new float[]{(float)point.x,(float)point.y,(float)point.z});
+            if(!Float.isFinite(ground)){
+                groundMissing=true;
+                if(!allowEstimatedGround){previous=null;previousGround=null;continue;}
+                ground=(float)point.y-1.5f;groundEstimated=true;
+            }else groundPoints++;
             float[] xyz={(float)point.x,ground+.025f,(float)point.z};
             if(previous!=null && previous.segment==point.segment) {
                 float[] line=worldRendering?EMPTY:Projection.line(vp,previousGround,xyz);
                 if(line!=null)shapes.add(new Shape(line,3,"",worldRendering?new float[]{previousGround[0],previousGround[1],previousGround[2],xyz[0],xyz[1],xyz[2]}:null));
             }
-            path.add(new float[]{(float)point.x,(float)point.y,(float)point.z});previous=point;previousGround=xyz;
+            previous=point;previousGround=xyz;
         }
         ArrayList<MapArchive.Poi> currentPois=new ArrayList<>();
         for(MapArchive.Poi poi:pois) {
@@ -112,6 +122,7 @@ final class SceneMapper {
         Snapshot snapshot=new Snapshot(shapes,h,v,points,history.size(),points==0?0:confidence/points,
             new ArrayList<>(mapPoints.values()),surfaces,path,currentPois,segment);
         snapshot.groundEstimated=groundEstimated;
+        snapshot.groundMissing=groundMissing;snapshot.groundPoints=groundPoints;
         snapshot.cameraPoseValid=true;
         snapshot.cameraX=camera.getPose().tx();snapshot.cameraZ=camera.getPose().tz();
         float[] axis=camera.getDisplayOrientedPose().getZAxis();

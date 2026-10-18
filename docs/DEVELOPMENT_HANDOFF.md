@@ -12,6 +12,10 @@ Une aide optionnelle DATA -> Return along current trace fige le segment courant 
 
 Le contrôleur CollectionActivity reprend une capture existante au retour écran allumé ; le lanceur principal redirige vers lui si une capture est active. Bouton explicite de finalisation puis reprise AR (nouveau segment). Profils Complete 720p30 / Light 720p15 / Detail 1080p30, avec compromis vidéo explicite et mêmes cibles IMU/GPS. Batching matériel, flush capteurs à l'arrêt avec timeout journalisé, flush fichiers toutes les 5 s. Voir CAPTURE_FORMAT.md : le changement n'ajoute pas d'ARCore écran éteint, de reconstruction différée ou de GPX. Énergie et continuité physique S21 encore non validées. Les anciennes descriptions de profil/flush/contrôleur ci-dessous sont historiques.
 
+## Actualisation : projection au sol
+
+Ruban désormais limité aux surfaces détectées par défaut ; les zones sans sol créent des ruptures visuelles (NO FLOOR / FLOOR PARTIAL), pas une hauteur caméra moins 1,5 m imposée. Ancien mode approximatif réactivable dans DATA -> Unknown floor ribbon, marqué FLOOR EST. Normale complète du plan utilisée pour la hauteur lorsque disponible. Le terrain extérieur irrégulier/Depth n'est pas implémenté ; les surfaces restent géométriques sans reconnaissance de sol. Voir CAPTURE_FORMAT.md. Les anciennes descriptions du fallback automatique ci-dessous sont historiques.
+
 ## 1. Reprendre le projet
 
 - Dépôt : https://github.com/jboehm1/VisualOdometry

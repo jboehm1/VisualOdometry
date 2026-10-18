@@ -60,6 +60,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private HudView hud;
     private ImuMonitor imu;
     private final SceneMapper mapper=new SceneMapper();
+    private volatile boolean estimatedGround;
     private WorldOverlayRenderer worldOverlay;
     private OverlayPolicy overlayPolicy=new OverlayPolicy(false,false);
     private long lastOverlayErrorMs;
@@ -119,6 +120,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             refreshHud();
         });
         SharedPreferences preferences=getSharedPreferences("spatial_explorer",MODE_PRIVATE);
+        estimatedGround=preferences.getBoolean("estimated_ground",false);
         keyframeIntervalSeconds=preferences.getFloat("keyframe_interval",1f);
         keyframeMinDistance=preferences.getFloat("keyframe_distance",.75f);
         keyframeMinRotation=preferences.getFloat("keyframe_rotation",20f);
@@ -171,7 +173,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         layers.setOnClickListener(v->{hud.cycleLayers();preferences.edit().putInt("overlay_layers",hud.layers()).apply();});
         layers.setOnLongClickListener(v->{
             new AlertDialog.Builder(this).setTitle("Explore your local map")
-                .setMessage("LAYERS cycles planes, point cloud and trail. Cyan = horizontal planes, violet = vertical planes, gold = measured scene points. These are geometric surfaces, not recognized objects.\n\nThe orange trail is displayed near the detected floor. FLOOR EST. means a 1.5 m phone-height assumption is used where the floor is unknown. The recorded camera trajectory is unchanged. Turn around to see where you walked. It is a see-through overlay, with no real-world occlusion.\n\nMAPS opens the detailed live scene map, 3D inspection, export, loop checks and settings. The current map auto-saves after captured keyframes and POIs; SAVE MAP creates an extra named snapshot. POIs need a tracked plane and are saved with the map.\n\nThe first START launches ARCore and recording together. PAUSE excludes movement until RESUME. Unknown motion across tracking gaps is excluded. DATA opens GPS, training capture and IMU display. IMU shows device-axis acceleration (including gravity) and angular velocity.\n\nSIM runs a deterministic generated indoor video and synchronized synthetic IMU without camera permission or ARCore; it is for repeatable debug tests, not measured sensor data.\n\nAccuracy is unmeasured. ARCore manages a local map; saved snapshots can be reopened in 3D, but do not restore the private ARCore tracking map. CSV includes diagnostic IMU samples, not calibrated camera–IMU research data.")
+                .setMessage("LAYERS cycles planes, point cloud and trail. Cyan = horizontal planes, violet = vertical planes, gold = measured scene points. These are geometric surfaces, not recognized objects.\n\nThe orange trail is displayed only over detected upward surfaces by default. Unknown ground creates gaps (NO FLOOR / FLOOR PARTIAL); it is not a surveyed terrain model. DATA can enable an approximate ribbon 1.5 m below the camera where ground is unknown (FLOOR EST.); raising/lowering the phone can distort that approximation. The recorded camera trajectory is unchanged. Turn around to see where you walked. It is a see-through overlay, with no real-world occlusion.\n\nMAPS opens the detailed live scene map, 3D inspection, export, loop checks and settings. The current map auto-saves after captured keyframes and POIs; SAVE MAP creates an extra named snapshot. POIs need a tracked plane and are saved with the map.\n\nThe first START launches ARCore and recording together. PAUSE excludes movement until RESUME. Unknown motion across tracking gaps is excluded. DATA opens GPS, training capture and IMU display. IMU shows device-axis acceleration (including gravity) and angular velocity.\n\nSIM runs a deterministic generated indoor video and synchronized synthetic IMU without camera permission or ARCore; it is for repeatable debug tests, not measured sensor data.\n\nAccuracy is unmeasured. ARCore manages a local map; saved snapshots can be reopened in 3D, but do not restore the private ARCore tracking map. CSV includes diagnostic IMU samples, not calibrated camera–IMU research data.")
                 .setPositiveButton("GOT IT",null).show();return true;
         });
         sensors.setOnClickListener(v->dataMenu());
@@ -262,8 +264,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
 
     private void dataMenu(){
-        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return")};
+        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return"),"Unknown floor ribbon: "+(estimatedGround?"ESTIMATED — disable":"HIDDEN — enable height estimate")};
         new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
+            if(i==7){estimatedGround=!estimatedGround;getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("estimated_ground",estimatedGround).apply();return;}
             if(i==6){
                 if(!returnTraceRequested&&!odometer.isRecording()){
                     Toast.makeText(this,"Start tracking first; return mode needs one continuous session",Toast.LENGTH_LONG).show();return;
@@ -855,6 +858,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 if(now-lastSceneNs>=50) {
                     lastSceneNs=now;
                     java.util.List<Odometer.Point> history=odometer.snapshot(now).worldTrail;
+                    mapper.allowEstimatedGround=estimatedGround;
                     SceneMapper.Snapshot scene=mapper.update(s,frame,poseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,history);
                     if(worldOverlay!=null)try{worldOverlay.update(scene);}catch(RuntimeException|OutOfMemoryError e){
                         disableWorldOverlay(e);

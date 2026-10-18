@@ -103,3 +103,13 @@ Flush gzip et contrôle maintenance passent de 1 à 5 s. Arrêt normal ferme les
 Références Android : https://developer.android.com/reference/android/hardware/SensorManager ; https://developer.android.com/develop/background-work/services/fgs/service-types .
 
 GPX et création de routes restent à implémenter : guidage géographique GPS distinct de la trace AR ; import et sauvegarde de routes enregistrées avant d'ajouter dessin/édition cartographique et calcul de routage. Aucun parseur GPX ni navigation GPS ne sont livrés par ce changement.
+
+## Projection au sol : surfaces connues par défaut
+
+Le ruban AR utilise par défaut uniquement les surfaces ascendantes détectées et jugées plausibles sous les points du parcours. Lorsqu'une hauteur manque, le ruban est interrompu ; la trajectoire reste dans la carte et les données restent enregistrées. Le HUD indique NO FLOOR ou FLOOR PARTIAL. Aucun déplacement enregistré ni distance métrique ne sont supprimés par ce choix d'affichage.
+
+DATA -> Unknown floor ribbon permet de réactiver explicitement l'ancienne approximation, hauteur caméra moins 1,5 m. Cette option est mémorisée, désactivée par défaut, et affichée FLOOR EST. Elle peut dessiner une fausse pente si le téléphone monte/descend. Une surface connue utilise désormais son équation complète (normale et origine), pas uniquement l'altitude de son centre ; un plan incliné fourni par le suivi conserve ainsi sa pente. La plage de plausibilité sous la caméra est 0,1 à 2,7 m ; la sélection reste géométrique et peut confondre une table et un sol. Ce n'est pas une segmentation sémantique du terrain.
+
+ARCore est toujours configuré en détection de plans horizontaux/verticaux, Depth désactivé. Préserver une normale fournie ne crée pas un moteur de reconstruction des rampes ou terrains irréguliers. Les escaliers, pentes naturelles, surfaces cachées et changements de repère des anciennes positions ne sont pas résolus par ce correctif. Un futur mode terrain devra utiliser profondeur/maillage et gérer confiance, visibilité, coûts calcul/énergie et compatibilité appareil, sans activer silencieusement un coût supplémentaire dans WALK.
+
+Les mètres restent ceux de la caméra : lever physiquement le téléphone constitue une translation verticale réelle pour le compteur 3D, même si le ruban reste au sol. Pour un odomètre du marcheur, il faudrait définir séparément la grandeur mesurée ; ne pas modifier les poses brutes pour masquer ces gestes.
