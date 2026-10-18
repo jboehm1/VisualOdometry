@@ -6,15 +6,16 @@ import java.nio.file.*;
 import java.util.*;
 
 /**
- * Deterministic replay of canonical trace rows: t_ns,type,x,y,z.
- * Types: HEADING (x radians), GPS_COURSE (x rad,y speed,z accuracy, 15deg
- * conservative bearing accuracy), STEP, ACCEL, PRESSURE.
+ * Deterministic replay of canonical trace rows: t_ns,type,x,y,z[,bearing_accuracy_deg].
+ * Types: START (session time), STEP_LENGTH, HEADING, GPS_COURSE (x rad,
+ * y speed, z horizontal accuracy, bearing_accuracy_deg), STEP, ACCEL, PRESSURE.
  * Ground truth and camera tracks MUST NOT be used as engine inputs.
  */
 public final class PdrReplay {
     public static void main(String[] args) throws Exception {
         if(args.length<1||args.length>2)throw new IllegalArgumentException("usage: PdrReplay <events.csv> [path-out.csv]");
-        PdrEngine p=new PdrEngine();p.start(1);
+        PdrEngine p=new PdrEngine();
+        boolean started=false;
         long lastTime=1;
         int rows=0,bad=0;
         try(BufferedReader in=Files.newBufferedReader(Paths.get(args[0]),StandardCharsets.UTF_8)){
@@ -29,7 +30,13 @@ public final class PdrReplay {
                     double y=Double.parseDouble(f[3].trim());
                     double z=Double.parseDouble(f[4].trim());
                     if(!Double.isFinite(x)||!Double.isFinite(y)||!Double.isFinite(z)){bad++;continue;}
+                    if(!started) {
+                        // START is explicit in newly recorded sessions; older
+                        // traces fall back to their first valid event timestamp.
+                        p.start(t);started=true;
+                    }
                     switch(f[1].trim()) {
+                        case "START":break;
                         case "STEP":p.step(t);break;
                         case "ACCEL":p.acceleration(t,x,y,z);break;
                         case "HEADING":p.deviceHeading(t,x);break;
@@ -46,6 +53,7 @@ public final class PdrReplay {
                 }catch(NumberFormatException e){bad++;}
             }
         }
+        if(!started)throw new IllegalArgumentException("No valid PDR session events");
         PdrEngine.Snapshot s=p.snapshot(lastTime);
         System.out.printf(Locale.US,
             "{\"rows\":%d,\"rejected_rows\":%d,\"steps\":%d,\"distance_m\":%.5f,\"east_m\":%.5f,\"north_m\":%.5f,\"steps_without_heading\":%d}%n",

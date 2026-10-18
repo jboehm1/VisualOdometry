@@ -155,8 +155,10 @@ public final class PdrActivity extends Activity {
     private void openNewSession(){
         try {writer=new PdrTraceWriter(this);}
         catch(Exception e){note="Cannot start trace: "+e.getMessage();render();return;}
-        engine.start(SystemClock.elapsedRealtimeNanos());
-        log("STEP_LENGTH",SystemClock.elapsedRealtimeNanos(),
+        long startNs=SystemClock.elapsedRealtimeNanos();
+        engine.start(startNs);
+        log("START",startNs,0,0,0,0);
+        log("STEP_LENGTH",startNs,
             engine.snapshot(SystemClock.elapsedRealtimeNanos()).stepLengthM,0,0,0);
         bridge.start(stepPermissionGranted());
         autoStopped=false;exportReady=false;note="RECORDING";
