@@ -4,6 +4,14 @@ on:
     paths:
       - '.github/workflows/smoke-upo-real.yml'
       - 'tools/smoke_rescue/upo_real.py'
+  push:
+    branches:
+      - feature/smoke-rescue-research
+    paths:
+      - '.github/workflows/smoke-upo-real.yml'
+      - 'tools/testenv/suites/smoke-upo7-real.json'
+      - 'tools/campaigns/unified.py'
+      - 'tools/smoke_rescue/upo_real.py'
   workflow_dispatch:
 permissions:
   contents: read
