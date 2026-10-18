@@ -21,6 +21,7 @@
         <meta-data android:name="com.google.ar.core" android:value="optional" />
         <service android:name=".GpsNavigationService" android:exported="false" android:foregroundServiceType="location" />
         <activity android:name=".GpsRoutesActivity" android:exported="false" />
+        <activity android:name=".StorePlannerActivity" android:exported="false" />
         <service android:name=".CollectionService" android:exported="false" android:foregroundServiceType="camera|location" />
         <activity android:name=".CollectionActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".SimulationActivity" android:screenOrientation="portrait" android:exported="false" />
