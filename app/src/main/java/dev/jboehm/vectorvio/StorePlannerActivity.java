@@ -8,6 +8,8 @@ import android.view.View;
 import android.widget.*;
 import android.content.SharedPreferences;
 import dev.jboehm.vectorvio.store.StoreRoutePlanner;
+import dev.jboehm.vectorvio.store.StorePlanRepository;
+import android.app.AlertDialog;
 import java.util.*;
 
 /** Local, manual offline grocery floorplan MVP; no camera or background location. */
@@ -15,6 +17,8 @@ public final class StorePlannerActivity extends Activity {
     private EditText nodeInput,edgeInput,productInput,listInput,startInput,endInput;
     private TextView result;
     private StoreMapView diagram;
+    private final java.util.concurrent.ExecutorService io=java.util.concurrent.Executors.newSingleThreadExecutor();
+    private StorePlanRepository repository;
     private static final String PREF="store_manual_v1";
     private static final String[] KEYS={"nodes","edges","products","shopping","start","checkout"};
     private static final String[] EXAMPLE={
@@ -23,6 +27,7 @@ public final class StorePlannerActivity extends Activity {
         "pommes;FRUITS\npain;PAIN\nlait;LAIT", "lait\npommes\npain", "ENTREE", "CAISSE"};
     private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
     @Override public void onCreate(Bundle b){super.onCreate(b);
+        repository=new StorePlanRepository(this);
         SharedPreferences p=getSharedPreferences(PREF,MODE_PRIVATE);
         ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setBackgroundColor(0xff0b1722);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(14),dp(16),dp(14),dp(24));sc.addView(root);
@@ -38,7 +43,16 @@ public final class StorePlannerActivity extends Activity {
         Button compute=new Button(this);compute.setText("CALCULER PARCOURS");compute.setTextColor(0xff001b20);compute.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff72f5d8));
         root.addView(compute,new LinearLayout.LayoutParams(-1,dp(54)));
         result=label(root,"Les connexions sont manuelles; les longueurs doivent être réalistes. Le trajet n'est pas une consigne de sécurité.",14,Color.WHITE);
-        compute.setOnClickListener(v->calculate());setContentView(sc);calculate();
+        compute.setOnClickListener(v->calculate());
+        LinearLayout saveRow=new LinearLayout(this);
+        Button save=new Button(this),open=new Button(this);
+        save.setText("SAUVER MAGASIN");open.setText("MES MAGASINS");
+        save.setTextSize(11);open.setTextSize(11);
+        saveRow.addView(save,new LinearLayout.LayoutParams(0,dp(50),1));
+        saveRow.addView(open,new LinearLayout.LayoutParams(0,dp(50),1));
+        root.addView(saveRow);
+        save.setOnClickListener(v->saveNamed());open.setOnClickListener(v->selectSaved());
+        setContentView(sc);calculate();
     }
     private TextView label(LinearLayout root,String value,int size,int color){TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);t.setPadding(0,dp(5),0,dp(8));root.addView(t);return t;}
     private EditText field(LinearLayout root,String title,String content,int lines){
@@ -68,6 +82,65 @@ public final class StorePlannerActivity extends Activity {
             SharedPreferences.Editor editor=getSharedPreferences(PREF,MODE_PRIVATE).edit();for(int i=0;i<KEYS.length;i++)editor.putString(KEYS[i],values[i]);editor.apply();
         }catch(IllegalArgumentException e){result.setText("ERREUR DANS LE PLAN : "+e.getMessage());diagram.setGraph(null,null);}
     }
+    private String[] fieldValues(){
+        return new String[]{nodeInput.getText().toString(),edgeInput.getText().toString(),
+                productInput.getText().toString(),listInput.getText().toString(),
+                startInput.getText().toString(),endInput.getText().toString()};
+    }
+    private void restore(StorePlanRepository.Stored item){
+        EditText[] fields={nodeInput,edgeInput,productInput,listInput,startInput,endInput};
+        for(int i=0;i<fields.length;i++)fields[i].setText(item.fields[i]);
+        calculate();
+        Toast.makeText(this,"Magasin chargé : "+item.name,Toast.LENGTH_SHORT).show();
+    }
+    private void saveNamed(){
+        EditText name=new EditText(this);name.setSingleLine(true);name.setHint("Nom du magasin");
+        new AlertDialog.Builder(this).setTitle("Enregistrer une copie locale versionnée")
+            .setMessage("Enregistre une copie des rayons, connexions et liste. Les données restent sur ce téléphone. Aucune localisation automatique.")
+            .setView(name).setNegativeButton("ANNULER",null)
+            .setPositiveButton("SAUVER",(d,w)->{
+                String title=name.getText().toString();String[] snapshot=fieldValues();
+                io.execute(()->{
+                    try{StorePlanRepository.Stored saved=repository.save(title,snapshot);
+                        runOnUiThread(()->{
+                            if(isFinishing()||isDestroyed())return;
+                            Toast.makeText(this,"Sauvegardé : "+saved.name,Toast.LENGTH_LONG).show();
+                        });
+                    }catch(Exception e){runOnUiThread(()->{
+                        if(!isFinishing()&&!isDestroyed())Toast.makeText(this,
+                            "Sauvegarde refusée : "+e.getMessage(),Toast.LENGTH_LONG).show();
+                    });}
+                });
+            }).show();
+    }
+    private void selectSaved(){
+        io.execute(()->{
+            List<StorePlanRepository.Stored> plans=repository.list();
+            runOnUiThread(()->{
+                if(isFinishing()||isDestroyed())return;
+                if(plans.isEmpty()){Toast.makeText(this,"Aucun magasin sauvegardé",Toast.LENGTH_LONG).show();return;}
+                String[] names=new String[plans.size()];
+                for(int i=0;i<plans.size();i++)names[i]=plans.get(i).name;
+                new AlertDialog.Builder(this).setTitle("Magasins enregistrés hors ligne")
+                    .setItems(names,(d,i)->{
+                        StorePlanRepository.Stored item=plans.get(i);
+                        new AlertDialog.Builder(this).setTitle(item.name)
+                            .setItems(new String[]{"CHARGER","SUPPRIMER"},(x,choice)->{
+                                if(choice==0)restore(item);
+                                else new AlertDialog.Builder(this).setMessage("Supprimer cette copie de magasin ?")
+                                    .setNegativeButton("ANNULER",null)
+                                    .setPositiveButton("SUPPRIMER",(z,q)->io.execute(()->{
+                                        try{repository.delete(item.id);runOnUiThread(()->Toast.makeText(this,
+                                            "Magasin supprimé",Toast.LENGTH_SHORT).show());}
+                                        catch(Exception e){runOnUiThread(()->Toast.makeText(this,
+                                            "Suppression impossible : "+e.getMessage(),Toast.LENGTH_LONG).show());}
+                                    })).show();
+                            }).show();
+                    }).setNegativeButton("FERMER",null).show();
+            });
+        });
+    }
+    @Override public void onDestroy(){io.shutdown();super.onDestroy();}
     private final class StoreMapView extends View {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
         private StoreRoutePlanner graph;private StoreRoutePlanner.Plan plan;
