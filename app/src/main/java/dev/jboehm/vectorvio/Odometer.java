@@ -16,7 +16,6 @@ import java.util.List;
  * while ARCore calls onPose on the GL thread.
  */
 public final class Odometer {
-    public static final double MIN_STEP_METERS = 0.035;
     public static final double MAX_SPEED_MPS = 25.0;
     public static final double MAX_GAP_SECONDS = 0.70;
     private static final int MAX_TRAIL_POINTS = 400;
@@ -118,13 +117,13 @@ public final class Odometer {
     }
 
     public synchronized Result onPose(double x,double y,double z,long timestampNs){
-        return integrate(x,y,z,timestampNs,null);
+        return integrate(x,y,z,timestampNs);
     }
     /** Compatibility input: orientation never changes accepted translation or distance. */
     public synchronized Result onPose(double x,double y,double z,float[] quaternion,long timestampNs){
-        return integrate(x,y,z,timestampNs,null);
+        return integrate(x,y,z,timestampNs);
     }
-    private Result integrate(double x, double y, double z, long timestampNs,double[] orientation) {
+    private Result integrate(double x, double y, double z, long timestampNs) {
         if (!recording) return Result.INACTIVE;
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)
                 || timestampNs <= 0) return Result.REJECTED;
@@ -172,12 +171,10 @@ public final class Odometer {
         double dt = (timestampNs - referencePoseNs) / 1_000_000_000.0;
         double step = p.distance(reference);
 
-        if (step < MIN_STEP_METERS) {
-            // Keep the reference point so slow genuine movements accumulate.
-            speedMps *= 0.91;
+        if(step==0){
+            reference=p;referencePoseNs=timestampNs;speedMps*=0.91;
             return Result.NO_CHANGE;
         }
-
         double dx = p.x-reference.x, dy = p.y-reference.y, dz = p.z-reference.z;
         totalMeters += step;
         horizontalMeters += Math.hypot(dx, dz);
@@ -185,7 +182,7 @@ public final class Odometer {
         netY += dy;
         netZ += dz;
         if (dy > 0) ascentMeters += dy; else descentMeters += -dy;
-        // Short keyframe windows provide a low-noise average velocity.
+        // Per-frame translation speed, exponentially smoothed for display.
         // After prolonged stationary time, use the latest frame motion instead
         // of dividing the new movement by minutes spent standing still.
         double instantaneousMps = dt <= MAX_GAP_SECONDS ? step/dt : frameStep/frameDt;
