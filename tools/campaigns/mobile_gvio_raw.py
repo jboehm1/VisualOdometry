@@ -117,3 +117,14 @@ def infer(bag,calib,out,seconds=22,skip=8):
     }
     (out/"inference.json").write_text(json.dumps(result,indent=2)+"\n")
     return result
+
+if __name__=="__main__":
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--bag",type=Path,required=True)
+    p.add_argument("--calib",type=Path,required=True)
+    p.add_argument("--out",type=Path,required=True)
+    p.add_argument("--seconds",type=float,default=22)
+    p.add_argument("--skip",type=float,default=8)
+    a=p.parse_args()
+    result=infer(a.bag,a.calib,a.out,a.seconds,a.skip)
+    print("ACTUAL_PHONE_CAMERA_PLUS_GYRO",json.dumps(result),flush=True)
