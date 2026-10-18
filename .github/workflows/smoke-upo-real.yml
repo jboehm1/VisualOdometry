@@ -75,7 +75,7 @@ jobs:
           print("REAL UPO original ROS data benchmarked via TESTENV V2; sensor metrics follow:")
           print(json.dumps(report["metrics"],sort_keys=True))
           PY
-      - name: Upload evidence: only reports/HTML, NEVER dataset bag
+      - name: Upload evidence (reports and HTML only, never the dataset)
         if: always()
         uses: actions/upload-artifact@v4
         with:
