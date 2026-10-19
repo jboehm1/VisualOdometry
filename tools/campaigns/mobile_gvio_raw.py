@@ -4,7 +4,7 @@
 Images supply translation directions. Synchronized gyroscope supplies rotation.
 Monocular translation scale is NOT metric. Not our Android ARCore estimator.
 """
-import argparse,hashlib,json
+import argparse,hashlib,json,time
 from pathlib import Path
 import numpy as np
 import cv2
@@ -70,10 +70,25 @@ def read_real_imu_camera(path,seconds=22,skip=8,every=5):
     return frames,gyro
 
 
-def infer(bag,calib,out,seconds=22,skip=8):
+# Preset settings frozen BEFORE evaluation. Same images, timestamps, K and gyro.
+# Variants only change number/spacing of tracked corners; no truth is fed to either.
+PROFILES = {
+    "balanced": {"maxCorners": 750, "qualityLevel": .018, "minDistance": 7},
+    "low_compute": {"maxCorners": 260, "qualityLevel": .018, "minDistance": 10},
+}
+
+
+def infer(bag, calib, out, seconds=22, skip=8, *, profile="balanced", observations=None):
+    if profile not in PROFILES:
+        raise ValueError("Unsupported frozen visual tracking profile")
+    params = PROFILES[profile]
+    start_wall, start_cpu = time.perf_counter(), time.process_time()
     K,D,Rbc=calibration(calib)
     K[:2,:]*=.5
-    images,gyro=read_real_imu_camera(bag,seconds,skip)
+    images,gyro=(read_real_imu_camera(bag,seconds,skip) if observations is None
+                 else observations)
+    if len(images)<25 or len(gyro)<220:
+        raise ValueError("Insufficient actual smartphone camera and gyro observations")
     Rimu=np.eye(3);Rfirst=None;last=None;j=0;used=0
     pos=np.zeros(3);old=None;good=0;bad=0;inliers=0;poses=[]
     for timestamp,image in images:
@@ -89,7 +104,7 @@ def infer(bag,calib,out,seconds=22,skip=8):
         if Rfirst is None:Rfirst=Rimu.copy()
         Rcamera=Rbc.T@Rfirst.T@Rimu@Rbc
         if old is not None:
-            p=cv2.goodFeaturesToTrack(old,maxCorners=750,qualityLevel=.018,minDistance=7)
+            p=cv2.goodFeaturesToTrack(old,**params)
             if p is not None and len(p)>30:
                 q,mask,_=cv2.calcOpticalFlowPyrLK(old,image,p,None)
                 if q is not None and mask is not None:
@@ -122,6 +137,7 @@ def infer(bag,calib,out,seconds=22,skip=8):
             dest.write(f"{t*1e-9:.9f} "+" ".join(f"{float(v):.9f}" for v in (*p,*q))+"\n")
     result={
       "engine":"research_monocular_visual_directions_with_gyro_orientation",
+      "frozen_tracking_profile":profile, "tracker_parameters":dict(params),
       "actual_images_processed":len(images),"raw_imu_gyro_samples":len(gyro),
       "clock_basis":"ROS_msg_header.stamp_original_device_capture_time",
       "gyro_integrated_samples":used,"visual_essential_pose_updates":good,
@@ -131,6 +147,10 @@ def infer(bag,calib,out,seconds=22,skip=8):
       "camera_images_and_imu_both_influence_pose":True,
       "estimator":"research_baseline_not_ANDROID_ARCore_or_OpenVINS",
       "pose_output":str(poses_file),
+      "estimator_wall_seconds":time.perf_counter()-start_wall,
+      "estimator_cpu_seconds":time.process_time()-start_cpu,
+      "wall_ms_per_frame":(time.perf_counter()-start_wall)*1000/len(images),
+      "metric_distance_accuracy_proven":False,
     }
     (out/"inference.json").write_text(json.dumps(result,indent=2)+"\n")
     return result
@@ -142,6 +162,7 @@ if __name__=="__main__":
     p.add_argument("--out",type=Path,required=True)
     p.add_argument("--seconds",type=float,default=22)
     p.add_argument("--skip",type=float,default=8)
+    p.add_argument("--profile",choices=sorted(PROFILES),default="balanced")
     a=p.parse_args()
-    result=infer(a.bag,a.calib,a.out,a.seconds,a.skip)
+    result=infer(a.bag,a.calib,a.out,a.seconds,a.skip,profile=a.profile)
     print("ACTUAL_PHONE_CAMERA_PLUS_GYRO",json.dumps(result),flush=True)
