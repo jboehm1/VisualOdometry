@@ -44,6 +44,13 @@ public final class DemElevationTest {
         }
         assertEquals(2,DemElevation.missing(r));
     }
+    @Test public void provenanceSurvivesLongTrackNamesAndReverse()throws Exception{
+        char[] chars=new char[120];Arrays.fill(chars,'x');
+        GpsRoute r=new GpsRoute(new String(chars),Arrays.asList(new GpsRoute.Point(48,7,Double.NaN),new GpsRoute.Point(48.001,7,Double.NaN)));
+        GpsRoute enriched=DemElevation.fill(r,points->{double[] h=new double[points.size()];Arrays.fill(h,345);return h;});
+        assertTrue(enriched.name.endsWith(DemElevation.SUFFIX));
+        assertTrue(enriched.reverse().name.contains(DemElevation.SUFFIX));
+    }
     @Test public void denseOrLongRouteQueriesAreBoundedAndInterpolateAllVertices()throws Exception{
         List<GpsRoute.Point> pts=new ArrayList<>();
         for(int i=0;i<5000;i++)pts.add(new GpsRoute.Point(48+i*.000018,7,Double.NaN));
