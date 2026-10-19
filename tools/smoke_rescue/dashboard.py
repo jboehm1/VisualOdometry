@@ -19,7 +19,7 @@ def load_json(path):
     return value
 
 
-def collect(short,full,marker=None,clock=None,corrected=None):
+def collect(short,full,marker=None,clock=None,corrected=None,dual=None,dual_marker=None):
     if short.get("actual_own_estimator_executed") is not True or full.get("actual_own_estimator_executed") is not True:
         raise ValueError("Only actual executed research estimator reports accepted")
     if short.get("source_sha256")!=full.get("source_sha256"):
@@ -39,19 +39,31 @@ def collect(short,full,marker=None,clock=None,corrected=None):
         for cell in cells:
             if len(cell)!=3 or not all(isinstance(z,int) for z in cell) or cell[2]<=0:
                 raise ValueError("Invalid grid cell")
+        quality=d.get("motion_observability",{})
+        if "integrated_seconds" in quality:
+            quality=dict(quality,active_integrated_seconds=quality["integrated_seconds"],
+                         estimated_traveled_path_m=quality.get("integrated_path_m"))
+        mapping=d.get("sparse_positive_echo_map") or quality.get("positive_echo_map") or {}
         return {
             "method":d.get("mode"),
             "track":[{k:p[k] for k in ("x","y","t","yaw","new_segment")} for p in track],
             "cells":cells,"resolution_m":d.get("positive_evidence_grid",{}).get("resolution_m",.25),
-            "motion":d.get("motion_observability",{}),
+            "motion":quality,
             "posthoc":d.get("pseudo_reference_posthoc_evaluation",{}),
-            "map":d.get("sparse_positive_echo_map",{}),
+            "map":mapping,
             "clock":d.get("sensor_source",{}).get("gyro_clock_mode","bag arrival time"),
             "original_dataset_sha256":d["source_sha256"]
         }
+    if dual is not None:
+        if (dual.get("source_sha256")!=full["source_sha256"] or
+            dual.get("reference_used_during_estimation") is not False or
+            dual.get("actual_own_estimator_executed") is not True):
+            raise ValueError("Dual estimator must derive from identical original source with no GT leakage")
     return {
         "short":clean(short),"full":clean(full),
         "marker":marker.get("score") if marker else None,
+        "dual_marker":dual_marker.get("score") if dual_marker else None,
+        "dual":clean(dual) if dual else None,
         "clock_audit":{
             "missing_tf":clock.get("sensor_frames_missing_base_link_tf",[]),
             "imu_clock":clock.get("imu_uptime_to_unix",{}),
@@ -95,7 +107,7 @@ footer{font-size:.76rem;color:var(--sub);margin-top:20px;word-break:break-word}
 </style></head><body><main>
 <header><p class="eyebrow">VECTOR VIO / RESEARCH PLATFORM</p><div class="title"><div><h1>Smoke Rescue <span class="cyan">Laboratory</span></h1><p class="subtitle">Mesures radar réelles dans la fumée • Odométrie Doppler–IMU • Carte d'échos positifs et incertitudes.</p></div><span class="pill">OFFLINE • DONNÉES RÉELLES</span></div></header>
 <div class="warning"><strong>⚠ RECHERCHE UNIQUEMENT — JAMAIS POUR GUIDER DES POMPIERS.</strong> Les zones non observées sont inconnues, pas libres. Carte non calibrée, aucune issue ni personne confirmée. Les métriques de position sont des évaluations a posteriori sur une référence partiellement odométrique.</div>
-<div class="toolbar"><span class="info">Fenêtre enregistrée :</span><button class="active" id="short" type="button">60 s</button><button id="full" type="button">168 s</button><button id="corrected" type="button" style="display:none">IMU synchronisée</button><span class="info" id="source">Radar TI / gyroscope Ouster</span></div>
+<div class="toolbar"><span class="info">Fenêtre enregistrée :</span><button class="active" id="short" type="button">60 s</button><button id="full" type="button">168 s</button><button id="corrected" type="button" style="display:none">IMU synchronisée</button><button id="dual" type="button" style="display:none">2 radars calibrés</button><span class="info" id="source">Radar TI / gyroscope Ouster</span></div>
 <section class="grid" aria-label="Indicateurs expérimentaux">
 <div class="card"><small>ATE RMSE / référence partielle</small><div class="number bad" id="ate">—</div><small>Alignement rigide SE(2) après estimation</small></div>
 <div class="card"><small>Référence immobile (RMSE)</small><div class="number" id="still">—</div><small id="comparison">Même protocole de mesure</small></div>
@@ -138,7 +150,7 @@ function current(){return R[mode]}
 function setMetric(id,value){$(id).textContent=value}
 function update(){
   const d=current(),p=d.posthoc||{},m=d.motion||{},cells=d.map||{};
-  for(const key of ['short','full','corrected'])$(key).classList.toggle('active',key===mode);
+  for(const key of ['short','full','corrected','dual'])$(key).classList.toggle('active',key===mode);
   setMetric('ate',fmt(p.ate_rmse_m_vs_pseudo_reference)+' m');
   setMetric('still',fmt(p.zero_motion_baseline_rmse_m)+' m');
   setMetric('accepted',fmt(m.accepted_fraction*100,1)+' %');
@@ -151,9 +163,9 @@ function update(){
   const est=p.pathlength_over_matched_contiguous_intervals_estimated_m,gt=p.pathlength_over_matched_contiguous_intervals_pseudo_reference_m;
   setMetric('pathgap',fmt(est)+' / '+fmt(gt)+' m');
   setMetric('numcells',String(cells.occupied_evidence_cells||0));
-  setMetric('clock',d.clock||'Non calibrée');
+  setMetric('clock',d.clock||'Non calibrée');setMetric('source',d.method==='DUAL_RADAR_CALIBRATED_TF_SENSOR_CLOCK'?'Radar gauche + droit avec TF + horloge IMU':'Radar gauche + IMU, base expérimentale');
   setMetric('tf',R.clock_audit?(R.clock_audit.missing_tf.length?R.clock_audit.missing_tf.join(', '):'Chemins découverts (non validés)'):'Pas de TF vérifiée');
-  const mark=R.marker||{};
+  const mark=(mode==='dual'?R.dual_marker:R.marker)||{};
   setMetric('marker',mark.heldout_aligned_rmse_m!=null?fmt(mark.heldout_aligned_rmse_m)+' m sur '+mark.heldout_pairs+' échantillons':'Aucun score exploitable');
   const fail=(p.ate_rmse_over_stationary_baseline||0)>1;
   setMetric('risk',fail?'Le radar + IMU fait PIRE qu’une position immobile sur cette fenêtre. La dérive rend la navigation non fiable.':
@@ -215,8 +227,8 @@ function draw(){
   c.fillStyle='#d5eaf2';c.font='14px system-ui';c.fillText('0 ───── '+fmt(100/Math.max(z,1),1)+' m',28,H-20);
 }
 function setMode(m){if(!R[m])return;mode=m;playing=false;fraction=0;$('progress').value=0;$('play').textContent='▶ Lire';view={zoom:1,dx:0,dy:0};update()}
-['short','full','corrected'].forEach(k=>$(k).addEventListener('click',()=>setMode(k)));
-if(R.corrected)$('corrected').style.display='';
+['short','full','corrected','dual'].forEach(k=>$(k).addEventListener('click',()=>setMode(k)));
+if(R.corrected)$('corrected').style.display='';if(R.dual)$('dual').style.display='';
 $('progress').addEventListener('input',e=>{fraction=Number(e.target.value)/1000;draw()});
 $('play').addEventListener('click',()=>{playing=!playing;$('play').textContent=playing?'Ⅱ Pause':'▶ Lire';if(playing&&fraction>=1)fraction=0});
 $('reset').addEventListener('click',()=>{view={zoom:1,dx:0,dy:0};draw()});
@@ -240,12 +252,16 @@ def main(argv=None):
     p.add_argument("--marker",type=Path)
     p.add_argument("--clock",type=Path)
     p.add_argument("--corrected",type=Path)
+    p.add_argument("--dual",type=Path)
+    p.add_argument("--dual-marker",type=Path)
     p.add_argument("--out",required=True,type=Path)
     a=p.parse_args(argv)
     data=collect(load_json(a.short),load_json(a.full),
                  load_json(a.marker) if a.marker else None,
                  load_json(a.clock) if a.clock else None,
-                 load_json(a.corrected) if a.corrected else None)
+                 load_json(a.corrected) if a.corrected else None,
+                 load_json(a.dual) if a.dual else None,
+                 load_json(a.dual_marker) if a.dual_marker else None)
     a.out.parent.mkdir(parents=True,exist_ok=True)
     a.out.write_text(render(data),encoding="utf-8")
     print(json.dumps({"status":"RESEARCH_HTML_COMPLETE", "output":str(a.out),
