@@ -162,6 +162,26 @@ jobs:
             --trajectory-report campaign_results/smoke-upo7/doppler_imu_full168.json \
             --max-seconds 168 \
             --out campaign_results/smoke-upo7/marker_heldout_report.json
+      - name: Publish standalone premium offline smoke laboratory dashboard
+        timeout-minutes: 3
+        run: |
+          python tools/smoke_rescue/dashboard.py \
+            --short campaign_results/smoke-upo7/doppler_imu_research.json \
+            --full campaign_results/smoke-upo7/doppler_imu_full168.json \
+            --corrected campaign_results/smoke-upo7/doppler_clock_corrected_full168.json \
+            --clock campaign_results/smoke-upo7/tf_and_clock_report.json \
+            --marker campaign_results/smoke-upo7/marker_heldout_report.json \
+            --out campaign_results/smoke-upo7/VECTOR_SMOKE_LAB.html
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('campaign_results/smoke-upo7/VECTOR_SMOKE_LAB.html')
+          data=p.read_text(encoding='utf-8')
+          assert len(data)>15000 and 'RECHERCHE UNIQUEMENT' in data
+          assert 'Radar + IMU' in data or 'Doppler' in data
+          assert '<canvas' in data and 'application/json' in data
+          assert '2,18' in data or '2.18' in data
+          print(f'Final portable Smoke Rescue Research viewer: {p.stat().st_size} bytes')
+          PY
       - name: Upload evidence (reports and HTML only, never the dataset)
         if: always()
         uses: actions/upload-artifact@v4
