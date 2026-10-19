@@ -103,3 +103,18 @@ callbacks to invalidate using a current monotonic timestamp. All changes
 isolated to PDR code/tests/docs; no shared menu/Manifest/CI changes.
 The next CI must validate the exact new HEAD; SIMUL/S21 validation remains
 separately unproven and the 42.1% tracker unchanged.
+
+### PDR 1.3 — paired genuine SIMUL gate (2026-10-19)
+New integration ref read: `a9683c47452c00f48c68527dc8d92f6fd3c00d82`;
+PDR initial ref `adf5488f56960ea9a88d7d52a66c705ffe34ecd6`.
+Reviewed current `AGENTS.md`, global coordination, module/AI limitations
+and the existing other-agent real SIMUL scripts. To avoid modifying other
+chantiers, added **PDR-owned** `tools/pdr/simul_compare.py` + isolated
+`tools/pdr/SimulStepTrace.java`, new separate `pdr-real-steps.yml`
+workflow, `docs/PDR_REAL_SIMUL_ITERATION.md` and this record only.
+No existing shared Android/menu/manifest/benchmark/campaign workflows or
+tools modified. Four previously seen SIMUL subjects and two additional
+frozen participants; each benchmark compiles the exact candidate engine.
+Goal: quantify step F1 and count-error vs original pinned Java engine
+on actual IMU; no trajectory accuracy or Galaxy S21 claim. Next: inspect
+exact-SHA CI and report and modify detector only if warranted by evidence.
