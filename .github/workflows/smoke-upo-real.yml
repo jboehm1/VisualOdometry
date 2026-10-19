@@ -1,11 +1,7 @@
 name: Smoke UPO real-bag sensor benchmark (2.18GB)
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/smoke-upo-real.yml'
-      - 'tools/smoke_rescue/upo_real.py'
-      - 'tools/smoke_rescue/probe.py'
-      - 'tools/smoke_rescue/doppler_odom.py'
+  # Avoid two parallel 2.18 GB jobs for a single PR branch push.
+  # Run this expensive real corpus check on branch pushes or manual dispatch.
   push:
     branches:
       - feature/smoke-rescue-research
