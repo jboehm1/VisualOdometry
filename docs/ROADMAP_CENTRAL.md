@@ -18,6 +18,14 @@ Le dépôt GitHub a encore pour branche par défaut `master`, **archive du proje
 4. **P1 — Valeur produit :** tirer une amélioration *démontrée* du matching GPX avec VIO/PDR seulement si les benchmarks le justifient ; conserver l'ambiguïté et l'abstention. Tests magasin/retour et segmentation hors ligne.
 5. **Recherche hors critique — fumée dense / pompier :** scénario pertinent pour localiser des intervenants en bâtiments, mais **aucune fonction de navigation de sauvetage** ne doit être annoncée. GNSS souvent absent en intérieur, RGB/ARCore peu fiable dans fumée épaisse, PDR dérive en rampant/escalier, équipements soumis à chaleur. Étudier capteurs **externes** (thermique, UWB, radar, balises, pression), et commencer exclusivement par des protocoles contrôlés non dangereux.
 
+## Nouvelle piste produit — course, vélo, montagne, faible lumière et précision locale
+
+**Étude sourcée : [Cas d'usage et protocole LOW LIGHT / précision locale](USE_CASES_PRECISION_LOW_LIGHT.md)**. Hypothèse centrale : la **bonne bifurcation** et la **continuité de trace** en forêt/relief/ruelles/tunnels courts valent souvent plus que promettre « ±10 cm ». Un VIO local précis n'est pas une position absolue géographique au décimètre. Les études GNSS sous couvert forestier montrent une dégradation pouvant atteindre plusieurs mètres, mais ARCore perd aussi des poses en obscurité, mouvement rapide et vibrations. Le gain doit être **mesuré sur le S21**, pas supposé.
+
+**P0 :** L01 journalisation état/cause de perte VIO + fraîcheur GNSS ; L02 parcours répétés course et vélo jour/crépuscule/faible lumière, route/forêt/montagne avec référence indépendante ; L03 comparaison GNSS seul / FLP seul / VIO seul / fusion conservatrice, y compris faux embranchements, couverture, p95 et batterie. **P1 :** L04 abstention explicite en perte de confiance ; L05 choix topologique des sentiers/GPX ; L06 vibrations et fixation guidon/poitrine/poche. **P2 :** L07 cartographie locale/segments sportifs ; L08 faisabilité relative au décimètre, sans confondre avec une précision absolue. **Toutes les tâches sont proposées, non réalisées.**
+
+**Scénarios à prioriser :** trail sous canopée et vallon, sentiers parallèles à 1–3 m, épingles de VTT, tunnel court/route encaissée, retour sur trace, course d'orientation. **Ne pas utiliser le PDR piéton pour un vélo**. Garder l'étude fumée/pompiers comme R&D séparée et non sécuritaire.
+
 ## État par chantier et limites
 
 | ID | Chantier / propriétaire | Priorité | État audité | Point bloquant |
