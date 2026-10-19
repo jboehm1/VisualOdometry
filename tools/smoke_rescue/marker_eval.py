@@ -116,7 +116,8 @@ def main(argv=None):
     record=json.loads(a.trajectory_report.read_text(encoding="utf-8"))
     if record.get("reference_used_during_estimation") is not False:
         raise ValueError("Not a verified reference-free sensor estimator")
-    if record.get("mode")!="MEASURED_RADAR_DOPPLER_PLUS_GYRO_UNCALIBRATED_EXTRINSICS":
+    if record.get("mode") not in ("MEASURED_RADAR_DOPPLER_PLUS_GYRO_UNCALIBRATED_EXTRINSICS",
+                                  "DUAL_RADAR_CALIBRATED_TF_SENSOR_CLOCK"):
         raise ValueError("Unexpected estimator engine")
     if not 10<=a.max_seconds<=168:
         raise ValueError("Invalid observation interval")
