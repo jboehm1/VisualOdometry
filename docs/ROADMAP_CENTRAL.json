@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-19 (audit PRs after #11 merge)",
+  "updated_at": "2026-10-19 (low-light cycling and precision use-case study added)",
   "source_of_truth": "feature/slam-explorer:docs/ROADMAP_CENTRAL.md",
   "branch_notes": {
     "default_github_branch": "master — archive 2019, non utilisée pour intégration Android",
@@ -278,6 +278,59 @@
           "priority": "P0",
           "state": "BLOQUE_VALIDATION",
           "acceptance": "Essais comparatifs avec professionnels/organisme qualifié ; pas de revendication secours à court terme."
+        }
+      ]
+    },
+    {
+      "id": "LOWLIGHT",
+      "name": "Vélo faible luminosité, trail/montagne et précision locale",
+      "owner_branch": "docs/lowlight-bike-precision-usecases (documentation only; future engineering branch TBD)",
+      "priority": "P0 research evaluation / P1 product",
+      "stage": "Documented use cases; not implemented, not qualified at 10 cm",
+      "evidence": "docs/USE_CASES_LOWLIGHT_AND_PRECISION.md; current ARCore/GNSS/FLP baseline available but no S21 cycling low-light benchmark",
+      "risks": "Low light, motion blur, vibrations, dense forest, GNSS multipath, drift and global reference ambiguity; no certified absolute 10 cm accuracy; pedestrian PDR unsuitable for cycling",
+      "tasks": [
+        {
+          "id": "L01",
+          "name": "Classer les environnements vélo et les défaillances faible luminosité",
+          "priority": "P0",
+          "state": "DOCUMENTE",
+          "acceptance": "Matrice jour/crépuscule/nuit/tunnel/montagne avec limites et référence vers l'étude."
+        },
+        {
+          "id": "L02",
+          "name": "Comparer GPS/FLP et VIO sur S21 vélo en conditions réelles",
+          "priority": "P0",
+          "state": "A_TESTER_TERRAIN",
+          "acceptance": "3 répétitions par condition, timestamps, erreurs de pose, taux tracking, énergie et source indépendante."
+        },
+        {
+          "id": "L03",
+          "name": "Matching GPX sentiers parallèles, lacets et trous GNSS",
+          "priority": "P0",
+          "state": "NON_FAIT",
+          "acceptance": "Référence indépendante, erreurs de choix de branche, abstention et durée de trou."
+        },
+        {
+          "id": "L04",
+          "name": "Étudier précision locale 10 cm sans fausse promesse absolue",
+          "priority": "P0",
+          "state": "NON_FAIT",
+          "acceptance": "ATE/RPE sur fenêtres, calibrations et vérité indépendante; ne pas certifier précision 10 cm."
+        },
+        {
+          "id": "L05",
+          "name": "Comparer course/trail et fixations téléphone distinctes du vélo",
+          "priority": "P1",
+          "state": "NON_FAIT",
+          "acceptance": "Course main/torse/poche; vélo guidon; ne pas utiliser le modèle PDR piéton sur vélo."
+        },
+        {
+          "id": "L06",
+          "name": "Étudier caméra basse lumière et alternatives RTK/externes",
+          "priority": "P2",
+          "state": "RECHERCHE",
+          "acceptance": "Benchmarks hors entraînement, budget CPU/énergie, coût matériel et gain mesuré."
         }
       ]
     }
