@@ -19,7 +19,7 @@ final class SettingsCatalog {
         Section(String title,String subtitle){this.title=title;this.subtitle=subtitle;}
     }
     enum Action {
-        GPX_AR, GPS_ROUTES, RETURN_TRACE,
+        GPX_AR, GPS_MANUAL_ALIGN, GPS_ROUTES, RETURN_TRACE,
         GPS_TOGGLE, GPS_COMPARISON, IMU_TOGGLE,
         LAYERS, UNKNOWN_GROUND, OVERLAY_RENDER,
         VIDEO_TRAINING, COLLECT_ONLY, ARCORE_REPLAY, EXPORT, CAPTURE_INFO,
@@ -34,6 +34,7 @@ final class SettingsCatalog {
     }
     private static final List<Item> ALL=Collections.unmodifiableList(Arrays.asList(
         new Item(Section.NAVIGATION,Action.GPX_AR,"GPX AR — experimental camera guidance","Show an imported route on the observed ground · opt-in"),
+        new Item(Section.NAVIGATION,Action.GPS_MANUAL_ALIGN,"Adjust GPX on screen","Drag to match real trail · manual, session-only"),
         new Item(Section.NAVIGATION,Action.GPS_ROUTES,"GPS ROUTES — import GPX / follow / record","2D GPS guidance without a camera"),
         new Item(Section.NAVIGATION,Action.RETURN_TRACE,"Return on local trace","Follow the recorded trail back to its start"),
 
