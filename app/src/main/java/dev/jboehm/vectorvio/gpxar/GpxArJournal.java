@@ -18,9 +18,12 @@ public final class GpxArJournal {
     /** Build on recorder worker, not camera/UI thread. End newline is added by the recorder. */
     public static String routeRows(long revision,GpsRoute route){
         StringBuilder rows=new StringBuilder();int i=0;
+        // Source is persisted visibly in the GPX track name (including reverse).
+        // Unknown source GPX elevations must never be relabelled as ellipsoidal.
+        String datum=route.name.contains(DemElevation.SUFFIX)?DemElevation.DATUM:"UNKNOWN";
         for(GpsRoute.Point p:route.points){
             if(i>0)rows.append('\n');rows.append(revision).append(',').append(i++).append(',')
-                .append(value(p.lat)).append(',').append(value(p.lon)).append(',').append(value(p.ele)).append(",UNKNOWN");
+                .append(value(p.lat)).append(',').append(value(p.lon)).append(',').append(value(p.ele)).append(',').append(datum);
         }
         return rows.toString();
     }
