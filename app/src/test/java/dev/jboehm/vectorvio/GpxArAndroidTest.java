@@ -29,7 +29,8 @@ public class GpxArAndroidTest {
             assertTrue(labels.contains("ARCORE REPLAY — evaluate saved video with same odometer"));
             int position=-1;for(int i=0;i<data.getListView().getCount();i++)if(data.getListView().getAdapter().getItem(i).equals("GPX AR — experimental camera guidance"))position=i;
             assertTrue(position>=0);data.getListView().performItemClick(null,position,position);
-            AlertDialog ar=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(8,ar.getListView().getCount());
+            AlertDialog ar=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(9,ar.getListView().getCount());
+            assertEquals("ADD ALTITUDE · EU-DEM (ONLINE)",ar.getListView().getAdapter().getItem(8));
             ar.getListView().performItemClick(null,1,1);
             Intent request=Shadows.shadowOf(c.get()).getNextStartedActivity();assertNotNull(request);assertEquals(Intent.ACTION_OPEN_DOCUMENT,request.getAction());
         }finally{c.destroy();}
