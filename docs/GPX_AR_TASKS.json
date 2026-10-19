@@ -1,0 +1,369 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-19",
+  "base_sha": "ab577a14b29261f2047503b2432e47ceb97e06ac",
+  "branch": "feature/gpx-ar-guidance",
+  "progress_rule": "Percent per task = checked acceptance items, not an accuracy score. Documentation completion does not count as AR implementation. No aggregate percentage across documentation and physical qualification.",
+  "tasks": [
+    {
+      "id": "A01",
+      "phase": "Cadrage",
+      "title": "Auditer intégration et modules parallèles",
+      "status": "DOCUMENTE",
+      "percent": 100,
+      "depends_on": [],
+      "acceptance": "Lister GPX 2D, trail AR local, FLP A/B et GeoAlignment séparé; identifier les fichiers partagés.",
+      "evidence": "docs/coordination/gpx-ar-guidance.md",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "A02",
+      "phase": "Cadrage",
+      "title": "Vérifier bruit, corrélation et observabilité",
+      "status": "VERIFIE_SYNTHETIQUE",
+      "percent": 100,
+      "depends_on": [
+        "A01"
+      ],
+      "acceptance": "Sources primaires; équations explicites; distinguer résidu et erreur absolue; expérience reproductible.",
+      "evidence": "tools/gpx_ar/noise_study.py; docs/gpx-ar/noise-study.json; 7 tests hôte",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "A03",
+      "phase": "Cadrage",
+      "title": "Définir contrats et protocole de qualification",
+      "status": "DOCUMENTE",
+      "percent": 100,
+      "depends_on": [
+        "A02"
+      ],
+      "acceptance": "Repères, temps, incertitudes, dépendances et critères de sortie écrits; accord produit terrain restant.",
+      "evidence": "docs/GPX_AR_GUIDANCE_PLAN.md",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "L01",
+      "phase": "Localisation",
+      "title": "Créer interface neutre de localisation",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "A03"
+      ],
+      "acceptance": "Réutiliser location/LocationSample; contrat indépendant de Play Services; GPS/FLP interchangeables; tests provider simulé.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "L02",
+      "phase": "Localisation",
+      "title": "Brancher FLP et repli GPS natif",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "L01"
+      ],
+      "acceptance": "Tester Play Services absent, localisation désactivée, permission approximative/refusée, annulation et reprise; aucune panne globale.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "L03",
+      "phase": "Localisation",
+      "title": "Contrôler horloge, fraîcheur et doublons",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "L01"
+      ],
+      "acceptance": "Original elapsedRealtimeNanos, arrivée, provenance conservés; doublons/réordonnancement/batch testés; données brutes intactes.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "L04",
+      "phase": "Localisation",
+      "title": "Mesurer gain FLP sur appareil",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "L02",
+        "L03"
+      ],
+      "acceptance": "Campagnes GPS seul, FLP seul, simultané; référence indépendante; disponibilité/latence/énergie/erreur p50/p95 rapportées.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "F01",
+      "phase": "Recalage",
+      "title": "Réutiliser synchronisation et alignement B1–B8",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "L03"
+      ],
+      "acceptance": "Revue GeoAlignment/GeoFusionTracker/PoseFixSynchronizer de PR #3; intégration ciblée; reset par segment, aucune copie divergente.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "F02",
+      "phase": "Recalage",
+      "title": "Implémenter conversion GPX vers repère AR",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "F01"
+      ],
+      "acceptance": "WGS84 vers ENU puis axes AR documentés; yaw et translation sans ajustement libre de l’échelle; aller-retour et signes testés.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "F03",
+      "phase": "Recalage",
+      "title": "Conserver incertitude sous erreurs corrélées",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "F01",
+        "A02"
+      ],
+      "acceptance": "Ne pas compter FLP et GNSS comme indépendants; doublons ne réduisent pas la confiance; biais commun déclaré non observable; couverture mesurée sur données tenues à part.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "F04",
+      "phase": "Recalage",
+      "title": "Gérer géométries ambiguës et suivi GPX",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "F02",
+        "F03"
+      ],
+      "acceptance": "Immobilité/rotation pure/courte base ne créent pas un cap fiable; routes parallèles, croisements et boucle gardent plusieurs hypothèses; pas de snap certifié.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "F05",
+      "phase": "Recalage",
+      "title": "Gérer pertes et corrections sans sauts cachés",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "F04"
+      ],
+      "acceptance": "Perte GNSS/VIO, reset AR, reprise et changement provider testés; incertitude croissante; transformation datée/versionnée, correction visible.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "H01",
+      "phase": "Terrain",
+      "title": "Préserver altitude et datum du GPX",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "A03"
+      ],
+      "acceptance": "ele facultatif; datum inconnu explicite; aucune conversion implicite MSL↔ellipsoïde; ponts/étages distincts; import sans ele testé.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "H02",
+      "phase": "Terrain",
+      "title": "Construire surface locale observée",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "H01",
+        "F02"
+      ],
+      "acceptance": "Plans/raycast/depth quand supportés; aucune hauteur dérivée silencieusement de la hauteur téléphone; terrain inconnu reste inconnu.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "H03",
+      "phase": "Terrain",
+      "title": "Tester montées, escaliers et téléphone vertical",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "H02"
+      ],
+      "acceptance": "Lever/baisser le téléphone ne déplace pas la route au sol; pente suivie seulement sur géométrie observée; segments non observés identifiés.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "R01",
+      "phase": "Rendu",
+      "title": "Créer géométrie de route 3D continue",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "F05",
+        "H02"
+      ],
+      "acceptance": "Ruban continu, raccords sans rectangles visibles, épaisseur métrique, points finis; CPU fallback si GPU indisponible; mêmes positions géométriques.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "R02",
+      "phase": "Rendu",
+      "title": "Stabiliser ancres et portions locales",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "R01"
+      ],
+      "acceptance": "Chunks bornés; origine flottante si nécessaire; cohérence après relocalisation; pas d’accumulation illimitée; essai long.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "R03",
+      "phase": "Rendu",
+      "title": "Afficher états de confiance compréhensibles",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "F03",
+        "R01"
+      ],
+      "acceptance": "Acquisition/ambigu/recalage utilisable/perdu; corridor ou flèche si précision insuffisante; mode précis réservé aux conditions validées; cap/position/hauteur séparés.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "R04",
+      "phase": "Rendu",
+      "title": "Offrir recalage manuel et aide au retour",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "R03"
+      ],
+      "acceptance": "Point connu + direction avec incertitude déclarée; annuler/revenir en arrière; suivre/rejoindre trace sans masquer ambiguïtés.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "I01",
+      "phase": "Intégration",
+      "title": "Ajouter mode expérimental sans collision DATA",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "R03"
+      ],
+      "acceptance": "Actions DATA distinctes; préserver GPS ROUTES, A/B, replay, PDR et capture; tests navigation et lifecycle sur résultat combiné.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "I02",
+      "phase": "Intégration",
+      "title": "Borner coût et préserver acquisition",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "I01",
+        "R02"
+      ],
+      "acceptance": "Pose cible 30/s séparée de VIEW; files bornées; pas de deadband translation; export asynchrone brut/estimé séparés; métriques perf/power.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "Q01",
+      "phase": "Qualification",
+      "title": "Tester moteur réel en replay et négatifs",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "F05",
+        "H03",
+        "R03"
+      ],
+      "acceptance": "Mêmes classes Java que l’app; métriques par moteur; perturbations biais, corrélation, perte, GPX erroné, sens inversé; données de test distinctes du réglage.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "Q02",
+      "phase": "Qualification",
+      "title": "Mesurer placement caméra sur parcours de référence",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "Q01",
+        "L04",
+        "I02"
+      ],
+      "acceptance": "Points sol indépendamment référencés, marche/course/ville/forêt/pente/chemins parallèles; erreur latérale/longitudinale/cap/hauteur p50/p95, abstention et faux fiables.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "Q03",
+      "phase": "Qualification",
+      "title": "Produire APK de la branche réunie",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "Q02"
+      ],
+      "acceptance": "CI tests/lint/build et smoke menus/export au SHA exact; APK et rapport avec limites; pas de validation via APK d’une autre branche.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": false
+    },
+    {
+      "id": "O01",
+      "phase": "Option VPS",
+      "title": "Évaluer référence visuelle absolue Google",
+      "status": "NON_COMMENCE",
+      "percent": 0,
+      "depends_on": [
+        "L04",
+        "F03"
+      ],
+      "acceptance": "Essai séparé Geospatial/VPS avec couverture, réseau, autorisations/coûts; comparaison indépendante; désactivé par défaut et aucune dépendance obligatoire forêt.",
+      "evidence": "",
+      "owner": "gpx-ar-guidance",
+      "optional": true
+    }
+  ]
+}
