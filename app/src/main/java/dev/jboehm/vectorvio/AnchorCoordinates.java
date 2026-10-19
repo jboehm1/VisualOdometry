@@ -10,6 +10,7 @@ final class AnchorCoordinates {
     Pose camera(Pose worldFromAnchor,Pose worldFromCamera){
         return metricFromAnchor.compose(worldFromAnchor.inverse()).compose(worldFromCamera);
     }
+    Pose worldFromMetric(Pose worldFromAnchor){return worldFromAnchor.compose(metricFromAnchor.inverse());}
     void rebase(Pose worldFromOld,Pose worldFromNew){
         // Same-frame transfer preserves both translation and orientation.
         metricFromAnchor=metricFromAnchor.compose(worldFromOld.inverse()).compose(worldFromNew);

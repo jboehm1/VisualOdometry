@@ -1,3 +1,18 @@
+# Mise à jour — finalisation logicielle, 19 octobre 2026
+
+Branche `feature/gpx-ar-guidance`, intégration auditée `ab577a14b29261f2047503b2432e47ceb97e06ac`, départ `8641432`. Aucun autre module fusionné. Les preuves APK/CI ci-dessous sont **historiques**, antérieures à cette itération; la nouvelle CI sera consignée après compilation.
+
+- Référence métrique GPX distincte de l’odomètre; inverse additive AnchorCoordinates/AnchoredOdometry, sans modification des mesures.
+- GpxRibbonAnchors : portions 6 m, 32 références maximum, 2 créations par présentation, cleanup et masque en échec. SceneMapper réutilise la géométrie ancrée GPU/Canvas.
+- Wgs84LocalFrame pour GeoAlignment et RouteIndex; densification dérivée 25 m, limites explicites, source inchangée.
+- MainActivity/SceneMapper/HudView : options direction/distances/départ-arrivée/POI locaux/restant, persistance; tous les choix masquent seulement l’affichage.
+- Export poses CSV étendu métrique/révision; outils Java/Python de rejeu du ZIP, sans retraitement vidéo/IMU/ARCore. CI archive une fixture déclarée synthétique. Guide : [GPX_AR_REPLAY.md](../GPX_AR_REPLAY.md).
+- 41 tests Java ciblés, 12 Python passés localement. Compilations Android/lint/tests globaux à consigner après CI; aucune précision terrain certifiée.
+
+Risques de coordination : préserver menus DATA, exports existants et séparation poses/VIEW; GeoAlignment à réunir explicitement avec PR #3; aucun whole-file ours/theirs. Les CSV métriques vides ne doivent pas être remplacés par le monde brut. Ne pas présenter la fixture CI comme un test réel du S21.
+
+---
+
 # Handoff — GPX dans la caméra
 
 19 octobre 2026. Branche isolée `feature/gpx-ar-guidance`; PR **#24**, contre `feature/slam-explorer` : https://github.com/jboehm1/VisualOdometry/pull/24 . **Aucune fusion dans l’intégration exécutée.**
@@ -15,7 +30,7 @@
 
 AGENTS.md, DEVELOPMENT_COORDINATION.md, ROADMAP_CENTRAL.md, coordination/android-location-flp.md et LOCATION_FL_PILOT.md lus depuis la base. Travaux B1–B8 examinés au SHA `51885d3747721f176c14083ccb391c0719691bac` sur `work/slam-roadmap-b1-b2-b8`.
 
-Reprise ciblée de `GeoAlignment.java` et `geo/PoseFixSynchronizer.java`, avec inverse et correction de longitude dateline. Pas de fusion globale PR #3; `GeoFusionTracker` n’est pas dupliqué. Lors de la future réunion avec B1–B8, préserver les extensions de GeoAlignment et vérifier la convention **AR x/−z → rotation horizontale → est/nord**, y vers le haut. Le modèle est local sphérique, pas ENU ellipsoïdal exact.
+Reprise ciblée de `GeoAlignment.java` et `geo/PoseFixSynchronizer.java`, avec inverse et correction de longitude dateline. Pas de fusion globale PR #3; `GeoFusionTracker` n’est pas dupliqué. Lors de la future réunion avec B1–B8, préserver les extensions de GeoAlignment et vérifier la convention **AR x/−z → rotation horizontale → est/nord**, y vers le haut. Cette itération remplace le modèle sphérique par une projection horizontale WGS84 ellipsoïdale ECEF/ENU; préserver cette évolution lors de la réunion avec B1–B8.
 
 PR #3 B1–B8, #5 PDR et #17 recherche restent des périmètres indépendants au dernier audit. Relever leurs nouvelles têtes avant intégration. Aucun choix global ours/theirs. Préserver toutes les actions DATA, activités et exports, puis tester le SHA combiné.
 
@@ -36,7 +51,7 @@ PR #3 B1–B8, #5 PDR et #17 recherche restent des périmètres indépendants au
 - GroundTrail.java : même sélecteur de sol refactorisé en fonctions scalaires pour éviter les allocations dans la boucle; 10 tests sol/ruban existants préservés.
 - SessionBundle.java : README interne de l’export uniquement; sélection des fichiers inchangée.
 - .github/workflows/android.yml : ajoute les 7 tests Python bruit. Pas de nouveau job ni de changement de cible pose/VIEW; validation de branche par PR.
-- **Aucun changement au manifeste, app/build.gradle, Odometer, AnchoredOdometry ou aux moteurs gps/*.**
+- **Aucun changement au manifeste, app/build.gradle, Odometer ou aux moteurs gps/*.** AnchorCoordinates et AnchoredOdometry exposent seulement l’inverse worldFromMetric; algorithme de mesure intact.
 
 Modules propres : ArPoseClock, GpxGroundProjector, location/LocationSource et AndroidLocationSource, gpxar/ArRouteGuide, RouteIndex, GpxArRouteStore, GpxArJournal; tests dédiés et fixture Canvas.
 
@@ -44,6 +59,6 @@ Modules propres : ArPoseClock, GpxGroundProjector, location/LocationSource et An
 
 Lire [plan](../GPX_AR_GUIDANCE_PLAN.md), [25 tâches](../GPX_AR_TASKS.json) et [guide téléphone](../GPX_AR_MANUAL_TEST.md). Les pourcentages portent sur les sous-critères, pas la qualification production.
 
-Restent : L04 mesures GPS/FLP avec référence indépendante; F02 géodésie exacte et longues arêtes; F03 calibration corrélation/biais/incertitude; R02 ancres GPX longues et corrections sans sauts; R04 recalage manuel point connu; terrain/depth/étages et Q02 qualification extérieure, course et énergie. Pas de VPS, DEM, occlusion ou garantie centimétrique. Les seuils du recalage sont des heuristiques documentées, jamais un deadband de translation de l’odomètre.
+Restent : L04 mesures GPS/FLP avec référence indépendante; F03 calibration corrélation/biais/incertitude; R02 qualification physique longue des ancres/raccords et corrections sans sauts; R04 recalage manuel point connu; terrain/depth/étages et Q02 qualification extérieure, course et énergie. Pas de VPS, DEM, occlusion ou garantie centimétrique. Les seuils du recalage sont des heuristiques documentées, jamais un deadband de translation de l’odomètre.
 
 Incidents corrigés pendant validation : ambiguïtés d’imports Android/Google détectées par compilation; test UI initial par réflexion référençant GL10 absent du harnais, remplacé par clic réel DATA. Aucun test désactivé. Les tests synthétiques ne sont pas présentés comme des essais sur téléphone.

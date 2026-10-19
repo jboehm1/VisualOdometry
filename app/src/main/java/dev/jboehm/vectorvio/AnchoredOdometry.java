@@ -20,6 +20,7 @@ final class AnchoredOdometry {
     Pose anchorPose,metricPose;
     boolean freshReference;
     int referenceId(){return referenceId;}
+    Pose worldFromMetric(){return anchorPose==null?null:coordinates.worldFromMetric(anchorPose);}
     void reset(){
         if(anchor!=null){try{anchor.detach();}catch(RuntimeException ignored){}anchor=null;}
         coordinates.reset();lastTimestamp=0;anchorPose=metricPose=null;

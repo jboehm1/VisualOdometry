@@ -29,7 +29,7 @@ public class GpxArAndroidTest {
             assertTrue(labels.contains("ARCORE REPLAY — evaluate saved video with same odometer"));
             int position=-1;for(int i=0;i<data.getListView().getCount();i++)if(data.getListView().getAdapter().getItem(i).equals("GPX AR — experimental camera guidance"))position=i;
             assertTrue(position>=0);data.getListView().performItemClick(null,position,position);
-            AlertDialog ar=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(7,ar.getListView().getCount());
+            AlertDialog ar=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(8,ar.getListView().getCount());
             ar.getListView().performItemClick(null,1,1);
             Intent request=Shadows.shadowOf(c.get()).getNextStartedActivity();assertNotNull(request);assertEquals(Intent.ACTION_OPEN_DOCUMENT,request.getAction());
         }finally{c.destroy();}
@@ -44,4 +44,19 @@ public class GpxArAndroidTest {
             assertEquals(route.name,store.load().name);store.clear();assertNull(store.load());
         }finally{try(java.util.stream.Stream<Path> paths=Files.walk(temp)){paths.sorted(Comparator.reverseOrder()).forEach(p->{try{Files.delete(p);}catch(Exception ignored){}});}}
     }
+    @Test public void displayOptionsPersistWithoutStartingCaptureOrLocation()throws Exception{
+        ActivityController<MainActivity> c=Robolectric.buildActivity(MainActivity.class).create();
+        try{
+            ArrayList<View> buttons=new ArrayList<>();c.get().getWindow().getDecorView().findViewsWithText(buttons,"DATA",View.FIND_VIEWS_WITH_TEXT);buttons.get(0).performClick();
+            AlertDialog data=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();int index=-1;
+            for(int i=0;i<data.getListView().getCount();i++)if(data.getListView().getAdapter().getItem(i).equals("GPX AR — experimental camera guidance"))index=i;
+            assertTrue(index>=0);data.getListView().performItemClick(null,index,index);
+            AlertDialog menu=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();menu.getListView().performItemClick(null,7,7);
+            AlertDialog options=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(5,options.getListView().getCount());
+            options.getListView().performItemClick(null,0,0);
+            assertEquals(0,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",31)&1);
+            assertNull(Shadows.shadowOf(c.get()).getNextStartedService());
+        }finally{c.destroy();}
+    }
+
 }

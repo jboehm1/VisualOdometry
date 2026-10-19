@@ -38,7 +38,11 @@ Les sessions GPX AR enregistrées ajoutent :
 
 - `_gpx_ar_route.csv` : GPX sélectionné, index, révision et altitude facultative; datum vertical UNKNOWN.
 - `_gpx_ar_fixes.csv` : source GPS/Fused, timestamps originaux/arrivée, coordonnées/précisions/vitesse/cap disponibles, mock, admission à la file d’appariement. L’admission ne signifie pas que la mesure a finalement été appariée.
-- `_gpx_ar_poses.csv` : positions monde, segment, timestamp ARCore, timestamp caméra Android vérifié et réception. 0 pour le timestamp caméra signifie horloge non vérifiée.
+- `_gpx_ar_poses.csv` : positions monde et métriques transportées, révision, segment, timestamp ARCore, timestamp caméra Android vérifié et réception. 0 pour le timestamp caméra signifie horloge non vérifiée.
 - `_gpx_ar_alignment.csv` : états et diagnostics, séparés des poses et des mesures absolues.
 
 Ce journal permet d’étudier la synchronisation et le moteur sans supposer des horloges égales. Il ne contient pas de référence de position indépendante. La validation métrique réelle et la consommation sur S21 restent à faire.
+
+## Ancres et options
+
+DISPLAY OPTIONS permet de masquer direction, repères 25 m, départ/arrivée, POI locaux et distance restante indépendamment. Vérifier qu’un POI masqué reste enregistré dans la carte. Marcher sur plus de 100 m et effectuer un aller-retour : observer raccords, dérive et relocalisation, pas seulement la beauté du ruban. Un échec d’ancre doit masquer la portion sans couper la capture. Le rejeu reproductible est décrit dans [GPX_AR_REPLAY.md](GPX_AR_REPLAY.md).

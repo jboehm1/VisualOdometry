@@ -11,18 +11,26 @@ import java.util.*;
 public final class ArRouteGuide {
     public static final long STALE_NS=5_000_000_000L;
     public enum State { OFF, NO_ROUTE, WAITING_POSES, CLOCK_MISMATCH, WAITING_FIXES, NEED_BASELINE, INCONSISTENT, STALE, CANDIDATE }
+    public static final class Marker {
+        public final double x,z;public final String label;public final boolean endpoint;
+        Marker(double x,double z,String label,boolean endpoint){this.x=x;this.z=z;this.label=label;this.endpoint=endpoint;}
+    }
     public static final class Snapshot {
         public final State state;
         public final String routeName;
         public final int samples,segment;
+        public long alignmentRevision;
+        public List<Marker> markers=Collections.emptyList();
         public final double residualMeters,horizontalAllowanceMeters,headingAllowanceRadians;
         public final boolean absoluteBiasObservable=false,verticalDatumKnown=false;
         /** AR x/z edge endpoints, clipped near the camera. No terrain heights invented. */
         public final List<double[]> edges;
         public final GpsNavigator.Status navigationStatus;
-        public final double remainingMeters,offRouteMeters,targetX,targetZ;
-        Snapshot(State state,String name,int segment,GeoAlignment.Result fit,List<double[]> edges,GpsNavigator navigator,double[] target){
+        public final double remainingMeters,offRouteMeters,targetX,targetZ,latitude,longitude;
+        Snapshot(State state,String name,int segment,GeoAlignment.Result fit,List<double[]> edges,GpsNavigator navigator,double[] target,double x,double z){
             this.state=state;routeName=name;this.segment=segment;this.edges=Collections.unmodifiableList(edges);
+            double[] geo=state==State.CANDIDATE&&fit!=null?fit.project(x,-z):null;
+            latitude=geo==null?Double.NaN:geo[0];longitude=geo==null?Double.NaN:geo[1];
             navigationStatus=navigator==null?GpsNavigator.Status.SEARCHING:navigator.status;
             remainingMeters=navigator==null?Double.NaN:Math.max(0,navigator.route.length-navigator.progress);
             offRouteMeters=navigator==null?Double.NaN:navigator.offDistance;
@@ -42,7 +50,7 @@ public final class ArRouteGuide {
     private GpsNavigator navigator;
     private GeoAlignment.Result fit;
     private int segment;
-    private long lastPoseNs,lastFixNs,lastSeenFixNs;
+    private long lastPoseNs,lastFixNs,lastSeenFixNs,alignmentRevision;
     private LocationSample.Source source;
     private State state=State.OFF;
     private boolean enabled;
@@ -103,7 +111,7 @@ public final class ArRouteGuide {
             if(p==null)continue;
             // ARCore x/y(up)/z(back) -> right-handed horizontal x/-z before EN rotation.
             if(alignment.add(p.segment,f.fixElapsedNs,p.x,-p.z,f.latitude,f.longitude,f.accuracyMeters)){
-                lastFixNs=f.fixElapsedNs;fit=alignment.estimate();
+                lastFixNs=f.fixElapsedNs;fit=alignment.estimate();alignmentRevision++;
                 navigator.update(new GpsNavigator.Fix(f.latitude,f.longitude,f.accuracyMeters,f.speedMps,f.bearingDegrees,f.altitudeMeters,f.fixElapsedNs),nowNs);
                 switch(fit.state){
                     case CANDIDATE:state=State.CANDIDATE;break;
@@ -131,6 +139,21 @@ public final class ArRouteGuide {
                 if(a!=null&&b!=null)edges.add(new double[]{a[0],-a[1],b[0],-b[1]});
             }
         }
-        return new Snapshot(shown,route==null?"":route.name,segment,fit,edges,navigator,target);
+        Snapshot snapshot=new Snapshot(shown,route==null?"":route.name,segment,fit,edges,navigator,target,x,z);snapshot.alignmentRevision=alignmentRevision;
+        if(shown==State.CANDIDATE&&fit!=null&&target!=null){
+            List<Marker> markers=new ArrayList<>();
+            double progress=navigator.progress;
+            for(double at=Math.max(25,Math.floor(progress/25)*25);at<=Math.min(route.length,progress+60)&&markers.size()<5;at+=25){
+                if(at>=route.length-1)continue;addMarker(markers,at,String.format(Locale.US,"%.0f m · %.0f m left",at,route.length-at),false);
+            }
+            addMarker(markers,0,"START",true);addMarker(markers,route.length,"FINISH",true);
+            snapshot.markers=Collections.unmodifiableList(markers);
+        }
+        return snapshot;
     }
+    private void addMarker(List<Marker> markers,double progress,String text,boolean endpoint){
+        GpsRoute.Point p=route.at(progress);double[] q=fit.unproject(p.lat,p.lon);
+        if(q!=null&&Math.hypot(q[0]-x,-q[1]-z)<=30)markers.add(new Marker(q[0],-q[1],text,endpoint));
+    }
+
 }

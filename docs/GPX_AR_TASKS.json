@@ -121,12 +121,12 @@
       "phase": "Recalage",
       "title": "Implémenter conversion GPX vers repère AR",
       "status": "PARTIEL",
-      "percent": 85,
+      "percent": 95,
       "depends_on": [
         "F01"
       ],
       "acceptance": "WGS84 vers ENU puis axes AR documentés; yaw et translation sans ajustement libre de l’échelle; aller-retour et signes testés.",
-      "evidence": "Inverse et axes x/-z testés sur 6 courbes et dateline. Modèle métrique local sphérique (R=6371008.8), pas ENU ellipsoïdal exact; amélioration géodésique à qualifier.",
+      "evidence": "Projection WGS84 ellipsoïdale ECEF/ENU et inverse, axes x/-z testés; densification index 25 m, limites 200000 sommets/100 km; source GPX intacte. Qualification globale terrain restante.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -237,12 +237,12 @@
       "phase": "Rendu",
       "title": "Stabiliser ancres et portions locales",
       "status": "PARTIEL",
-      "percent": 20,
+      "percent": 75,
       "depends_on": [
         "R01"
       ],
       "acceptance": "Chunks bornés; origine flottante si nécessaire; cohérence après relocalisation; pas d’accumulation illimitée; essai long.",
-      "evidence": "Fenêtre spatiale et mémoire bornées; pas de gestion dédiée des ancres/chunks GPX longue durée.",
+      "evidence": "Référence métrique transportée dédiée et tuiles GPX 6 m, 32 ancres max, 2 créations par présentation; réutilisation, corrections et cleanup testés par doubles. Essai ARCore physique long et raccords terrain restent.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -294,13 +294,13 @@
       "phase": "Intégration",
       "title": "Borner coût et préserver acquisition",
       "status": "PARTIEL",
-      "percent": 60,
+      "percent": 65,
       "depends_on": [
         "I01",
         "R02"
       ],
       "acceptance": "Pose cible 30/s séparée de VIEW; files bornées; pas de deadband translation; export asynchrone brut/estimé séparés; métriques perf/power.",
-      "evidence": "Files bornées et cadence inchangée; export CSV complet des fixes, GPX source par révision et diagnostics via IO asynchrone. Batterie/thermique à mesurer.",
+      "evidence": "Ancres et créations bornées, cadence poses inchangée; CSV asynchrones fixes/monde/métrique/révision. Aucun filtre ajouté à l’odomètre; batterie/thermique à mesurer.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -309,14 +309,14 @@
       "phase": "Qualification",
       "title": "Tester moteur réel en replay et négatifs",
       "status": "PARTIEL",
-      "percent": 40,
+      "percent": 65,
       "depends_on": [
         "F05",
         "H03",
         "R03"
       ],
       "acceptance": "Mêmes classes Java que l’app; métriques par moteur; perturbations biais, corrélation, perte, GPX erroné, sens inversé; données de test distinctes du réglage.",
-      "evidence": "153 JUnit Android réussis au SHA 37eda6d71308748956fffe7f3ef94b424b6a18eb, dont 24 nouveaux; 29 JUnit locaux ciblés et 7 Python bruit; régressions GPS et deux replays générés réussis. Pas de vérité terrain GPX/VIO réelle.",
+      "evidence": "Rejeu Dataset ZIP par les mêmes classes Java ArRouteGuide; empreintes entrée/sources, provenance, négatifs et comparaison absolue référence facultative. 41 JUnit ciblés et 12 tests Python réussis localement; nouvelle CI Android en attente. Aucun rejeu de capture réelle avec référence indépendante.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -366,12 +366,13 @@
       "optional": true
     }
   ],
-  "implementation_snapshot": "Experimental APK built and software-validated at 37eda6d71308748956fffe7f3ef94b424b6a18eb; physical GNSS/AR accuracy and power qualification pending.",
+  "implementation_snapshot": "Itération ancres GPX, WGS84 et rejeu ZIP implémentée; CI Android du nouveau code en attente. Qualification physique absente.",
   "software_validation": {
     "commit": "37eda6d71308748956fffe7f3ef94b424b6a18eb",
     "android_run": 39305523845,
     "junit_tests": 153,
     "failures": 0,
-    "physical_device_tested": false
+    "physical_device_tested": false,
+    "historical_build_only": true
   }
 }

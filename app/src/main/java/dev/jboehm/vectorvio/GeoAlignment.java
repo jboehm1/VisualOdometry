@@ -2,6 +2,7 @@ package dev.jboehm.vectorvio;
 
 import java.util.ArrayList;
 import java.util.List;
+import dev.jboehm.vectorvio.geo.Wgs84LocalFrame;
 
 /**
  * Experimental, pure-Java 2D rigid alignment of timestamp-paired metric VIO poses
@@ -14,7 +15,7 @@ import java.util.List;
  */
 public final class GeoAlignment {
     public enum State { NEED_SAMPLES, NEED_BASELINE, INCONSISTENT, CANDIDATE }
-    private static final double R = 6371008.8;
+    private Wgs84LocalFrame localFrame;
     private static final int MAX_SAMPLES = 64;
     private static final double MIN_BASELINE_M = 15;
     private static final double MAX_FIX_ACCURACY_M = 50;
@@ -35,29 +36,27 @@ public final class GeoAlignment {
         public final int samples, segment, inliers;
         public final double yawRadians, eastOffsetMeters, northOffsetMeters;
         public final double baselineMeters, residualRmsMeters, typicalGpsAccuracyMeters;
-        private final double lat0, lon0;
+        private final Wgs84LocalFrame frame;
         private Result(State state,int samples,int segment,double yaw,double east,double north,
                        double baseline,double rms,double accuracy,int inliers,double lat0,double lon0) {
             this.state=state;this.samples=samples;this.segment=segment;this.inliers=inliers;
             this.yawRadians=yaw;this.eastOffsetMeters=east;this.northOffsetMeters=north;
             this.baselineMeters=baseline;this.residualRmsMeters=rms;
-            this.typicalGpsAccuracyMeters=accuracy;this.lat0=lat0;this.lon0=lon0;
+            this.typicalGpsAccuracyMeters=accuracy;this.frame=new Wgs84LocalFrame(lat0,lon0);
         }
         /** Coordinate is only available for a candidate; no global accuracy guarantee. */
         public double[] project(double x,double z) {
             if(state!=State.CANDIDATE || !Double.isFinite(x) || !Double.isFinite(z))return null;
             double east=Math.cos(yawRadians)*x-Math.sin(yawRadians)*z+eastOffsetMeters;
             double north=Math.sin(yawRadians)*x+Math.cos(yawRadians)*z+northOffsetMeters;
-            double lat=lat0+Math.toDegrees(north/R);
-            double lon=lon0+Math.toDegrees(east/(R*Math.cos(Math.toRadians(lat0))));
-            return new double[]{lat,wrapLongitude(lon)};
+            return frame.toGeographic(east,north);
         }
         /** Inverse of project; ARCore horizontal x/z, not east/north axes. */
         public double[] unproject(double latitude,double longitude) {
             if(state!=State.CANDIDATE || !Double.isFinite(latitude) || !Double.isFinite(longitude)
                     || Math.abs(latitude)>85 || Math.abs(longitude)>180)return null;
-            double e=Math.toRadians(wrapLongitude(longitude-lon0))*R*Math.cos(Math.toRadians(lat0))-eastOffsetMeters;
-            double n=Math.toRadians(latitude-lat0)*R-northOffsetMeters;
+            double[] en=frame.toLocal(latitude,longitude);
+            double e=en[0]-eastOffsetMeters,n=en[1]-northOffsetMeters;
             double c=Math.cos(yawRadians),s=Math.sin(yawRadians);
             return new double[]{c*e+s*n,-s*e+c*n};
         }
@@ -66,7 +65,7 @@ public final class GeoAlignment {
 
     private static double wrapLongitude(double lon){return ((lon+540)%360)-180;}
 
-    public synchronized void reset(){ samples.clear();segment=Integer.MIN_VALUE;lastNs=Long.MIN_VALUE;lat0=lon0=0; }
+    public synchronized void reset(){ samples.clear();segment=Integer.MIN_VALUE;lastNs=Long.MIN_VALUE;lat0=lon0=0;localFrame=null; }
 
     /** Returns false for invalid/duplicate fixes; a segment change resets prior alignment. */
     public synchronized boolean add(int trackingSegment,long elapsedRealtimeNs,
@@ -80,9 +79,8 @@ public final class GeoAlignment {
            horizontalAccuracyMeters>MAX_FIX_ACCURACY_M) return false;
         if(segment!=trackingSegment){ reset();segment=trackingSegment; }
         if(elapsedRealtimeNs<=lastNs)return false;
-        if(samples.isEmpty()){lat0=latitude;lon0=longitude;}
-        double north=Math.toRadians(latitude-lat0)*R;
-        double east=Math.toRadians(wrapLongitude(longitude-lon0))*R*Math.cos(Math.toRadians(lat0));
+        if(samples.isEmpty()){lat0=latitude;lon0=longitude;localFrame=new Wgs84LocalFrame(lat0,lon0);}
+        double[] en=localFrame.toLocal(latitude,longitude);double east=en[0],north=en[1];
         if(!Double.isFinite(east)||!Double.isFinite(north))return false;
         samples.add(new Sample(vioX,vioZ,east,north,horizontalAccuracyMeters));
         if(samples.size()>MAX_SAMPLES)samples.remove(0);

@@ -6,7 +6,7 @@
 
 Importer un GPX, estimer son placement dans le repère local ARCore à partir de positions absolues et de poses caméra synchronisées, puis afficher un chemin 3D avec une précision annoncée qui corresponde aux preuves disponibles. Le téléphone peut bouger en hauteur et tourner sans entraîner le chemin. Le terrain ne doit pas être inventé au-delà de ce qui est connu.
 
-**Implémentation expérimentale, itération 1 :** import GPX/segment et stockage atomique, providers AUTO/GPS/FUSED, appariement poses/fixes, inverse géographique→AR, fenêtre spatiale bornée, ruban bleu GPU/Canvas sur plans de sol observés, reset aux discontinuités, CSV brut/diagnostic et états visibles. Aucun changement à l’odomètre. 19 tests JUnit moteur Java/projection/journal réussis localement et 7 tests étude bruit; CI Android tests/lint/debug/release réussie au SHA `37eda6d71308748956fffe7f3ef94b424b6a18eb`; téléphone et précision absolue restent à qualifier.
+**Itération ancres et rejeu :** référence métrique dédiée, ancres GPX locales bornées, WGS84 ellipsoïdal, index densifié, annotations optionnelles et rejeu des ZIP par le moteur Java réel. Voir [GPX_AR_REPLAY.md](GPX_AR_REPLAY.md). 41 tests Java ciblés et 12 Python passent localement; nouvelle compilation Android en cours de préparation. L’APK historique `37eda6d` ne contient pas ces ajouts. Précision physique et consommation restent à qualifier.
 
 Le pilote A/B et le navigateur GPX 2D existants restent séparés. `GeoAlignment` et `PoseFixSynchronizer` sont repris de B1–B8; pas de fusion du reste de cette branche. L’adaptateur traite AR x/−z pour respecter la chiralité des repères, vérifiée sur courbes dans les deux sens.
 
@@ -60,7 +60,7 @@ Ordre pratique : A → L01/L03 → F01/F02 → L02 et H01/H02 → F03/F04/F05 �
 | L03 | Contrôler horloge, fraîcheur et doublons | 90 % | L01 | Original elapsedRealtimeNanos, arrivée, provenance conservés; doublons/réordonnancement/batch testés; données brutes intactes. |
 | L04 | Mesurer gain FLP sur appareil | 0 % | L02, L03 | Campagnes GPS seul, FLP seul, simultané; référence indépendante; disponibilité/latence/énergie/erreur p50/p95 rapportées. |
 | F01 | Réutiliser synchronisation et alignement B1–B8 | 85 % | L03 | Revue GeoAlignment/GeoFusionTracker/PoseFixSynchronizer de PR #3; intégration ciblée; reset par segment, aucune copie divergente. |
-| F02 | Implémenter conversion GPX vers repère AR | 85 % | F01 | WGS84 vers ENU puis axes AR documentés; yaw et translation sans ajustement libre de l’échelle; aller-retour et signes testés. |
+| F02 | Implémenter conversion GPX vers repère AR | 95 % | F01 | WGS84 vers ENU puis axes AR documentés; yaw et translation sans ajustement libre de l’échelle; aller-retour et signes testés. |
 | F03 | Conserver incertitude sous erreurs corrélées | 40 % | F01, A02 | Ne pas compter FLP et GNSS comme indépendants; doublons ne réduisent pas la confiance; biais commun déclaré non observable; couverture mesurée sur données tenues à part. |
 | F04 | Gérer géométries ambiguës et suivi GPX | 55 % | F02, F03 | Immobilité/rotation pure/courte base ne créent pas un cap fiable; routes parallèles, croisements et boucle gardent plusieurs hypothèses; pas de snap certifié. |
 | F05 | Gérer pertes et corrections sans sauts cachés | 70 % | F04 | Perte GNSS/VIO, reset AR, reprise et changement provider testés; incertitude croissante; transformation datée/versionnée, correction visible. |
@@ -68,12 +68,12 @@ Ordre pratique : A → L01/L03 → F01/F02 → L02 et H01/H02 → F03/F04/F05 �
 | H02 | Construire surface locale observée | 65 % | H01, F02 | Plans/raycast/depth quand supportés; aucune hauteur dérivée silencieusement de la hauteur téléphone; terrain inconnu reste inconnu. |
 | H03 | Tester montées, escaliers et téléphone vertical | 50 % | H02 | Lever/baisser le téléphone ne déplace pas la route au sol; pente suivie seulement sur géométrie observée; segments non observés identifiés. |
 | R01 | Créer géométrie de route 3D continue | 90 % | F05, H02 | Ruban continu, raccords sans rectangles visibles, épaisseur métrique, points finis; CPU fallback si GPU indisponible; mêmes positions géométriques. |
-| R02 | Stabiliser ancres et portions locales | 20 % | R01 | Chunks bornés; origine flottante si nécessaire; cohérence après relocalisation; pas d’accumulation illimitée; essai long. |
+| R02 | Stabiliser ancres et portions locales | 75 % | R01 | Chunks bornés; origine flottante si nécessaire; cohérence après relocalisation; pas d’accumulation illimitée; essai long. |
 | R03 | Afficher états de confiance compréhensibles | 70 % | F03, R01 | Acquisition/ambigu/recalage utilisable/perdu; corridor ou flèche si précision insuffisante; mode précis réservé aux conditions validées; cap/position/hauteur séparés. |
 | R04 | Offrir recalage manuel et aide au retour | 10 % | R03 | Point connu + direction avec incertitude déclarée; annuler/revenir en arrière; suivre/rejoindre trace sans masquer ambiguïtés. |
 | I01 | Ajouter mode expérimental sans collision DATA | 85 % | R03 | Actions DATA distinctes; préserver GPS ROUTES, A/B, replay, PDR et capture; tests navigation et lifecycle sur résultat combiné. |
-| I02 | Borner coût et préserver acquisition | 60 % | I01, R02 | Pose cible 30/s séparée de VIEW; files bornées; pas de deadband translation; export asynchrone brut/estimé séparés; métriques perf/power. |
-| Q01 | Tester moteur réel en replay et négatifs | 40 % | F05, H03, R03 | Mêmes classes Java que l’app; métriques par moteur; perturbations biais, corrélation, perte, GPX erroné, sens inversé; données de test distinctes du réglage. |
+| I02 | Borner coût et préserver acquisition | 65 % | I01, R02 | Pose cible 30/s séparée de VIEW; files bornées; pas de deadband translation; export asynchrone brut/estimé séparés; métriques perf/power. |
+| Q01 | Tester moteur réel en replay et négatifs | 65 % | F05, H03, R03 | Mêmes classes Java que l’app; métriques par moteur; perturbations biais, corrélation, perte, GPX erroné, sens inversé; données de test distinctes du réglage. |
 | Q02 | Mesurer placement caméra sur parcours de référence | 0 % | Q01, L04, I02 | Points sol indépendamment référencés, marche/course/ville/forêt/pente/chemins parallèles; erreur latérale/longitudinale/cap/hauteur p50/p95, abstention et faux fiables. |
 | Q03 | Produire APK de la branche réunie | 50 % | Q02 | CI tests/lint/build et smoke menus/export au SHA exact; APK et rapport avec limites; pas de validation via APK d’une autre branche. |
 | O01 | Évaluer référence visuelle absolue Google | 0 % | L04, F03 | Essai séparé Geospatial/VPS avec couverture, réseau, autorisations/coûts; comparaison indépendante; désactivé par défaut et aucune dépendance obligatoire forêt. |

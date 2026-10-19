@@ -8,8 +8,9 @@ import dev.jboehm.vectorvio.location.LocationSample;
 
 public class ArRouteGuideTest {
     private static final double R=6371008.8,LAT=48,LON=7;
-    private static double lat(double n){return LAT+Math.toDegrees(n/R);}
-    private static double lon(double e){return LON+Math.toDegrees(e/(R*Math.cos(Math.toRadians(LAT))));}
+    private static final double E2=6.6943799901413165e-3,N=6378137/Math.sqrt(1-E2*Math.pow(Math.sin(Math.toRadians(LAT)),2)),M=6378137*(1-E2)/Math.pow(1-E2*Math.pow(Math.sin(Math.toRadians(LAT)),2),1.5);
+    private static double lat(double n){return LAT+Math.toDegrees(n/M);}
+    private static double lon(double e){return LON+Math.toDegrees(e/(N*Math.cos(Math.toRadians(LAT))));}
     static GpsRoute route(){return new GpsRoute("held-out bend",Arrays.asList(
         new GpsRoute.Point(lat(0),lon(0),300),new GpsRoute.Point(lat(40),lon(0),305),new GpsRoute.Point(lat(40),lon(40),Double.NaN)));}
     private static LocationSample fix(long ns,double e,double n,LocationSample.Source source,boolean mock){
@@ -85,8 +86,8 @@ public class ArRouteGuideTest {
     }
     @Test public void routeWindowClipsSparseLongEdgesAndBoundsDenseWork(){
         RouteIndex idx=new RouteIndex(new GpsRoute("sparse",Arrays.asList(new GpsRoute.Point(lat(-100),LON,Double.NaN),new GpsRoute.Point(lat(100),LON,Double.NaN))));
-        List<double[]> near=idx.near(LAT,LON,30,512);assertEquals(1,near.size());
-        assertEquals(60,Math.toRadians(near.get(0)[2]-near.get(0)[0])*R,.001);
+        List<double[]> near=idx.near(LAT,LON,30,512);assertFalse(near.isEmpty());
+        double span=0;for(double[] e:near)span+=Math.toRadians(e[2]-e[0])*M;assertEquals(60,span,.002);
         assertTrue(idx.near(lat(1000),lon(1000),30,512).isEmpty());
     }
     @Test public void disabledGuideDoesNotUseLiveFixes(){
@@ -102,11 +103,18 @@ public class ArRouteGuideTest {
     @Test public void datelineUsesShortArcAndInverseKeepsMetricCoordinates(){
         dev.jboehm.vectorvio.GeoAlignment a=new dev.jboehm.vectorvio.GeoAlignment();
         for(int i=0;i<10;i++){
-            double e=i*10,n=(i%3)*3,longitude=((179.9998+Math.toDegrees(e/(R*Math.cos(Math.toRadians(LAT))))+540)%360)-180;
+            double e=i*10,n=(i%3)*3,longitude=((179.9998+Math.toDegrees(e/(N*Math.cos(Math.toRadians(LAT))))+540)%360)-180;
             assertTrue(a.add(1,1_000_000_000L+i*1_000_000_000L,e,n,lat(n),longitude,1));
         }
         dev.jboehm.vectorvio.GeoAlignment.Result fit=a.estimate();assertEquals(dev.jboehm.vectorvio.GeoAlignment.State.CANDIDATE,fit.state);
         double[] geo=fit.project(80,3),back=fit.unproject(geo[0],geo[1]);assertTrue(geo[1]<0);assertArrayEquals(new double[]{80,3},back,.0001);
+    }
+
+    @Test public void markersAreBoundedAndStaySeparateFromPositionMeasurements(){
+        ArRouteGuide g=engine();long now=feed(g,0,false,0);ArRouteGuide.Snapshot s=g.snapshot(now);int samples=s.samples;
+        assertTrue(s.markers.size()<=7);
+        for(ArRouteGuide.Marker m:s.markers){assertTrue(Double.isFinite(m.x));assertTrue(Double.isFinite(m.z));assertFalse(m.label.isEmpty());}
+        assertEquals(samples,g.snapshot(now).samples);
     }
 
 }

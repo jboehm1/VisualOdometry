@@ -2,22 +2,32 @@ package dev.jboehm.vectorvio.gpxar;
 
 import dev.jboehm.vectorvio.gps.GpsRoute;
 import java.util.*;
+import dev.jboehm.vectorvio.geo.Wgs84LocalFrame;
 
 /** Immutable bounded spatial index. Original edges are clipped, never snapped to the camera. */
 public final class RouteIndex {
-    private static final double R=6371008.8;
     private static final int CHUNK=128;
-    private final double lat0,lon0,cos;
+    private final Wgs84LocalFrame frame;
     private final double[] east,north;
     private final double[][] boxes;
     public RouteIndex(GpsRoute route){
-        lat0=route.points.get(0).lat;lon0=route.points.get(0).lon;cos=Math.cos(Math.toRadians(lat0));
+        double lat0=route.points.get(0).lat,lon0=route.points.get(0).lon;
         if(Math.abs(lat0)>85)throw new IllegalArgumentException("Polar AR route not supported");
-        int n=route.points.size();east=new double[n];north=new double[n];
-        for(int i=0;i<n;i++){
-            GpsRoute.Point p=route.points.get(i);east[i]=east(p.lon);north[i]=north(p.lat);
-            if(Math.hypot(east[i],north[i])>100_000)throw new IllegalArgumentException("Split AR routes into sections below 100 km");
+        frame=new Wgs84LocalFrame(lat0,lon0);
+        ArrayList<double[]> expanded=new ArrayList<>();expanded.add(frame.toLocal(lat0,lon0));
+        for(int i=1;i<route.points.size();i++){
+            double start=route.progressAt(i-1),length=route.progressAt(i)-start;
+            int parts=Math.max(1,(int)Math.ceil(length/25));
+            if(parts>200000-expanded.size())throw new IllegalArgumentException("AR route densification exceeds 200000 vertices; split route");
+            for(int j=1;j<=parts;j++){
+                GpsRoute.Point p=j==parts?route.points.get(i):route.at(start+length*j/parts);
+                double[] en=frame.toLocal(p.lat,p.lon);
+                if(Math.hypot(en[0],en[1])>100000)throw new IllegalArgumentException("Split AR routes into sections below 100 km");
+                expanded.add(en);
+            }
         }
+        int n=expanded.size();east=new double[n];north=new double[n];
+        for(int i=0;i<n;i++){east[i]=expanded.get(i)[0];north[i]=expanded.get(i)[1];}
         boxes=new double[(n-2)/CHUNK+1][4];
         for(int c=0;c<boxes.length;c++){
             double[] b=boxes[c];b[0]=b[1]=Double.POSITIVE_INFINITY;b[2]=b[3]=Double.NEGATIVE_INFINITY;
@@ -26,13 +36,11 @@ public final class RouteIndex {
             }
         }
     }
-    private double east(double lon){return Math.toRadians(((lon-lon0+540)%360)-180)*R*cos;}
-    private double north(double lat){return Math.toRadians(lat-lat0)*R;}
-    private double[] coordinate(double e,double n){return new double[]{lat0+Math.toDegrees(n/R),((lon0+Math.toDegrees(e/(R*cos))+540)%360)-180};}
+    private double[] coordinate(double e,double n){return frame.toGeographic(e,n);}
     /** lat/lon endpoints of nearby clipped edges. Caps work for extremely dense or overlapping GPX. */
     public List<double[]> near(double lat,double lon,double radius,int limit){
         if(!Double.isFinite(lat)||!Double.isFinite(lon)||!Double.isFinite(radius)||radius<=0||limit<=0)return Collections.emptyList();
-        double x=east(lon),z=north(lat);List<double[]> out=new ArrayList<>();
+        double[] center=frame.toLocal(lat,lon);double x=center[0],z=center[1];List<double[]> out=new ArrayList<>();
         for(int c=0;c<boxes.length&&out.size()<limit;c++){
             double[] b=boxes[c];if(b[0]>x+radius||b[2]<x-radius||b[1]>z+radius||b[3]<z-radius)continue;
             for(int i=c*CHUNK;i<Math.min(east.length-1,(c+1)*CHUNK)&&out.size()<limit;i++){
