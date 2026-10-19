@@ -10,6 +10,18 @@ Le code est sur `feature/gpx-ar-guidance`, PR #24. Le suivi détaillé est dans 
 4. Fermer le menu puis **START / RESUME**. Marcher en regardant des surfaces texturées et stables. Plusieurs fixes et un déplacement suffisamment grand par rapport au bruit GPS sont nécessaires. À titre de règle du moteur actuel : au moins 4 couples et une base d’au moins max(15 m, 4 × précision GPS moyenne déclarée).
 5. Bleu : placement GPX candidat. Orange : trace locale enregistrée. Une petite flèche bleue est une direction horizontale estimée, indépendante de la présence d’un sol. Elle dépend d’un recalage et d’un matching utilisables.
 
+## GPX réels et ajout d'altitude (octobre 2026)
+
+- **GPX avec `<ele>`** : import possible immédiatement, l'altitude originale de chaque point est préservée dans le GPX sélectionné et les exports. Une altitude GPX n'est toutefois **pas encore** utilisée pour inventer un sol lointain dans la caméra : le ruban suit les plans de sol locaux observés par ARCore.
+- **GPX sans aucune altitude** : importer le GPX, puis DATA → GPX AR → **ADD ALTITUDE · EU-DEM (ONLINE)**. Mettre la capture/GPX AR en pause. Lire et accepter l'envoi d'échantillons de la route à `api.opentopodata.org`. Un réseau et le consentement explicite sont requis.
+- Le service public OpenTopoData interroge **EU-DEM 25 m / EVRS2000**. Le client échantillonne au maximum **1001 points** espacés d'environ 50 m ou plus, puis interpole les altitudes entre ces points aux sommets originaux. Ces hauteurs sont **estimées** (qualité verticale EU-DEM d'environ ±7 m RMSE), ni des mesures GNSS ni une vérité de terrain. Pour les ponts, falaises, escaliers, étages ou passages souterrains, le DEM peut représenter la mauvaise surface.
+- Le nom de la route sauvegardée porte `EU-DEM 25m (estimated EVRS2000)` et le CSV exporté indique `EVRS2000_ESTIMATED`. Une route contenant **quelques** altitudes originales et **quelques** vides est refusée pour éviter de mélanger des datums incompatibles. Si la requête échoue, l'original reste intact.
+- La requête DEM n'est **jamais** automatique lors de l'import. Elle n'est pas exécutée dans les tests CI. L'APK d'une branche antérieure au code DEM ne contient pas cette option.
+
+**Séparer trois phénomènes :** altitude GPX/DEM (référentiel vertical géographique), altitude GPS du téléphone (erreur et datum éventuellement différents), et géométrie locale ARCore (repère relatif). Sans calibration verticale et sans terrain local visible, ces données ne se combinent pas automatiquement en un ruban 3D précis.
+
+Références : [OpenTopoData, API](https://www.opentopodata.org/api/), [service public et quotas](https://www.opentopodata.org/), [EU-DEM, précision et datum](https://www.opentopodata.org/datasets/eudem/), [EU-DEM / Eurostat](https://ec.europa.eu/eurostat/web/gisco/geodata/digital-elevation-model/eu-dem).
+
 ## Lire les états
 
 | État | Interprétation et action |
