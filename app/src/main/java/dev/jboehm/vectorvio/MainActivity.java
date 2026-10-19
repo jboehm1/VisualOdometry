@@ -114,6 +114,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private dev.jboehm.vectorvio.gpxar.GpxArRouteStore gpxRouteStore;
     private dev.jboehm.vectorvio.location.LocationSource.Mode gpxLocationMode=dev.jboehm.vectorvio.location.LocationSource.Mode.AUTO;
     private volatile boolean gpxArEnabled;
+    /** True only in the intentional, app-local GPS drop-out test. */
+    private volatile boolean gpxLocationMuted;
+    private boolean gpxManualMode;
+    private LinearLayout gpxManualToolbar;
+    private float manualTouchX,manualTouchY;
+    private long manualTouchMs;
     private volatile dev.jboehm.vectorvio.gps.GpsRoute selectedArRoute;
     private volatile long gpxRouteRevision;
     private String lastJournaledRoute="";
@@ -206,7 +212,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         trackingTask=new CoalescingTask(surface::queueEvent,this::processFrame);
         frameScheduler=new LiveFrameScheduler(new android.os.Handler(cadenceThread.getLooper()),trackingTask::offer,surface::requestRender);
         frameScheduler.setMode(LiveFrameScheduler.Mode.from(preferences.getString("live_power","full")));
-        surface.setOnTouchListener(this::powerTouch);
+        surface.setOnTouchListener(this::cameraTouch);
         root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
 
         hud=new HudView(this);
@@ -241,6 +247,23 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         FrameLayout.LayoutParams modeLayout=new FrameLayout.LayoutParams(-1,dp(40),Gravity.TOP);
         modeLayout.topMargin=dp(72);modeLayout.leftMargin=dp(12);modeLayout.rightMargin=dp(12);
         root.addView(modes,modeLayout);
+        gpxManualToolbar=new LinearLayout(this);
+        gpxManualToolbar.setGravity(Gravity.CENTER_VERTICAL);
+        gpxManualToolbar.setPadding(dp(6),0,dp(6),0);
+        gpxManualToolbar.setBackgroundColor(0xF00C2B3C);
+        TextView dragTitle=new TextView(this);dragTitle.setText("ALIGN GPX • DRAG");
+        dragTitle.setTextSize(12);dragTitle.setTextColor(Color.WHITE);
+        gpxManualToolbar.addView(dragTitle,new LinearLayout.LayoutParams(0,-2,1f));
+        TextView clearManual=action("RESET",0xFF294957,Color.WHITE);
+        TextView doneManual=action("DONE",0xFF70FADE,0xFF061723);
+        gpxManualToolbar.addView(clearManual,new LinearLayout.LayoutParams(dp(62),dp(40)));
+        gpxManualToolbar.addView(doneManual,new LinearLayout.LayoutParams(dp(62),dp(40)));
+        clearManual.setOnClickListener(v->{gpxAr.clearVisualShift();surface.requestRender();});
+        doneManual.setOnClickListener(v->endGpxManualMode());
+        FrameLayout.LayoutParams dragParams=new FrameLayout.LayoutParams(-1,dp(48),Gravity.TOP);
+        dragParams.topMargin=dp(190);dragParams.leftMargin=dp(14);dragParams.rightMargin=dp(14);
+        root.addView(gpxManualToolbar,dragParams);
+        gpxManualToolbar.setVisibility(View.GONE);
         powerButton=action("",0xBB102D39,Color.WHITE);powerButton.setTextSize(10);
         FrameLayout.LayoutParams powerLayout=new FrameLayout.LayoutParams(dp(164),dp(32),Gravity.TOP|Gravity.RIGHT);
         powerLayout.topMargin=dp(146);powerLayout.rightMargin=dp(12);
@@ -488,19 +511,29 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     private void postGpxUi(Runnable task){runOnUiThread(()->{if(!isFinishing()&&!isDestroyed())task.run();});}
     private void gpxArMenu(){
-        String[] actions={gpxArEnabled?"PAUSE AR GPX":"ENABLE AR GPX", "IMPORT GPX", "LOCATION SOURCE", "REVERSE SELECTED ROUTE", "RESET ALIGNMENT", "REMOVE SELECTED ROUTE", "HELP / ACCURACY", "DISPLAY OPTIONS", "ADD ALTITUDE · EU-DEM (ONLINE)", gpxDepthEnabled?"RAW DEPTH OCCLUSION · ON":"RAW DEPTH OCCLUSION · OFF"};
+        String[] actions={gpxArEnabled?"PAUSE AR GPX":"ENABLE AR GPX", "IMPORT GPX", "LOCATION SOURCE", "REVERSE SELECTED ROUTE", "RESET ALIGNMENT", "REMOVE SELECTED ROUTE", "HELP / ACCURACY", "DISPLAY OPTIONS", "ADD ALTITUDE · EU-DEM (ONLINE)", gpxDepthEnabled?"RAW DEPTH OCCLUSION · ON":"RAW DEPTH OCCLUSION · OFF", "MANUAL GPX SLIDE · match the path", gpxLocationMuted?"GPS AID · MUTED (TEST)":"GPS AID · ON"};
         new AlertDialog.Builder(this).setTitle("GPX AR · experimental").setItems(actions,(d,i)->{
             if(i==0){if(gpxArEnabled)setGpxArEnabled(false);else if(!gpxAr.hasRoute())Toast.makeText(this,"Import a GPX first",Toast.LENGTH_LONG).show();
                 else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},GPX_AR_LOCATION_REQUEST);
                 else setGpxArEnabled(true);}
             if(i==1){Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(picker,IMPORT_GPX_AR_REQUEST);}
             if(i==2)new AlertDialog.Builder(this).setTitle("Location source").setSingleChoiceItems(new String[]{"AUTO · Google Fused, GPS fallback","GPS native","Google Fused only"},gpxLocationMode.ordinal(),(dialog,index)->{
-                gpxLocationMode=dev.jboehm.vectorvio.location.LocationSource.Mode.values()[index];gpxAr.trackingLost();if(gpxArEnabled&&foreground)gpxLocation.start(gpxLocationMode);dialog.dismiss();}).show();
+                gpxLocationMode=dev.jboehm.vectorvio.location.LocationSource.Mode.values()[index];gpxAr.trackingLost();if(gpxArEnabled&&foreground&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);dialog.dismiss();}).show();
             if(i==3){setGpxArEnabled(false);mapIo.execute(()->{try{dev.jboehm.vectorvio.gps.GpsRoute old=gpxRouteStore.load();if(old!=null){dev.jboehm.vectorvio.gps.GpsRoute reversed=old.reverse();gpxRouteStore.save(reversed);installGpxArRoute(reversed);postGpxUi(()->Toast.makeText(this,"AR route reversed · enable to start",Toast.LENGTH_LONG).show());}}catch(Exception e){postGpxUi(()->Toast.makeText(this,"Cannot reverse saved route",Toast.LENGTH_LONG).show());}});}
             if(i==4)gpxAr.trackingLost();
             if(i==5){setGpxArEnabled(false);mapIo.execute(()->{gpxRouteStore.clear();installGpxArRoute(null);});}
             if(i==7)gpxDisplayMenu();
             if(i==8)gpxEnrichElevation();
+            if(i==10)beginGpxManualMode();
+            if(i==11){
+                if(!gpxArEnabled){Toast.makeText(this,"Enable GPX AR first",Toast.LENGTH_LONG).show();return;}
+                gpxLocationMuted=!gpxLocationMuted;
+                if(gpxLocationMuted)gpxLocation.stop();
+                else if(foreground&&!playbackMode)gpxLocation.start(gpxLocationMode);
+                Toast.makeText(this,gpxLocationMuted?
+                    "GPX GPS input intentionally muted • VIO-only test; enable again to resume GPS":
+                    "GPX GNSS assistance resumed",Toast.LENGTH_LONG).show();
+            }
             if(i==9){
                 gpxDepthEnabled=!gpxDepthEnabled;
                 getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("gpx_depth_occlusion",gpxDepthEnabled).apply();
@@ -569,7 +602,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(enabled&&(playbackMode||CollectionService.running)){Toast.makeText(this,"GPX AR needs live camera mode",Toast.LENGTH_LONG).show();return;}
         gpxArEnabled=enabled;gpxAr.setEnabled(enabled);gpxArText="";resetGpxReference=true;
         if(enabled&&odometer.isRecording())journalGpxArRoute();
-        if(enabled&&foreground&&!playbackMode)gpxLocation.start(gpxLocationMode);else gpxLocation.stop();
+        if(enabled&&foreground&&!playbackMode&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);else gpxLocation.stop();
         // Quick-view mode never forces recording or camera access in the background.
         // On screen unlock GPS is reacquired; the old ARCore reference is not reused.
     }
@@ -590,6 +623,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     private String describeGpxAr(dev.jboehm.vectorvio.gpxar.ArRouteGuide.Snapshot snap){
         if(!gpxArEnabled)return "";
+        String visual=snap.manualAdjusted?" · MANUAL ALIGNMENT (NOT GPS VERIFIED)":"";
         // After screen unlock a fresh GPS fix can recover approximate route
         // progress BEFORE walking far enough to establish absolute AR yaw.
         // This banner is GPS-only: never draw an apparently anchored blue line.
@@ -607,8 +641,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             case CANDIDATE:
                 if(snap.navigationStatus==dev.jboehm.vectorvio.gps.GpsNavigator.Status.AMBIGUOUS)return "GPX · AMBIGUOUS PATH · NO DIRECTION";
                 String remaining=(gpxDisplayFlags&dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.REMAINING)!=0?String.format(Locale.US," · %.0f m left",snap.remainingMeters):"";
-                return String.format(Locale.US,"GPX ~%.0f m · %s%s · %s",snap.horizontalAllowanceMeters,snap.navigationStatus,remaining,mapper.gpxGroundEdges>0?"ANCHORED FLOOR":mapper.gpxAnchorCount>0?"NO FLOOR":"FLOOR / ANCHOR WAIT");
-            case VIO_HOLD:return String.format(Locale.US,"GPX VIO HOLD · GPS LOST %.0f s · allowance ≥ %.0f m (NOT CALIBRATED)",snap.holdSeconds,snap.horizontalAllowanceMeters);
+                return String.format(Locale.US,"GPX ~%.0f m · %s%s · %s%s",snap.horizontalAllowanceMeters,snap.navigationStatus,remaining,mapper.gpxGroundEdges>0?"ANCHORED FLOOR":mapper.gpxAnchorCount>0?"NO FLOOR":"FLOOR / ANCHOR WAIT",visual);
+            case VIO_HOLD:return String.format(Locale.US,"GPX VIO ONLY · NO GPS %.0f s · drift UNCERTAIN (≥ %.0f m diagnostic)%s",snap.holdSeconds,snap.horizontalAllowanceMeters,visual);
             case NEED_BASELINE:return "GPX · WALK TO ALIGN ("+snap.samples+" fixes)";
             case STALE:return "GPX HIDDEN · STALE LOCATION / POSE";
             case INCONSISTENT:return "GPX HIDDEN · INCONSISTENT ALIGNMENT";
@@ -1002,7 +1036,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             startActivity(new Intent(this,CollectionActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
             return;
         }
-        if(!playbackMode){imu.start();gps.start();if(gpxArEnabled)gpxLocation.start(gpxLocationMode);}
+        if(!playbackMode){imu.start();gps.start();if(gpxArEnabled&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);}
         if(liveModeRequested)startAr();
     }
     private void startAr() {
@@ -1103,6 +1137,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     @Override protected void onPause() {
         foreground=false;gpxLocation.stop();gpxAr.trackingLost();gpxGeneration++;
+        endGpxManualMode();
         frameScheduler.stop();boostPointer=-1;updatePowerLabel();
         imu.stop();
         gps.stopUpdates();
