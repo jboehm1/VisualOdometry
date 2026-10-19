@@ -537,6 +537,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 if(snap.navigationStatus==dev.jboehm.vectorvio.gps.GpsNavigator.Status.AMBIGUOUS)return "GPX · AMBIGUOUS PATH · NO DIRECTION";
                 String remaining=(gpxDisplayFlags&dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.REMAINING)!=0?String.format(Locale.US," · %.0f m left",snap.remainingMeters):"";
                 return String.format(Locale.US,"GPX ~%.0f m · %s%s · %s",snap.horizontalAllowanceMeters,snap.navigationStatus,remaining,mapper.gpxGroundEdges>0?"ANCHORED FLOOR":mapper.gpxAnchorCount>0?"NO FLOOR":"FLOOR / ANCHOR WAIT");
+            case VIO_HOLD:return String.format(Locale.US,"GPX VIO HOLD · GPS LOST %.0f s · allowance ≥ %.0f m (NOT CALIBRATED)",snap.holdSeconds,snap.horizontalAllowanceMeters);
             case NEED_BASELINE:return "GPX · WALK TO ALIGN ("+snap.samples+" fixes)";
             case STALE:return "GPX HIDDEN · STALE LOCATION / POSE";
             case INCONSISTENT:return "GPX HIDDEN · INCONSISTENT ALIGNMENT";
