@@ -5,6 +5,7 @@ on:
       - '.github/workflows/smoke-upo-real.yml'
       - 'tools/smoke_rescue/upo_real.py'
       - 'tools/smoke_rescue/probe.py'
+      - 'tools/smoke_rescue/doppler_odom.py'
   push:
     branches:
       - feature/smoke-rescue-research
@@ -82,6 +83,26 @@ jobs:
           print("REAL UPO original ROS data benchmarked via TESTENV V2; sensor metrics follow:")
           print(json.dumps(report["metrics"],sort_keys=True))
           PY
+      - name: Infer actual Doppler + measured gyro dead reckoning, then posthoc score
+        timeout-minutes: 7
+        run: |
+          python tools/smoke_rescue/doppler_odom.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --max-seconds 60 \
+            --out campaign_results/smoke-upo7/doppler_imu_research.json \
+            --html campaign_results/smoke-upo7/doppler_imu_trajectory.html
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("campaign_results/smoke-upo7/doppler_imu_research.json")
+          d=json.loads(p.read_text())
+          assert d["actual_own_estimator_executed"] is True
+          assert d["reference_used_during_estimation"] is False
+          assert d["certified_navigation"] is False
+          assert d["independent_accurate_ground_truth"] is False
+          assert len(d["trajectory"]) >= 5
+          print("Own radar+gyro estimator executed, posthoc pseudo-GT score:",d["pseudo_reference_posthoc_evaluation"])
+          PY
       - name: Upload evidence (reports and HTML only, never the dataset)
         if: always()
         uses: actions/upload-artifact@v4
@@ -89,6 +110,7 @@ jobs:
           name: smoke-upo7-testenv-v2-evidence
           path: |
             campaign_results/smoke-upo7/*.json
+            campaign_results/smoke-upo7/*.html
             campaign_results/smoke-upo7-benchmark/**/*.json
             campaign_results/smoke-upo7-benchmark/**/*.html
           if-no-files-found: warn
