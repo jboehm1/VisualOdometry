@@ -64,12 +64,12 @@
       "phase": "Localisation",
       "title": "Brancher FLP et repli GPS natif",
       "status": "PARTIEL",
-      "percent": 60,
+      "percent": 80,
       "depends_on": [
         "L01"
       ],
       "acceptance": "Tester Play Services absent, localisation désactivée, permission approximative/refusée, annulation et reprise; aucune panne globale.",
-      "evidence": "AUTO/FUSED/GPS, fallback absence/erreur/stale, tokens de souscription. Tests Android ajoutés, CI et S21 à exécuter.",
+      "evidence": "AndroidLocationSourceTest vérifie permission précise absente, Google indisponible en FUSED vs AUTO, repli GPS, GPS désactivé et stop. CI Android au SHA 37eda6d71308748956fffe7f3ef94b424b6a18eb; souscriptions Fused physiques et watchdog terrain à qualifier.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -120,13 +120,13 @@
       "id": "F02",
       "phase": "Recalage",
       "title": "Implémenter conversion GPX vers repère AR",
-      "status": "IMPLEMENTE_TEST_HOTE",
-      "percent": 100,
+      "status": "PARTIEL",
+      "percent": 85,
       "depends_on": [
         "F01"
       ],
       "acceptance": "WGS84 vers ENU puis axes AR documentés; yaw et translation sans ajustement libre de l’échelle; aller-retour et signes testés.",
-      "evidence": "Inverse project/unproject, longitude dateline et passage explicite x/-z. 6 trajectoires courbes (2 sens, 3 orientations) dans ArRouteGuideTest.",
+      "evidence": "Inverse et axes x/-z testés sur 6 courbes et dateline. Modèle métrique local sphérique (R=6371008.8), pas ENU ellipsoïdal exact; amélioration géodésique à qualifier.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -179,12 +179,12 @@
       "phase": "Terrain",
       "title": "Préserver altitude et datum du GPX",
       "status": "PARTIEL",
-      "percent": 60,
+      "percent": 75,
       "depends_on": [
         "A03"
       ],
       "acceptance": "ele facultatif; datum inconnu explicite; aucune conversion implicite MSL↔ellipsoïde; ponts/étages distincts; import sans ele testé.",
-      "evidence": "GPX ele conservé par stockage atomique; datum inconnu explicite et non utilisé pour terrain. Tests Android ajoutés; pont/étage à qualifier.",
+      "evidence": "Stockage atomique et conservation ele/absence ele testés en Android; datum explicitement UNKNOWN. Qualification pont/étage restante.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -222,13 +222,13 @@
       "phase": "Rendu",
       "title": "Créer géométrie de route 3D continue",
       "status": "PARTIEL",
-      "percent": 80,
+      "percent": 90,
       "depends_on": [
         "F05",
         "H02"
       ],
       "acceptance": "Ruban continu, raccords sans rectangles visibles, épaisseur métrique, points finis; CPU fallback si GPU indisponible; mêmes positions géométriques.",
-      "evidence": "Batch GPU bleu et Canvas, réutilisation raccords continus WorldGeometry, clipping et limites 30m/512 edges/2048 subdivisions. Smoke GPU réel restant.",
+      "evidence": "Batch GPU compilé, ruban commun testé et rendu Canvas bleu réellement exécuté en Robolectric natif, avec PNG de fixture. GPU physique et surfaces réelles restent.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -280,12 +280,12 @@
       "phase": "Intégration",
       "title": "Ajouter mode expérimental sans collision DATA",
       "status": "PARTIEL",
-      "percent": 60,
+      "percent": 85,
       "depends_on": [
         "R03"
       ],
       "acceptance": "Actions DATA distinctes; préserver GPS ROUTES, A/B, replay, PDR et capture; tests navigation et lifecycle sur résultat combiné.",
-      "evidence": "Entrée DATA sémantique distincte sans manifeste; import segment/provideur/enable/reset/reverse/remove. Test UI ajouté, CI restant.",
+      "evidence": "Test UI clique DATA puis GPX AR et import; GPS ROUTES/replay/A-B préservés. Base ab577a1; autres PR non fusionnées. Smoke téléphone et ensemble inter-branches restent.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -309,14 +309,14 @@
       "phase": "Qualification",
       "title": "Tester moteur réel en replay et négatifs",
       "status": "PARTIEL",
-      "percent": 30,
+      "percent": 40,
       "depends_on": [
         "F05",
         "H03",
         "R03"
       ],
       "acceptance": "Mêmes classes Java que l’app; métriques par moteur; perturbations biais, corrélation, perte, GPX erroné, sens inversé; données de test distinctes du réglage.",
-      "evidence": "29 tests JUnit Java locaux réussis (19 nouveaux GPX AR + 10 existants sol/ruban), 7 tests Python bruit; tests Android en CI. Validation réelle GPS/VIO restante.",
+      "evidence": "153 JUnit Android réussis au SHA 37eda6d71308748956fffe7f3ef94b424b6a18eb, dont 24 nouveaux; 29 JUnit locaux ciblés et 7 Python bruit; régressions GPS et deux replays générés réussis. Pas de vérité terrain GPX/VIO réelle.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -340,13 +340,13 @@
       "id": "Q03",
       "phase": "Qualification",
       "title": "Produire APK de la branche réunie",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 50,
       "depends_on": [
         "Q02"
       ],
       "acceptance": "CI tests/lint/build et smoke menus/export au SHA exact; APK et rapport avec limites; pas de validation via APK d’une autre branche.",
-      "evidence": "",
+      "evidence": "APK expérimentale générée par CI 39305523845 au SHA 37eda6d71308748956fffe7f3ef94b424b6a18eb; tests/lint/debug/release et fixtures réussis. Pas de qualification physique Q02 ni livraison production.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -366,5 +366,12 @@
       "optional": true
     }
   ],
-  "implementation_snapshot": "Experimental Android GPX AR wired; full CI and physical validation pending; no production certification."
+  "implementation_snapshot": "Experimental APK built and software-validated at 37eda6d71308748956fffe7f3ef94b424b6a18eb; physical GNSS/AR accuracy and power qualification pending.",
+  "software_validation": {
+    "commit": "37eda6d71308748956fffe7f3ef94b424b6a18eb",
+    "android_run": 39305523845,
+    "junit_tests": 153,
+    "failures": 0,
+    "physical_device_tested": false
+  }
 }
