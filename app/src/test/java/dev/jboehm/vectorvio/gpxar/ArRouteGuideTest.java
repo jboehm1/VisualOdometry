@@ -133,27 +133,46 @@ public class ArRouteGuideTest {
         assertTrue(resumed.edges.isEmpty());
     }
 
-    @Test public void gnssOutageRetainsAnchoredRouteOnlyWhileVioTrackingIsFreshAndBounded(){
-        ArRouteGuide g=engine();long now=feed(g,0,false,0);
-        ArRouteGuide.Snapshot initial=g.snapshot(now);
+    @Test public void gnssOutageKeepsRibbonWhenTrackingGoodButStopsOnReferenceBreak(){
+        ArRouteGuide g=engine();long t=feed(g,0,false,0);
+        ArRouteGuide.Snapshot initial=g.snapshot(t);
         assertEquals(ArRouteGuide.State.CANDIDATE,initial.state);
-        long t=now;
-        for(int i=1;i<=80;i++){
-            t+=100_000_000L;
-            g.onPose(1,t,t,20,0); // continuous VIO poses, but no GNSS fixes
-        }
+        assertFalse(initial.edges.isEmpty());
+        // Camera keeps moving / tracking for FIVE MINUTES with NO GPS.
+        for(int i=0;i<3000;i++){t+=100_000_000L;g.onPose(1,t,t,20,0);}
         ArRouteGuide.Snapshot hold=g.snapshot(t);
         assertEquals(ArRouteGuide.State.VIO_HOLD,hold.state);
-        assertTrue(hold.holdSeconds>=7);
+        assertTrue(hold.holdSeconds>280);
         assertTrue(hold.horizontalAllowanceMeters>initial.horizontalAllowanceMeters);
         assertFalse(hold.edges.isEmpty());
-        assertTrue(Double.isNaN(hold.targetX)); // no stale GPS heading arrow
-        for(int i=0;i<250;i++){t+=100_000_000L;g.onPose(1,t,t,20,0);}
-        ArRouteGuide.Snapshot expired=g.snapshot(t);
-        assertEquals(ArRouteGuide.State.STALE,expired.state);
-        assertTrue(expired.edges.isEmpty());
+        assertTrue(Double.isNaN(hold.targetX)); // stale heading cannot be used
+        // No new camera frame for >700 ms => fail-closed even in VIO-only mode.
+        assertEquals(ArRouteGuide.State.STALE,g.snapshot(t+800_000_000L).state);
+        assertTrue(g.snapshot(t+800_000_000L).edges.isEmpty());
         g.trackingLost();
+        assertFalse(g.visualShifted());
         assertTrue(g.snapshot(t).edges.isEmpty());
+    }
+    @Test public void userVisualCorrectionMovesOnlyOverlayAndResetsAfterTrackingLoss(){
+        ArRouteGuide g=engine();long now=feed(g,0,false,0);
+        ArRouteGuide.Snapshot before=g.snapshot(now);
+        assertEquals(ArRouteGuide.State.CANDIDATE,before.state);
+        assertFalse(before.edges.isEmpty());
+        double[] old=before.edges.get(0);
+        assertTrue(g.shiftVisual(1.5,-.75));
+        ArRouteGuide.Snapshot after=g.snapshot(now);
+        assertTrue(after.manualAdjusted);assertTrue(g.visualShifted());
+        assertEquals(old[0]+1.5,after.edges.get(0)[0],1e-5);
+        assertEquals(old[1]-.75,after.edges.get(0)[1],1e-5);
+        assertEquals(before.samples,after.samples);
+        assertEquals(before.residualMeters,after.residualMeters,1e-10);
+        assertFalse(g.shiftVisual(100,0));assertFalse(g.shiftVisual(Double.NaN,0));
+        g.clearVisualShift();assertFalse(g.visualShifted());
+        assertEquals(old[0],g.snapshot(now).edges.get(0)[0],1e-5);
+        assertTrue(g.shiftVisual(.5,0));
+        g.trackingLost();
+        assertFalse(g.visualShifted());
+        assertTrue(g.snapshot(now).edges.isEmpty());
     }
 
 }
