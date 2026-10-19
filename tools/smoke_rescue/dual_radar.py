@@ -87,8 +87,8 @@ def closest_rate(samples,t,max_gap=.045):
 
 def read_sensor_messages(bag:Path,clock):
     from rosbags.highlevel import AnyReader
-    if bag.name!="experiment_7.bag" or not (100_000<bag.stat().st_size<2_400_000_000):
-        raise ValueError("Original UPO experiment_7.bag required")
+    if not __import__("re").fullmatch(r"experiment_[1-7]\.bag",bag.name) or not (100_000<bag.stat().st_size<3_600_000_000):
+        raise ValueError("Original UPO experiment_[1-7].bag required")
     radars=[]
     gyro=[]
     bysensor={"left":0,"right":0}
