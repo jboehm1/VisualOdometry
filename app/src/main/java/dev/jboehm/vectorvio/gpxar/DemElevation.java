@@ -52,7 +52,8 @@ public final class DemElevation {
             GpsRoute.Point p=route.points.get(i);
             out.add(new GpsRoute.Point(p.lat,p.lon,elevation));
         }
-        return new GpsRoute(route.name+SUFFIX,out);
+        String name=route.name.substring(0,Math.min(route.name.length(),120-SUFFIX.length()))+SUFFIX;
+        return new GpsRoute(name,out);
     }
 
     /** The public OpenTopoData endpoint: EU-DEM v1.1, vertical datum EVRS2000.
