@@ -19,7 +19,7 @@ def load_json(path):
     return value
 
 
-def collect(short,full,marker=None,clock=None,corrected=None,dual=None,dual_marker=None):
+def collect(short,full,marker=None,clock=None,corrected=None,dual=None,dual_marker=None,agreement=None):
     if short.get("actual_own_estimator_executed") is not True or full.get("actual_own_estimator_executed") is not True:
         raise ValueError("Only actual executed research estimator reports accepted")
     if short.get("source_sha256")!=full.get("source_sha256"):
@@ -63,6 +63,7 @@ def collect(short,full,marker=None,clock=None,corrected=None,dual=None,dual_mark
         "short":clean(short),"full":clean(full),
         "marker":marker.get("score") if marker else None,
         "dual_marker":dual_marker.get("score") if dual_marker else None,
+        "agreement":agreement.get("relative_sensor_observability") if agreement and agreement.get("type")=="CO_OBSERVATION_GEOMETRY_NOT_GROUND_TRUTH" else None,
         "dual":clean(dual) if dual else None,
         "clock_audit":{
             "missing_tf":clock.get("sensor_frames_missing_base_link_tf",[]),
@@ -132,6 +133,7 @@ footer{font-size:.76rem;color:var(--sub);margin-top:20px;word-break:break-word}
 <div class="fact"><span>Horloge IMU</span><b id="clock">—</b></div>
 <div class="fact"><span>TF radar↔IMU manquant</span><b id="tf">Non vérifié</b></div>
 <div class="fact"><span>Évaluation marqueurs réservés</span><b id="marker">Non disponible</b></div>
+<div class="fact"><span>Échos radar proches d’un LiDAR (≤0,5 m)</span><b id="agreement">Non testé</b></div>
 <h2 style="margin-top:22px">Interprétation</h2><p class="info" id="risk">—</p>
 <p class="info" style="margin-top:12px">Aucune fusion thermique n'est évaluée par ce dataset. Aucune densité de fumée physique ou rappel des obstacles n'est démontré.</p>
 </aside></div>
@@ -167,6 +169,7 @@ function update(){
   setMetric('tf',R.clock_audit?(R.clock_audit.missing_tf.length?R.clock_audit.missing_tf.join(', '):'Chemins découverts (non validés)'):'Pas de TF vérifiée');
   const mark=(mode==='dual'?R.dual_marker:R.marker)||{};
   setMetric('marker',mark.heldout_aligned_rmse_m!=null?fmt(mark.heldout_aligned_rmse_m)+' m sur '+mark.heldout_pairs+' échantillons':'Aucun score exploitable');
+  setMetric('agreement',R.agreement?fmt(R.agreement.left.fraction_lidar_xy_within_0_5m*100,1)+'% / '+fmt(R.agreement.right.fraction_lidar_xy_within_0_5m*100,1)+'% (G/D)':'Non mesuré');
   const fail=(p.ate_rmse_over_stationary_baseline||0)>1;
   setMetric('risk',fail?'Le radar + IMU fait PIRE qu’une position immobile sur cette fenêtre. La dérive rend la navigation non fiable.':
        'Les observations contiennent un signal de mouvement, mais la précision reste exploratoire et non certifiée.');
@@ -254,6 +257,7 @@ def main(argv=None):
     p.add_argument("--corrected",type=Path)
     p.add_argument("--dual",type=Path)
     p.add_argument("--dual-marker",type=Path)
+    p.add_argument("--cross-sensor",type=Path)
     p.add_argument("--out",required=True,type=Path)
     a=p.parse_args(argv)
     data=collect(load_json(a.short),load_json(a.full),
@@ -261,7 +265,8 @@ def main(argv=None):
                  load_json(a.clock) if a.clock else None,
                  load_json(a.corrected) if a.corrected else None,
                  load_json(a.dual) if a.dual else None,
-                 load_json(a.dual_marker) if a.dual_marker else None)
+                 load_json(a.dual_marker) if a.dual_marker else None,
+                 load_json(a.cross_sensor) if a.cross_sensor else None)
     a.out.parent.mkdir(parents=True,exist_ok=True)
     a.out.write_text(render(data),encoding="utf-8")
     print(json.dumps({"status":"RESEARCH_HTML_COMPLETE", "output":str(a.out),
