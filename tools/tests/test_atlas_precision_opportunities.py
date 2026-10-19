@@ -72,7 +72,7 @@ class AtlasPrecisionOpportunityContract(unittest.TestCase):
         self.assertIn("persist();",self.html)
 
     def test_javascript_catalog_json_has_complete_copyable_cards(self):
-        match=re.search(r'const opportunityCatalog=(\[[^;]+\]);\s*function saveCatalogIdea',self.html)
+        match=re.search(r'const opportunityCatalog=(\[[^\n]+\]);\s*function saveCatalogIdea',self.html)
         self.assertIsNotNone(match)
         catalog=json.loads(match.group(1))
         self.assertEqual(14,len(catalog))
