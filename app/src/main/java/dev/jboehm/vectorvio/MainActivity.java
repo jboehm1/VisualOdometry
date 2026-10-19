@@ -829,7 +829,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
 
     private void refreshHud() {
         hud.update(odometer.snapshot(SystemClock.elapsedRealtime()),trackingLabel,message,markerCount);
-        hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);
+        hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gpxArEnabled?gpxLocationStatus:gps.status);
     }
     @Override protected void onNewIntent(Intent intent){
         super.onNewIntent(intent);setIntent(intent);
@@ -1115,7 +1115,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             }
             if(gpxArEnabled&&!playbackMode&&odometer.isRecording()&&camera.getTrackingState()==TrackingState.TRACKING){
                 if(poseResult==Odometer.Result.REFERENCE||poseResult==Odometer.Result.GAP||poseResult==Odometer.Result.REJECTED){gpxAr.trackingLost();gpxGeneration++;}
-                Pose world=camera.getPose();gpxAr.onPose(gpxGeneration,gpxPoseClock.elapsedRealtimeNs(frame),SystemClock.elapsedRealtimeNanos(),world.tx(),world.tz());
+                Pose world=camera.getPose();
+                final long frameNs=frame.getTimestamp(),cameraElapsedNs=gpxPoseClock.elapsedRealtimeNs(frame),receiptNs=SystemClock.elapsedRealtimeNanos();
+                final int generation=gpxGeneration;final float wx=world.tx(),wy=world.ty(),wz=world.tz();
+                gpxAr.onPose(generation,cameraElapsedNs,receiptNs,wx,wz);
+                recorder.sidecar(recorder.currentFile(),"_gpx_ar_poses.csv","ar_frame_ns,android_camera_elapsed_ns,receipt_elapsed_ns,tracking_segment,world_x,world_y,world_z",
+                    ()->String.format(Locale.US,"%d,%d,%d,%d,%.9f,%.9f,%.9f",frameNs,cameraElapsedNs,receiptNs,generation,wx,wy,wz));
             }else gpxAr.trackingLost();
             if(frame.getTimestamp()>0) previousFrameNs=frame.getTimestamp();
             latestPoseResult=poseResult;
@@ -1153,7 +1158,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 Odometer.Snapshot snap=odometer.snapshot(now);
                 String currentTracking=trackingLabel,currentMessage=message;
                 int marks=markerCount;
-                runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(gpxArEnabled?gpxArText:guideText);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);});
+                runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(gpxArEnabled?gpxArText:guideText);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gpxArEnabled?gpxLocationStatus:gps.status);});
             }
         } catch(Exception ex) {
             trackingLabel="TRACK LOST";

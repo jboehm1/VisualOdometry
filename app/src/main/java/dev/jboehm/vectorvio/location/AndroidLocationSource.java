@@ -110,6 +110,9 @@ public final class AndroidLocationSource implements LocationSource {
         catch(RuntimeException e){listener.onStatus("GPS UNAVAILABLE");remove();}
     }
     private void accept(Location l,LocationSample.Source source){
+        long age=SystemClock.elapsedRealtimeNanos()-l.getElapsedRealtimeNanos();
+        String provider=source==LocationSample.Source.GOOGLE_FUSED?"GOOGLE FUSED":"GPS NATIVE";
+        listener.onStatus(provider+(age<0||age>5_000_000_000L?" · STALE":l.hasAccuracy()?String.format(java.util.Locale.US," · ±%.0f m",l.getAccuracy()):" · NO ACCURACY"));
         listener.onSample(new LocationSample(source,l.getElapsedRealtimeNanos(),SystemClock.elapsedRealtimeNanos(),l.getTime(),
             l.getLatitude(),l.getLongitude(),l.hasAccuracy()?l.getAccuracy():Double.NaN,
             l.hasAltitude()?l.getAltitude():Double.NaN,l.hasVerticalAccuracy()?l.getVerticalAccuracyMeters():Double.NaN,

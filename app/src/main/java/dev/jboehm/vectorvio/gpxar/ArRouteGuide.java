@@ -60,7 +60,10 @@ public final class ArRouteGuide {
         state=!enabled?State.OFF:route==null?State.NO_ROUTE:State.WAITING_POSES;
     }
     /** Call on AR discontinuity, pause/reset and tracking loss. Keeps the imported route. */
-    public synchronized void trackingLost(){resetTracking();}
+    public synchronized void trackingLost(){
+        if(lastPoseNs==0&&lastFixNs==0&&pending.isEmpty()&&state!=State.CLOCK_MISMATCH)return;
+        resetTracking();
+    }
     public synchronized void onPose(int segment,long frameNs,long nowNs,double x,double z){
         if(!enabled||route==null)return;
         if(frameNs<=0||nowNs<=0||Math.abs((double)frameNs-nowNs)>2_000_000_000d){
