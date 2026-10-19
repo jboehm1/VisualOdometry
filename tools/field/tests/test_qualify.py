@@ -19,13 +19,13 @@ def make_csv(path, path_m=10., backward=False):
     with path.open("w",newline="") as fd:
         writer=csv.DictWriter(fd,fieldnames=HEADERS)
         writer.writeheader()
-        for i in range(11):
-            writer.writerow({"event":"POSE","wall_time_ms":i*1000,
-                             "frame_time_ns":(10-i if backward else i)*1_000_000_000+1,
+        for i in range(701):
+            writer.writerow({"event":"POSE","wall_time_ms":i*100,
+                             "frame_time_ns":(700-i if backward else i)*100_000_000+1,
                              "tracking":"TRACKING",
                              "x_m":i,"y_m":0,"z_m":0,
-                             "path_m":i*path_m/10,"horizontal_m":i*path_m/10,
-                             "displacement_m":i*path_m/10,
+                             "path_m":i*path_m/700,"horizontal_m":i*path_m/700,
+                             "displacement_m":i*path_m/700,
                              "vertical_m":0,"speed_mps":path_m/10,
                              "segments":1,"gaps":0,"outliers":0})
 
@@ -49,6 +49,7 @@ class FieldQualityContracts(unittest.TestCase):
             self.assertFalse(r["physical_android_app_executed_by_this_script"])
             self.assertFalse(r["metric_6dof_ground_truth_available"])
             self.assertEqual(r["gates"]["straight_p90_error_pct"]["n"],3)
+            self.assertTrue(all(x["quality_gate"]=="PASS" for x in r["trials"]))
             self.assertTrue((root/"report.json").is_file())
 
     def test_incomplete_cohort_never_automatically_passes(self):
