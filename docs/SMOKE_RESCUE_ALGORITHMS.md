@@ -102,3 +102,29 @@ Source/license policies: UPO CC BY-NC-SA 3.0, IRS RTVI license must be checked p
 The user's desired Option-C combination radar + LWIR thermal + IMU is partly available in the IRS RTVI dataset (Doer/Trommer IROS 2021), but those recordings are **not demonstrated smoky**: https://christopherdoer.github.io/datasets/irs_rtvi_datasets_iros2021 . This source complements rather than replaces UPO.
 
 The 168-second frozen-parameter full recording campaign is a separate new CI test; its result must be reported at its own exact run SHA, not inferred from these 60s scores.
+
+
+## FULL original 168s held-parameter run — VERIFIED, critical negative result
+
+[GitHub Actions 39211106764 — SUCCESS](https://github.com/jboehm1/VisualOdometry/actions/runs/39211106764), branch head at time of run \`a82bd255732b85c84ed1f3a6a1d7e9c5ea68e970\`. Genuine full original UPO Experiment 7, **35 unit tests PASS**, same algorithm and untouched parameters for 60s and 168s, not a new reference-fitting method. Evidence artifact **12167518553**, with original dataset SHA256 \`b8e9340a2465e3b71d6ce2edffe47a5faff9616ebff59f754ae234896df09c3e\`. Published JSON and generated HTML maps are strictly research-only. Dataset raw bytes deleted on runner.
+
+| Measure (identical frozen estimator) | First 60s of bag | Full 168s of bag |
+| --- | ---: | ---: |
+| Received 0.5s radar-return windows (during radar availability) | 80 | **290** |
+| Accepted velocity windows | 69 (86.25%) | **269 (92.76%)** |
+| Correctly integrated consecutive intervals | 32.52s | **127.66s** |
+| Estimate traveled path from accepted intervals | 9.28m | **35.11m** |
+| Actual Doppler echoes projected to uncalibrated map | 2,045 | **8,241** |
+| Map cells at 25cm with ≥1 positive radar echo | 212 | **723** |
+| Matched pseudo-reference poses | 60 | **258** |
+| Rigid-SE2 posthoc ATE RMSE vs partial AR-marker/odometry pseudo reference | **0.891m** | **3.242m** |
+| ATE median / P95 | 0.800m / 1.606m | **1.667m / 7.105m** |
+| Zero-motion baseline RMSE against same reference sample set | 1.788m | **2.930m** |
+| ATE / stationary baseline (<1 better) | 0.498 | **1.106 (WORSE)** |
+| Traveled path matched intervals (estimated vs pseudo GT) | 7.997 vs 5.462m | **33.366 vs 26.569m** |
+
+**Meaningful scientific finding:** The longer test exposed substantial error and drift. The **full 168s estimate has a higher position RMSE than doing no motion at all** on the same posthoc alignment/evaluation protocol. A quick 60s positive score is not proof of robust localization. The estimated path on the full matched contiguous intervals overshoots the pseudo-reference by approximately **25.6%**. The 723 populated grid cells are simply positive detections and cannot be scored as correct obstacles without verified transforms and an independent labeled map.
+
+The root cause is **not proven**. Hypotheses: mismatch between OS1 IMU device-uptime and radar Unix-time stamps (currently bridged with ROS bag arrival time), unknown radar↔IMU extrinsic yaw and lever arm, gyro bias, Doppler on moving/multipath scatterers, gap handling, a static-reflector assumption, poor observability of a sparse side-looking radar. All must be tested with sensor-only calibration and independent held-out sequences. Do **not** tune to minimize this exact pseudo-ground-truth RMSE then call the same data an independent test.
+
+**Prioritized next measurable work:** inspect and resolve UPO \`/tf\`/\`/tf_static\`, calibrate gyro hardware-uptime↔ROS timestamp offset from sensor stamps only; score against raw \`/fiducial_pose\` marker detections separately (not the odometry-smoothed \`/ground_truth\`); add correctly aligned LiDAR-to-radar detection association and a distance/angle-stratified miss-rate benchmark with conservative unknown-state; evaluate another smoke experiment as held-out. Use direct radar+thermal+IMU IRS RTVI for synchronized fusion as a separate non-smoke test.
