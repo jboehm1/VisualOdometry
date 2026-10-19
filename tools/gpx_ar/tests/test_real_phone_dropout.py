@@ -21,7 +21,7 @@ def fixture(path,drift=0):
         t=i*.1
         east=min(t,65)
         north=max(0,t-65)
-        reference.append([t,east,north,2.,0,0,0,1])
+        reference.append([t,east,2.,north,0,0,0,1])
         # Pixel ARCore rotates EN axes into x/-z with true unit scale.
         pixel.append([t,east+drift*max(0,t-20),1.6,-north,0,0,0,1])
     with zipfile.ZipFile(path,"w",zipfile.ZIP_DEFLATED) as z:
