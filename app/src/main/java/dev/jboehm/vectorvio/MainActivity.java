@@ -398,6 +398,68 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     private void powerHelp(){new AlertDialog.Builder(this).setTitle("Power · limits")
         .setMessage("Profiles change presentation only: camera preview, overlay preparation and HUD refresh. Tracking/odometry, map capture and frame metadata keep a 30 updates/s target in every profile. The actual rate can be lower if the device is busy; the HUD reports received pose cadence. No new pose-distance filter is applied.\n\nARCore opens the camera itself at a 30 FPS target and retains its internal tracking. Display at 5 FPS does not mean camera capture at 5 FPS. In Hold mode, press the image for a 30 FPS view; release for 5. The same latest-frame GL pipeline is used at every display rate.\n\nFor maximum autonomy, GPS ROUTES avoids the camera; COLLECT ONLY records video without live mapping. Battery savings require measurement on your phone.").setPositiveButton("OK",null).show();}
+    /** Manual visual adjustment requires an existing geographic/VIO alignment. */
+    private void beginGpxManualMode(){
+        dev.jboehm.vectorvio.gpxar.ArRouteGuide.Snapshot state=gpxAr.snapshot(SystemClock.elapsedRealtimeNanos());
+        if(!gpxArEnabled||!rendererRunning||!gpxAr.hasRoute()||
+          (state.state!=dev.jboehm.vectorvio.gpxar.ArRouteGuide.State.CANDIDATE &&
+           state.state!=dev.jboehm.vectorvio.gpxar.ArRouteGuide.State.VIO_HOLD)){
+            Toast.makeText(this,"First enable GPX AR and walk until tracking + alignment are ready",Toast.LENGTH_LONG).show();return;
+        }
+        new AlertDialog.Builder(this).setTitle("MANUAL GPX ALIGNMENT")
+            .setMessage("Stand where you can see the real path. Slide the camera view with one finger to move the GPX line horizontally. Fine positioning is approximate; it does NOT correct GPS or create surveyed ground truth.\n\nTap DONE to keep the shift during this AR session or RESET to remove it. Locking the phone or losing tracking discards this adjustment. The route file and odometer are never changed.")
+            .setNegativeButton("CANCEL",null)
+            .setPositiveButton("START DRAG",(d,w)->{
+                gpxManualMode=true;
+                gpxManualToolbar.setVisibility(View.VISIBLE);
+                Toast.makeText(this,"Drag on the camera view · RESET / DONE above",Toast.LENGTH_SHORT).show();
+            }).show();
+    }
+    private void endGpxManualMode(){
+        gpxManualMode=false;
+        if(gpxManualToolbar!=null)gpxManualToolbar.setVisibility(View.GONE);
+    }
+    /**
+     * Drag gesture is deliberately active ONLY when the manual toolbar is on.
+     * Camera orientation converts screen motion to a horizontal offset in the
+     * stable current VIO reference, not a replacement GPS or odometry pose.
+     */
+    private boolean cameraTouch(View view,MotionEvent event){
+        if(!gpxManualMode)return powerTouch(view,event);
+        if(event.getPointerCount()!=1&&event.getActionMasked()!=MotionEvent.ACTION_UP)return true;
+        if(event.getActionMasked()==MotionEvent.ACTION_DOWN){
+            manualTouchX=event.getX();manualTouchY=event.getY();manualTouchMs=0;return true;
+        }
+        if(event.getActionMasked()==MotionEvent.ACTION_MOVE||event.getActionMasked()==MotionEvent.ACTION_UP){
+            long now=SystemClock.elapsedRealtime();
+            if(event.getActionMasked()==MotionEvent.ACTION_MOVE&&now-manualTouchMs<35)return true;
+            float dx=event.getX()-manualTouchX,dy=event.getY()-manualTouchY;
+            manualTouchX=event.getX();manualTouchY=event.getY();manualTouchMs=now;
+            if(Math.hypot(dx,dy)<.5)return true;
+            surface.queueEvent(()->{
+                if(!gpxManualMode||!rendererRunning||latestFrame==null)return;
+                if(latestFrame.getCamera().getTrackingState()!=TrackingState.TRACKING)return;
+                Pose reference=gpxReference.worldFromMetric();
+                if(reference==null)return;
+                Pose camera=latestFrame.getCamera().getPose();
+                float[] right=camera.getXAxis(),forward=camera.getZAxis();
+                double rn=Math.hypot(right[0],right[2]),fn=Math.hypot(forward[0],forward[2]);
+                if(rn<.3||fn<.3)return;
+                double scale=10.0/Math.max(320,width);
+                double mx=(right[0]/rn*dx+forward[0]/fn*dy)*scale;
+                double mz=(right[2]/rn*dx+forward[2]/fn*dy)*scale;
+                double magnitude=Math.hypot(mx,mz);
+                if(magnitude>2){mx*=2/magnitude;mz*=2/magnitude;}
+                Pose metricFromWorld=reference.inverse();
+                float[] base=metricFromWorld.transformPoint(new float[]{0,0,0});
+                float[] shifted=metricFromWorld.transformPoint(new float[]{(float)mx,0,(float)mz});
+                if(gpxAr.shiftVisual(shifted[0]-base[0],shifted[2]-base[2]))surface.requestRender();
+            });
+            return true;
+        }
+        return true;
+    }
+
     /**
      * Semantic DATA menu contract: all existing module entries live in the
      * catalog, not fixed positions that collide across parallel branches.
