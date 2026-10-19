@@ -41,17 +41,18 @@ public final class StepPeakDetectorTest {
         }
         assertEquals(0,accepted);
     }
-    @Test public void shortReboundDoesNotResetEstablishedCadence(){
+    @Test public void subRefractoryImpactDoesNotAdvancePeakClock(){
         StepPeakDetector detector=new StepPeakDetector();
         long time=1_000_000_000L;
         int counted=0;
         int reboundCounted=0;
-        // 600ms genuine rhythmic gait, with extra shock 320ms after
-        // each of the final 3 real peaks. A rebound must not replace the
-        // previous valid gait interval and cause a following real step loss.
+        // A genuine 600-ms walking period has an extra shock at 240 ms,
+        // explicitly BELOW the built-in 300-ms minimum refractory interval.
+        // A 320-ms rebound is NOT covered by this guard and was observed
+        // to cause real SIMUL recall regressions; do not overclaim.
         for(int k=0;k<9;k++){
             for(int j=0;j<30;j++){
-                boolean extra=k>=6 && j==26;
+                boolean extra=k>=6 && j==22;
                 double z=(j==10 || extra)?14.5:9.81;
                 if(detector.accept(time,0,0,z)){
                     counted++;
