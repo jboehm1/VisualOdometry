@@ -267,11 +267,43 @@ def relative_vio_with_calibrated_initial_pose(real_pixel, reference, cut_seconds
     )
 
 
+def audit_actual_iphone_gps(archive,prefix):
+    """Optional REAL companion-iPhone CoreLocation audit; never fake its fixes."""
+    name=prefix+"iphone/platform-location.csv"
+    if name not in archive.namelist():
+        return dict(status="NOT_IN_ARCHIVE",valid_fixes=0,
+                    source="companion_iPhone_CoreLocation_not_Google_Pixel")
+    samples=[]
+    with archive.open(name) as f:
+        for line in csv.reader(io.TextIOWrapper(f,encoding="utf-8-sig")):
+            if len(line)<4:continue
+            try:t,lat,lon,accuracy=map(float,line[:4])
+            except (ValueError,TypeError):continue
+            if not(all(map(math.isfinite,(t,lat,lon,accuracy))) and
+                   -85<=lat<=85 and -180<=lon<=180 and (abs(lat)+abs(lon))>1 and
+                   0<accuracy<=1000):continue
+            samples.append((t,lat,lon,accuracy))
+    if not samples:
+        return dict(status="NO_USABLE_GPS_FIXES",valid_fixes=0,
+                    source="companion_iPhone_CoreLocation_not_Google_Pixel")
+    return dict(status="RECORDED_GNSS_AVAILABLE",
+                source="companion_iPhone_CoreLocation_not_Google_Pixel",
+                valid_fixes=len(samples),first_time_s=samples[0][0],
+                last_time_s=samples[-1][0],
+                reported_accuracy_median_m=round(statistics.median(p[3] for p in samples),2),
+                raw_location_fed_to_estimator=False,
+                note="Real iPhone location exists, but does not certify Pixel GPS or VIO accuracy")
+
+
 def run(source,out,calibration_seconds=(20.0,40.0),noise=1.5,seed=SEED):
     out=Path(out);out.mkdir(parents=True,exist_ok=True)
     with zipfile.ZipFile(source) as z:
-        pixel=read_pose_csv(z,SOURCE_NAMES["pixel"])
-        reference=read_pose_csv(z,SOURCE_NAMES["reference"])
+        candidates=[n for n in z.namelist() if n.endswith("/pixel/arcore.csv")]
+        if len(candidates)!=1:raise ValueError("Archive must have exactly one ADVIO Pixel ARCore track")
+        prefix=candidates[0][:-len("pixel/arcore.csv")]
+        pixel=read_pose_csv(z,candidates[0])
+        reference=read_pose_csv(z,prefix+"ground-truth/pose.csv")
+        actual_gps=audit_actual_iphone_gps(z,prefix)
     results=[]
     for i,calibration in enumerate(calibration_seconds):
         path=out/("cut_"+str(int(calibration)))
@@ -292,7 +324,8 @@ def run(source,out,calibration_seconds=(20.0,40.0),noise=1.5,seed=SEED):
         # Do NOT upload pseudo GPS session inputs derived from ground truth.
         zipped.unlink()
     summary=dict(schema="vector-gpx-real-external-poses-dropout/1",
-        dataset="ADVIO-09",input_sha256=hashlib.sha256(Path(source).read_bytes()).hexdigest(),
+        dataset=prefix.strip("/"),input_sha256=hashlib.sha256(Path(source).read_bytes()).hexdigest(),
+        actual_companion_phone_gps_audit=actual_gps,
         source="https://doi.org/10.5281/zenodo.1476931",license="CC BY-NC 4.0",
         external_estimator="authors recorded Google Pixel ARCore poses; NOT our S21 APK",
         heldout_reference="ADVIO fixation-aided inertial reconstruction; not purely independent optical truth",
