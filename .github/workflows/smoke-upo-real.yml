@@ -129,6 +129,31 @@ jobs:
               'positive_map':whole['sparse_positive_echo_map'],
           },sort_keys=True))
           PY
+      - name: Run sensor-only calibrated IMU-clock ablation on full 168s original data
+        timeout-minutes: 7
+        run: |
+          python tools/smoke_rescue/doppler_odom.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --clock-audit campaign_results/smoke-upo7/tf_and_clock_report.json \
+            --max-seconds 168 \
+            --out campaign_results/smoke-upo7/doppler_clock_corrected_full168.json \
+            --html campaign_results/smoke-upo7/doppler_clock_corrected_full168.html
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('campaign_results/smoke-upo7')
+          old=json.loads((root/'doppler_imu_full168.json').read_text())
+          new=json.loads((root/'doppler_clock_corrected_full168.json').read_text())
+          a=old['pseudo_reference_posthoc_evaluation']
+          b=new['pseudo_reference_posthoc_evaluation']
+          assert new['clock_estimation_uses_reference'] is False
+          assert new['reference_used_during_estimation'] is False
+          print('Sensor-only clock calibration A/B: ',json.dumps({
+              'receipt_time_posthoc_rmse_m':a.get('ate_rmse_m_vs_pseudo_reference'),
+              'corrected_header_time_posthoc_rmse_m':b.get('ate_rmse_m_vs_pseudo_reference'),
+              'corrected_clock_parameters':new['sensor_source'].get('gyro_clock_audit_summary'),
+              'corrected_motion_observability':new['motion_observability']},sort_keys=True))
+          PY
       - name: Evaluate frozen full-run estimator against held-out direct fiducial markers
         timeout-minutes: 5
         run: |
