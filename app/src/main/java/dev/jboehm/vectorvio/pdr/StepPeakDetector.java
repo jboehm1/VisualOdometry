@@ -46,17 +46,11 @@ public final class StepPeakDetector {
         }
         long period=timeNs-lastCandidateNs;
         if(period<MIN_PEAK_NS)return false; // likely a secondary bump
-        if(rhythmic && period<.55*previousPeriodNs){
-            // Ignore a rapid rebound without changing the established cadence
-            // or the last valid candidate timestamp. Re-acquire naturally after
-            // a longer event interval. This is a heuristic, not a gait model.
-            return false;
-        }
         lastCandidateNs=timeNs;
         if(period>MAX_PEAK_NS){
             rhythmic=false;previousPeriodNs=Double.NaN;return false;
         }
-        if(rhythmic && period>1.8*previousPeriodNs){
+        if(rhythmic && (period<.55*previousPeriodNs || period>1.8*previousPeriodNs)){
             rhythmic=false;previousPeriodNs=Double.NaN;
             return false; // re-acquire gait rather than interpreting a shake as travel
         }

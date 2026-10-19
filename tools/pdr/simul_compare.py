@@ -32,6 +32,8 @@ COHORT={
     "25":"data/by-person/25/awindaRecording_20230124150358.csv",
     "12":"data/by-person/12/awindaRecording_20230124153538.csv",
     "31":"data/by-person/31/awindaRecording_20230403142813.csv",
+    "10":"data/by-person/10/awindaRecording_20230425130223.csv",
+    "26":"data/by-person/26/awindaRecording_20230418172523.csv",
 }
 PLACEMENTS={3:"front_pocket",5:"hand",6:"back_pocket"}
 MAX_RAW_BYTES=42_000_000
@@ -176,7 +178,8 @@ def run(out,cohort):
             for i,placement in PLACEMENTS.items():
                 a=metrics(estimates["baseline"][i],reference,times)
                 b=metrics(estimates["candidate"][i],reference,times)
-                row={"participant":participant,"cohort":"previously_seen" if participant in ("08","17","24","25") else "additional_frozen",
+                group=("new_reserved" if participant in ("10","26") else "previously_seen")
+                row={"participant":participant,"cohort":group,
                      "placement":placement,"baseline":a,"candidate":b}
                 results.append(row)
                 print(f"SIMUL_REAL {participant} {placement} ref={len(reference)} "+
@@ -188,7 +191,7 @@ def run(out,cohort):
         old=summary([r["baseline"] for r in results])
         current=summary([r["candidate"] for r in results])
         seen=[r for r in results if r["cohort"]=="previously_seen"]
-        additional=[r for r in results if r["cohort"]=="additional_frozen"]
+        additional=[r for r in results if r["cohort"]=="new_reserved"]
         report={"schema":1,"dataset":"REAL SIMUL","dataset_sha":UPSTREAM,
                 "baseline_java_sha":BASELINE,"candidate_engine":"checked-out Java PdrEngine.java + StepPeakDetector.java",
                 "candidate_note":"Record exact GitHub Actions head SHA in run metadata",
@@ -212,6 +215,23 @@ def run(out,cohort):
         print("SIMUL_SUMMARY "+json.dumps(report["overall"],sort_keys=True),flush=True)
         print("SIMUL_SEEN "+json.dumps(report["seen_baseline"],sort_keys=True),flush=True)
         print("SIMUL_ADDITIONAL "+json.dumps(report["additional_frozen"],sort_keys=True),flush=True)
+        # Regression criterion fixed before inspecting the final new subjects:
+        # both macro F1 and count error must improve overall; individual
+        # placement F1 loss must be <0.04, regardless of average score.
+        reductions = old["mean_abs_count_error_pct"]-current["mean_abs_count_error_pct"]
+        worst_f1 = min(r["candidate"]["f1"]-r["baseline"]["f1"] for r in results)
+        gate = {
+            "macro_f1_gain_nonnegative":current["mean_f1"]>=old["mean_f1"],
+            "count_mae_reduction_at_least_3pp":reductions>=3.0,
+            "no_single_trial_f1_loss_over_0p04":worst_f1>=-0.04,
+            "new_subject_f1_nonregression":not additional or summary([r["candidate"] for r in additional])["mean_f1"] >= summary([r["baseline"] for r in additional])["mean_f1"]-0.01,
+            "new_subject_count_improvement":not additional or summary([r["candidate"] for r in additional])["mean_abs_count_error_pct"] < summary([r["baseline"] for r in additional])["mean_abs_count_error_pct"],
+        }
+        report["regression_gates"]=gate
+        (out/"paired_report.json").write_text(json.dumps(report,indent=2)+"\n")
+        print("SIMUL_GATES "+json.dumps(gate,sort_keys=True),flush=True)
+        if not all(gate.values()):
+            raise RuntimeError("Paired real SIMUL quality regression gate failed")
         return report
 
 def main():

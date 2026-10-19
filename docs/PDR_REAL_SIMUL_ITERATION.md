@@ -48,3 +48,29 @@ performance. In fact some hand-held placement F1 decreased. A later
 candidate explores rejecting fast rebound peaks without resetting previously
 established gait period. The next runner output must decide whether that
 change should remain. It must not be advertised as proven until it passes.
+
+## Scientific iterations and selection policy
+
+The actual original-vs-candidate comparison (6 participants, 18 placements,
+macro F1 and mean absolute count error) was run before selecting the
+deployment candidate:
+
+| Candidate commit | Minimum rhythmic early-peak behavior | Macro F1 | Mean abs count error | Drawback |
+|---|---|---:|---:|---|
+| `b502376c` | original PDR 1.1 cadence re-acquisition | **0.910695** | **9.127%** | small F1 drops in several hand trials |
+| `3b5c5223` | ignore <70% rhythm period without resetting | 0.915210 | 8.609% | hand subject 24 F1 0.779 (baseline 0.936) |
+| `17e3fb76` | ignore <60% rhythm period without resetting | 0.918614 | 8.226% | hand subject 08 F1 0.865 (baseline 0.932) |
+| `be245628` | ignore <55% rhythm period without resetting | 0.914567 | 9.406% | hand subject 08 F1 0.870 |
+
+**Decision:** select `b502376c` detector logic as the more conservative
+hand/placement-balanced release candidate, rather than cherry-pick maximum
+macro F1 with a large per-user regression. This was based on inspected
+benchmark results and is *not* a new trained model.
+
+**New pre-declared participants 10 and 26** were selected from original
+SIMUL index before running the final validation. Their step reference must
+not be used to retune this candidate. An automatic CI gate requires mean
+F1 non-regression, >=3 percentage-point reduction in mean absolute step
+count error, <=0.04 per-trial F1 loss, plus improvements on the two newly
+reserved subjects. If any gate fails, report failure rather than
+silently removing hard participants.

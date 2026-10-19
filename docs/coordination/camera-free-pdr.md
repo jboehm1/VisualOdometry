@@ -131,3 +131,15 @@ participants for truly independent final validation. No step accuracy 100%,
 no position GT, no S21 test.
 Next iteration adjusts refractory cadence rule only after proving with new
 CI; no shared files touched.
+
+### PDR real-SIMUL scientific selection (2026-10-19)
+Observed real metrics on 6 participants/18 placements for candidates
+`b502376c`, `3b5c5223`, `17e3fb76`, `be245628` in actual
+GitHub Actions. Later aggressive early-peak veto settings improved macro
+count error but caused substantial **hand-held step F1 regressions**.
+Reverted runtime `StepPeakDetector.java` to empirically more balanced
+`b502376c` implementation without rewriting history or other agents'
+code. Added fresh participants 10/26 and an explicit PDR-owned
+quality gate. Their labels cannot tune the selected candidate after
+final CI is inspected. No claim 100% odometry; independent metric GT
+and S21 hardware still missing.
