@@ -46,7 +46,7 @@ public final class StepPeakDetector {
         }
         long period=timeNs-lastCandidateNs;
         if(period<MIN_PEAK_NS)return false; // likely a secondary bump
-        if(rhythmic && period<.60*previousPeriodNs){
+        if(rhythmic && period<.55*previousPeriodNs){
             // Ignore a rapid rebound without changing the established cadence
             // or the last valid candidate timestamp. Re-acquire naturally after
             // a longer event interval. This is a heuristic, not a gait model.
