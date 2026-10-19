@@ -143,3 +143,15 @@ code. Added fresh participants 10/26 and an explicit PDR-owned
 quality gate. Their labels cannot tune the selected candidate after
 final CI is inspected. No claim 100% odometry; independent metric GT
 and S21 hardware still missing.
+
+### PDR 1.3 latest reserved real SIMUL evidence (2026-10-19)
+Candidate `1857d9f97f4a83f9c8596507b89ecde74c4530f6` ran
+real SIMUL paired step benchmark https://github.com/jboehm1/VisualOdometry/actions/runs/39179451806
+with 8 participants / 24 positions. **The automatically enforced
+quality gate failed**: overall temporal F1 fell slightly 0.916047 ->
+0.915470 and fresh participants 10/26 F1 fell 0.944469 -> 0.929793.
+In particular participant 26 back-pocket F1 fell 0.916 -> 0.814.
+Mean absolute step count error improved 13.135% -> 7.167% but this
+is not enough to claim general reliability. CI failure remains visible;
+PR #5 must stay draft. IDs 10/26 now exposed, not future held-out data.
+Roadmap 42.1% unchanged; no S21 validation; don't declare 100%.
