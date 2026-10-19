@@ -185,6 +185,69 @@ def score(replay_csv,truth,cutoff_ns,fixes_count,sigma_gnss,window_seconds):
         synthetic_gnss_sigma_axis_m=sigma_gnss)
 
 
+def relative_vio_with_calibrated_initial_pose(real_pixel, reference, cut_seconds):
+    """Best-case 2D camera drift: rigid yaw+translation fitted ONLY before outage.
+
+    Uses a synthetic perfect initial GNSS/survey alignment (from reference).
+    Reports calibration baseline and assumes zero relative camera/IMU extrinsic
+    lever-arm correction; NO post-hoc rotation/scale or held-out truth in fit.
+    This isolates the underlying externally recorded ARCore pose drift from the
+    app's stricter real-GPS yaw observability gate.
+    """
+    pixel=continuous(real_pixel)
+    matched=[];j=0
+    for row in pixel:
+        target,j=interpolation(reference,row[0],j)
+        if target is not None:
+            matched.append((row[0],row[1],-row[3],target[0],target[2]))
+    if len(matched)<60:raise ValueError("No real phone/reference pose pairs")
+    t0=matched[0][0]
+    before=[p for p in matched if p[0]-t0<=cut_seconds]
+    after=[p for p in matched if p[0]-t0>cut_seconds]
+    if len(before)<10 or len(after)<20:
+        raise ValueError("Not enough independent reference after calibration")
+    # 2D SE(2) Procrustes, metric scale held fixed.
+    mx=statistics.mean(p[1] for p in before)
+    mz=statistics.mean(p[2] for p in before)
+    me=statistics.mean(p[3] for p in before)
+    mn=statistics.mean(p[4] for p in before)
+    cross=0.0;dot=0.0
+    for _,x,z,e,n in before:
+        xx=x-mx;zz=z-mz;ee=e-me;nn=n-mn
+        dot+=xx*ee+zz*nn
+        cross+=xx*nn-zz*ee
+    yaw=math.atan2(cross,dot)
+    co=math.cos(yaw);si=math.sin(yaw)
+    dx=me-co*mx+si*mz;dz=mn-si*mx-co*mz
+    def err(p):
+        _,x,z,e,n=p
+        return math.hypot(co*x-si*z+dx-e,si*x+co*z+dz-n)
+    init=[err(p) for p in before]
+    later=[err(p) for p in after]
+    later.sort()
+    ref_baseline=math.hypot(before[-1][3]-before[0][3],before[-1][4]-before[0][4])
+    pixel_baseline=math.hypot(before[-1][1]-before[0][1],before[-1][2]-before[0][2])
+    duration=after[-1][0]-before[-1][0]
+    return dict(
+        method="REFERENCE_CALIBRATED_CAMERA_ONLY_BEST_CASE_NO_GNSS_AFTER_CUTOFF",
+        calibration_uses_reference_positions_before_dropout=True,
+        post_dropout_reference_scoring_only=True,
+        fit="rigid_SE2_translation_and_yaw; NO scale fitted",
+        minimum_baseline_met= pixel_baseline>=15,
+        horizontal_baseline_px_arcore_m=round(pixel_baseline,3),
+        horizontal_baseline_reference_m=round(ref_baseline,3),
+        fitted_initial_yaw_degrees=round(math.degrees(yaw),2),
+        pre_dropout_rmse_m=round(math.sqrt(statistics.mean(e*e for e in init)),3),
+        post_dropout_p50_m=round(later[int((len(later)-1)*.5)],3),
+        post_dropout_p95_m=round(later[int((len(later)-1)*.95)],3),
+        post_dropout_max_m=round(later[-1],3),
+        post_dropout_last_m=round(err(after[-1]),3),
+        post_dropout_duration_s=round(duration,3),
+        scored_pose_count=len(later),
+        reference_truth_kind="ADVIO fixation-aided inertial reconstruction (not optical surveyed GNSS)",
+    )
+
+
 def run(source,out,calibration_seconds=(20.0,40.0),noise=1.5,seed=SEED):
     out=Path(out);out.mkdir(parents=True,exist_ok=True)
     with zipfile.ZipFile(source) as z:
@@ -200,7 +263,9 @@ def run(source,out,calibration_seconds=(20.0,40.0),noise=1.5,seed=SEED):
         replay_report=replay.run(zipped,path/"replay",origin="real_external_phone_poses_synthetic_gnss")
         now_ns=1_000_000_000+int(round(calibration*1e9))
         s=score(path/"replay"/"replay.csv",truth,now_ns,nfix,noise,calibration)
+        oracle=relative_vio_with_calibrated_initial_pose(pixel,reference,calibration)
         s.update(calibration_seconds=calibration,total_overlap_seconds=duration,
+                 calibrated_camera_drift=oracle,
                  engine=replay_report["engine"],gps_after_cutoff=0,
                  real_pixel_pose_count=len(pixel),reference_pose_count=len(reference),
                  replay_engine_sha256=replay_report["engine_sources_sha256"])
