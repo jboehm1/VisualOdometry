@@ -92,7 +92,7 @@ def tf_lookup(transforms, child, root="base_link"):
             return None
         visited.add(current)
         edge=transforms[current]
-        theta=rotation_y(edge["q"])
+        theta=rotation_yaw(edge["q"])
         dx,dy,dz=edge["xyz"]
         # Compose parent <- child, in 2D:
         x,y=dx+math.cos(theta)*x-math.sin(theta)*y,dy+math.sin(theta)*x+math.cos(theta)*y
