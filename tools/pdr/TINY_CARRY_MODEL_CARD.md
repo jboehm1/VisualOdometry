@@ -66,3 +66,12 @@ then enforces the pinned SHA and independently checked outputs.
 Android production code still uses the normal asset manager. APK
 packaging remains an additional CI build requirement; **do not equate
 source-asset tests with a physical Android run**.
+
+### Compatibility correction from exact Android CI
+
+The follow-up run `39212275510` diagnosed `Files.readString(Path,Charset)`
+not present in Android's unit-test API compilation stubs even though
+host Java is 17. Replaced this test-only source-asset helper with
+Android-supported `Files.readAllBytes(Path)` and an explicit charset.
+The failure was a test compilation error, **not** evidence of inferencing
+failure; this commit triggers exact-SHA Android unit/lint/APK validation.
