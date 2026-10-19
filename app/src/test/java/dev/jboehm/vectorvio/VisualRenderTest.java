@@ -17,7 +17,7 @@ import static org.junit.Assert.*;
 @Config(sdk=35,manifest=Config.NONE,qualifiers="mdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public class VisualRenderTest {
-    private void render(View view,String name,int width,int height) throws Exception {
+    private Bitmap render(View view,String name,int width,int height) throws Exception {
         view.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));
         view.layout(0,0,width,height);
         Bitmap bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);
@@ -25,6 +25,7 @@ public class VisualRenderTest {
         assertNotEquals(0,bitmap.getPixel(width/2,height/2));
         File directory=new File("build/reports/tests/visual-fixtures");assertTrue(directory.isDirectory()||directory.mkdirs());
         try(FileOutputStream out=new FileOutputStream(new File(directory,name+".png"))){assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG,100,out));}
+        return bitmap;
     }
     @Test public void rendersHudAndSensorModesAtPhoneSize()throws Exception {
         Odometer odometer=new Odometer();odometer.start(0);
@@ -63,6 +64,22 @@ public class VisualRenderTest {
         hud.updateScene(new SceneMapper.Snapshot(shapes,0,0,1,0,1),new float[8],30);
         hud.setWorldGpu(false);hud.setRendererLabel("CANVAS*");
         render(hud,"canvas_fallback_transition",360,720);
+    }
+    @Test public void rendersGpxCandidateAndDirectionWithCanvasFallback()throws Exception{
+        HudView hud=new HudView(RuntimeEnvironment.getApplication());
+        hud.update(new Odometer().snapshot(0),"TRACKING","SYNTHETIC GPX AR fixture · no field accuracy",0);
+        List<SceneMapper.Shape> shapes=Arrays.asList(
+            new SceneMapper.Shape(new float[]{.35f,.72f,.5f,.62f},5,""),
+            new SceneMapper.Shape(new float[]{.5f,.62f,.6f,.52f},5,""),
+            new SceneMapper.Shape(new float[0],5,"",new float[]{0,0,0,1,0,0}));
+        SceneMapper.Snapshot scene=new SceneMapper.Snapshot(shapes,0,0,0,0,0);
+        scene.gpxDirectionRadians=.7f;hud.updateScene(scene,new float[8],30);
+        hud.setWorldGpu(false);hud.setRendererLabel("CANVAS");hud.updateGuide("GPX CANDIDATE · ~5 m · BLUE / OBSERVED FLOOR");
+        Bitmap bitmap=render(hud,"gpx_ar_synthetic_canvas",393,852);int blue=0;
+        for(int y=400;y<640;y++)for(int x=100;x<280;x++){
+            int c=bitmap.getPixel(x,y);if(Color.blue(c)>Color.green(c)+20&&Color.green(c)>100&&Color.red(c)<160)blue++;
+        }
+        assertTrue("Projected GPX must render blue through Canvas",blue>20);
     }
     @Test public void rendersSavedMapAndManualFlag()throws Exception {
         List<MapArchive.Keyframe> frames=new ArrayList<>();Random random=new Random(12);
