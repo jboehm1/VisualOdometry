@@ -106,7 +106,7 @@ def tf_lookup(transforms, child, root="base_link"):
 
 def inspect_original(bag:Path):
     from rosbags.highlevel import AnyReader
-    if bag.name!="experiment_7.bag" or not bag.exists():raise ValueError("Original UPO bag required")
+    if not __import__("re").fullmatch(r"experiment_[1-7]\.bag",bag.name) or not bag.exists():raise ValueError("Original UPO experiment bag required")
     frames={"radar_left":"ti_mmwave_left_radar","radar_right":"ti_mmwave_right_radar","imu":"os1_imu"}
     first_edge={}
     conflicting=[]
