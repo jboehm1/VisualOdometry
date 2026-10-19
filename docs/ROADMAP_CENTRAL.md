@@ -18,6 +18,23 @@ Le dépôt GitHub a encore pour branche par défaut `master`, **archive du proje
 4. **P1 — Valeur produit :** tirer une amélioration *démontrée* du matching GPX avec VIO/PDR seulement si les benchmarks le justifient ; conserver l'ambiguïté et l'abstention. Tests magasin/retour et segmentation hors ligne.
 5. **Recherche hors critique — fumée dense / pompier :** scénario pertinent pour localiser des intervenants en bâtiments, mais **aucune fonction de navigation de sauvetage** ne doit être annoncée. GNSS souvent absent en intérieur, RGB/ARCore peu fiable dans fumée épaisse, PDR dérive en rampant/escalier, équipements soumis à chaleur. Étudier capteurs **externes** (thermique, UWB, radar, balises, pression), et commencer exclusivement par des protocoles contrôlés non dangereux.
 
+## Nouvelle piste produit — vélo, faible luminosité, trail et précision locale
+
+**[Étude complète, scénarios et protocole d'essais](USE_CASES_LOWLIGHT_AND_PRECISION.md)**. À ajouter à l'Atlas lors de sa prochaine évolution visuelle, sans écraser les idées historiques. Cette piste est une **recherche**, pas une fonctionnalité Android validée.
+
+**Priorités** : **P0** vélo de jour/crépuscule/nuit éclairée (taux de tracking, flou, vibrations), **P0** sentiers de montagne/forêt et lacets proches (erreur de choix de branche GPX, continuité durant perte GNSS), **P1** course/trail en sous-bois, tunnels et canyons, **P2** analyse fine de trajectoire sportive et étude de référence RTK/repères calibrés. La précision **absolue à 10 cm** est un objectif expérimental conditionnel, **pas une capacité mesurée** du téléphone ni du VIO.
+
+Le cas favorable est une courte période où la vision suit des repères stables pendant que GNSS dérive ou manque ; le cas défavorable est une forêt sombre, une caméra vibrante ou une longue perte de suivi. **GNSS/FLP reste la baseline**. Le PDR piéton n'est pas un odomètre vélo.
+
+| ID | Priorité | Statut | Tâche et preuve exigée |
+|---|---|---|---|
+| **L01** | P0 | `DOCUMENTE` | Classer vélo crépuscule, nuit éclairée, nuit noire, tunnel et montagne ; conditions de réussite/échec dans [l'étude](USE_CASES_LOWLIGHT_AND_PRECISION.md). |
+| **L02** | P0 | `A_TESTER_TERRAIN` | Comparer GPS/FLP seul et VIO+IMU sur le même parcours vélo S21 ; au moins trois répétitions, tracking, resets, erreur et énergie. |
+| **L03** | P0 | `NON_FAIT` | Référence indépendante et matching multi-hypothèses sur sentiers parallèles, lacets et passages sans GNSS ; rapporter les erreurs de branche et l'abstention. |
+| **L04** | P0 | `NON_FAIT` | Quantifier erreurs relatives/absolues sur fenêtres courtes et incertitude ; **ne pas annoncer 10 cm** sans référence calibrée. |
+| **L05** | P1 | `NON_FAIT` | Tester course à pied et trail séparément (main/torse/poche), éclairage et vibrations, en évitant d'appliquer le PDR à pas au pédalage. |
+| **L06** | P2 | `RECHERCHE` | Comparer améliorations basse lumière, adaptation caméra et alternatives RTK/capteurs externes seulement si gains réels démontrés. |
+
 ## État par chantier et limites
 
 | ID | Chantier / propriétaire | Priorité | État audité | Point bloquant |
