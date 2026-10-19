@@ -85,8 +85,8 @@ def split_marker_score(estimated,markers,max_gap_s=.12,train_fraction=.25):
 
 def load_markers(original,limit_s=168.):
     from rosbags.highlevel import AnyReader
-    if original.name!="experiment_7.bag" or not original.is_file():
-        raise ValueError("Use original UPO experiment_7.bag only")
+    if not __import__("re").fullmatch(r"experiment_[1-7]\.bag",original.name) or not original.is_file():
+        raise ValueError("Use original UPO experiment_[1-7].bag only")
     marker=[]
     with AnyReader([original]) as reader:
         chosen=[c for c in reader.connections if c.topic=="/fiducial_pose"]
