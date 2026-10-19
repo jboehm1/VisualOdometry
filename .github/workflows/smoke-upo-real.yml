@@ -4,6 +4,7 @@ on:
     paths:
       - '.github/workflows/smoke-upo-real.yml'
       - 'tools/smoke_rescue/upo_real.py'
+      - 'tools/smoke_rescue/probe.py'
   push:
     branches:
       - feature/smoke-rescue-research
@@ -12,6 +13,7 @@ on:
       - 'tools/testenv/suites/smoke-upo7-real.json'
       - 'tools/campaigns/unified.py'
       - 'tools/smoke_rescue/upo_real.py'
+      - 'tools/smoke_rescue/probe.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -51,6 +53,11 @@ jobs:
           assert actual == int(os.environ["EXPECTED_BYTES"]), f"Not the full published recording: {actual} bytes"
           print(f"ORIGINAL_PUBLIC_BAG_BYTES_VERIFIED={actual}")
           PY
+      - name: Probe original Doppler / IMU / TF headers for calibrated motion research
+        run: |
+          python tools/smoke_rescue/probe.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --out campaign_results/smoke-upo7/probe.json
       - name: Plan and execute canonical Test Environment V2 on original UPO recording
         timeout-minutes: 12
         run: |
