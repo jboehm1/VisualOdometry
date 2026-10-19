@@ -129,6 +129,14 @@ jobs:
               'positive_map':whole['sparse_positive_echo_map'],
           },sort_keys=True))
           PY
+      - name: Evaluate frozen full-run estimator against held-out direct fiducial markers
+        timeout-minutes: 5
+        run: |
+          python tools/smoke_rescue/marker_eval.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --trajectory-report campaign_results/smoke-upo7/doppler_imu_full168.json \
+            --max-seconds 168 \
+            --out campaign_results/smoke-upo7/marker_heldout_report.json
       - name: Upload evidence (reports and HTML only, never the dataset)
         if: always()
         uses: actions/upload-artifact@v4
