@@ -174,7 +174,9 @@ def score(replay_csv,truth,cutoff_ns,fixes_count,sigma_gnss,window_seconds):
             seconds.append(sec-window_seconds)
     if not errors:
         return dict(status="NO_LOCATION_AFTER_CUTOFF",states=states,
-                    matched=0,missing=missed,ground_truth_provided=True)
+                    matched=0,missing=missed,ground_truth_provided=True,
+                    synthetic_gnss_calibration_fixes=fixes_count,
+                    synthetic_gnss_sigma_axis_m=sigma_gnss)
     a=sorted(errors)
     def pct(q):return a[min(len(a)-1,int((len(a)-1)*q))]
     return dict(status="SCORED",states=states,matched=len(errors),missing=missed,
@@ -224,9 +226,23 @@ def relative_vio_with_calibrated_initial_pose(real_pixel, reference, cut_seconds
         return math.hypot(co*x-si*z+dx-e,si*x+co*z+dz-n)
     init=[err(p) for p in before]
     later=[err(p) for p in after]
+    final_error=err(after[-1])
     later.sort()
-    ref_baseline=math.hypot(before[-1][3]-before[0][3],before[-1][4]-before[0][4])
-    pixel_baseline=math.hypot(before[-1][1]-before[0][1],before[-1][2]-before[0][2])
+    # The application requires maximum pairwise displacement (not merely
+    # start-to-end displacement, which underreports loops and switchbacks).
+    sampled=before[::max(1,len(before)//120)]
+    def widest(i,j):
+        return max((math.hypot(a[i]-b[i],a[j]-b[j])
+                    for k,a in enumerate(sampled) for b in sampled[k+1:]),default=0.)
+    ref_baseline=widest(3,4)
+    pixel_baseline=widest(1,2)
+    anchor=before[-1]
+    def relative_error(p):
+        _,x,z,e,n=p
+        vx=x-anchor[1];vz=z-anchor[2]
+        return math.hypot(co*vx-si*vz-(e-anchor[3]),si*vx+co*vz-(n-anchor[4]))
+    relative_errors=sorted(relative_error(p) for p in after)
+    delta_last=relative_error(after[-1])
     duration=after[-1][0]-before[-1][0]
     return dict(
         method="REFERENCE_CALIBRATED_CAMERA_ONLY_BEST_CASE_NO_GNSS_AFTER_CUTOFF",
@@ -241,7 +257,10 @@ def relative_vio_with_calibrated_initial_pose(real_pixel, reference, cut_seconds
         post_dropout_p50_m=round(later[int((len(later)-1)*.5)],3),
         post_dropout_p95_m=round(later[int((len(later)-1)*.95)],3),
         post_dropout_max_m=round(later[-1],3),
-        post_dropout_last_m=round(err(after[-1]),3),
+        post_dropout_last_m=round(final_error,3),
+        displacement_error_from_last_calibration_p50_m=round(relative_errors[int((len(relative_errors)-1)*.5)],3),
+        displacement_error_from_last_calibration_p95_m=round(relative_errors[int((len(relative_errors)-1)*.95)],3),
+        displacement_error_from_last_calibration_last_m=round(delta_last,3),
         post_dropout_duration_s=round(duration,3),
         scored_pose_count=len(later),
         reference_truth_kind="ADVIO fixation-aided inertial reconstruction (not optical surveyed GNSS)",
