@@ -73,3 +73,32 @@ Generated JSON separates \`motion_observability\`, \`sparse_positive_echo_map\` 
 8. Proper radar-SLAM would add scan-to-submap matching/loop closure, dynamic object suppression, pose graph, source-grade ground truth and safe fail states; none exists here yet.
 
 Source/license policies: UPO CC BY-NC-SA 3.0, IRS RTVI license must be checked prior to redistribution, RRxIO code GPL-3.0. A CI run only establishes algorithm execution on **that** source SHA, not real human/firefighter performance.
+
+
+## First genuinely executed NEW radar/gyro estimator (2026-10-19)
+
+**Exact run**: [GitHub Actions 39210658719 — SUCCESS](https://github.com/jboehm1/VisualOdometry/actions/runs/39210658719), code at **4f831b3fe5982e20ecedee0c7dd2b45867941263**. Downloaded *original* 2,183,007,782-byte UPO Experiment 7, **35 Python smoke tests pass**, decoded custom Doppler \`RadarScan\` and Ouster IMU plus separately tagged partially odometry-derived marker reference. All statistics below cover the first 60s of bag time; original bag deleted; evidence artifact **12168005336** retains JSON/HTML only.
+
+| Measured field | Result |
+| --- | ---: |
+| Accepted radar velocity bins (0.5s window) | **69 / 80 = 86.25%** |
+| Degenerate geometries rejected | 11 bins |
+| Total correctly integrated time (not all elapsed time) | **32.52 s** |
+| Measured-velocity estimated path | **9.28 m** |
+| Real echo points projected to sparse map | **2,045** |
+| Unprojectable/invalid echo points | 240 |
+| Cells containing positive radar echoes at 25 cm | **212** |
+| Estimated poses paired with pseudo reference within 120 ms | **60** |
+| **Posthoc rigid SE(2) aligned ATE RMSE vs pseudo reference** | **0.891 m** |
+| Median aligned position error | 0.800 m |
+| P95 aligned position error | 1.606 m |
+| **Zero-motion baseline SE(2) aligned RMSE** | **1.788 m** |
+| ATE ratio vs zero-motion baseline | **0.498** |
+| Path integrated over the same matched contiguous segments | **7.997 m** |
+| Pseudo-reference path over matched segments | **5.462 m** |
+
+**Critical nuance**: Our 0.891 m vs 1.788 m baseline suggests useful **nonzero radar motion information** on this short recording. However matched-path integrated length is **46% longer** than the partially wheel-odometry-derived reference (7.997 vs 5.462m), the estimated displacement gaps are NOT filled, and the evaluated region is a small smoke basement. This is NOT a proven accuracy level, real robot trajectory metric guarantee or a generalization result. It is **not Radar-SLAM**: no loop closure, surface registration, uncertainty calibrated against independent truth, or terrain safety. The posthoc rigid SE2 fit and partial ground truth prevent making a certified metric-odometry claim.
+
+The user's desired Option-C combination radar + LWIR thermal + IMU is partly available in the IRS RTVI dataset (Doer/Trommer IROS 2021), but those recordings are **not demonstrated smoky**: https://christopherdoer.github.io/datasets/irs_rtvi_datasets_iros2021 . This source complements rather than replaces UPO.
+
+The 168-second frozen-parameter full recording campaign is a separate new CI test; its result must be reported at its own exact run SHA, not inferred from these 60s scores.
