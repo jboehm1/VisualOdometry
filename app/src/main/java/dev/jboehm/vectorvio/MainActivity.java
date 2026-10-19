@@ -233,7 +233,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         root.addView(actions,controls);
         LinearLayout modes=new LinearLayout(this);
         TextView layers=action("LAYERS",0xCC102D39,Color.WHITE);
-        TextView sensors=action("DATA",0xCC102D39,Color.WHITE);
+        TextView sensors=action("MENU",0xCC102D39,Color.WHITE);
         TextView map=action("MAPS",0xCC102D39,Color.WHITE);
         TextView simulation=action("SIM",0xCC102D39,Color.WHITE);
         torchButton=action("FLASH OFF",0xCC102D39,Color.WHITE);
@@ -375,37 +375,108 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     private void powerHelp(){new AlertDialog.Builder(this).setTitle("Power · limits")
         .setMessage("Profiles change presentation only: camera preview, overlay preparation and HUD refresh. Tracking/odometry, map capture and frame metadata keep a 30 updates/s target in every profile. The actual rate can be lower if the device is busy; the HUD reports received pose cadence. No new pose-distance filter is applied.\n\nARCore opens the camera itself at a 30 FPS target and retains its internal tracking. Display at 5 FPS does not mean camera capture at 5 FPS. In Hold mode, press the image for a 30 FPS view; release for 5. The same latest-frame GL pipeline is used at every display rate.\n\nFor maximum autonomy, GPS ROUTES avoids the camera; COLLECT ONLY records video without live mapping. Battery savings require measurement on your phone.").setPositiveButton("OK",null).show();}
+    /**
+     * Semantic DATA menu contract: all existing module entries live in the
+     * catalog, not fixed positions that collide across parallel branches.
+     * GPS ROUTES — import GPX / follow / record; GpsRoutesActivity.class
+     * GPS ↔ FUSED — Android location A/B (experimental); LocationComparisonActivity.class
+     * ARCORE REPLAY — evaluate saved video with same odometer; playbackPicker();
+     */
     private void dataMenu(){
-        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return"),"Unknown floor ribbon: "+(estimatedGround?"ESTIMATED — disable":"HIDDEN — enable height estimate"),"GPS ROUTES — import GPX / follow / record","ARCORE REPLAY — evaluate saved video with same odometer","GPS ↔ FUSED — Android location A/B (experimental)","GPX AR — experimental camera guidance"};
-        new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
-            if("GPX AR — experimental camera guidance".equals(choices[i])){gpxArMenu();return;}
-            // Stable semantic dispatch: do not claim DATA index 9/10 shared with PDR, courses or replay.
-            if("GPS ↔ FUSED — Android location A/B (experimental)".equals(choices[i])){
+        SettingsCatalog.Section[] sections=SettingsCatalog.Section.values();
+        String[] choices=new String[sections.length];
+        for(int i=0;i<sections.length;i++)choices[i]=sections[i].title+"\n"+sections[i].subtitle;
+        new AlertDialog.Builder(this).setTitle("VECTOR VIO · SETTINGS & TOOLS")
+            .setMessage("Choose a category. Live measurement, geographic location, recording and visual effects are separate.")
+            .setItems(choices,(d,index)->showSettingsCategory(sections[index]))
+            .setNegativeButton("CLOSE",null).show();
+    }
+    private void showSettingsCategory(SettingsCatalog.Section category){
+        java.util.List<SettingsCatalog.Item> items=SettingsCatalog.items(category);
+        String[] titles=new String[items.size()];
+        for(int i=0;i<items.size();i++){
+            SettingsCatalog.Item entry=items.get(i),item=entry;
+            String state=settingsValue(item.action);
+            titles[i]=entry.title+(state.isEmpty()?"":"  ["+state+"]")+"\n"+entry.description;
+        }
+        new AlertDialog.Builder(this).setTitle(category.title)
+            .setMessage(category.subtitle+" · tap an item to configure it")
+            .setItems(titles,(d,index)->performSettingsAction(items.get(index).action))
+            .setNeutralButton("CATEGORIES",(d,w)->dataMenu())
+            .setNegativeButton("CLOSE",null).show();
+    }
+    private String settingsValue(SettingsCatalog.Action a){
+        switch(a){
+            case GPX_AR:return gpxArEnabled?"ON":"OFF";
+            case GPS_MANUAL_ALIGN:return gpxManualMode?"DRAGGING":gpxAr.visualShifted()?"MANUAL":"OFF";
+            case RETURN_TRACE:return returnTraceRequested?"ON":"OFF";
+            case GPS_TOGGLE:return gps.enabled?"ON":"OFF";
+            case UNKNOWN_GROUND:return estimatedGround?"ON":"OFF";
+            case VIDEO_TRAINING:return trainingEnabled?"ARMED":"OFF";
+            case POWER:return frameScheduler.mode().id.toUpperCase(Locale.US);
+            default:return "";
+        }
+    }
+    private void performSettingsAction(SettingsCatalog.Action a){
+        switch(a){
+            case GPX_AR:gpxArMenu();break;
+            case GPS_MANUAL_ALIGN:beginGpxManualMode();break;
+            case GPS_ROUTES:startActivity(new Intent(this,GpsRoutesActivity.class));break;
+            case RETURN_TRACE:
+                if(!returnTraceRequested&&!odometer.isRecording())
+                    Toast.makeText(this,"Start recording to follow one continuous trace",Toast.LENGTH_LONG).show();
+                else returnTraceRequested=!returnTraceRequested;
+                break;
+            case GPS_TOGGLE:
+                if(gps.enabled)gps.disable();
+                else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED ||
+                    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED){
+                    gps.enabled=true;gps.start();
+                }else requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_REQUEST);
+                refreshHud();break;
+            case GPS_COMPARISON:
                 if(odometer.isRecording()){
-                    Toast.makeText(this,"PAUSE first; comparison must not interrupt live VIO",Toast.LENGTH_LONG).show();
-                    return;
+                    Toast.makeText(this,"Pause recording before comparing location providers",Toast.LENGTH_LONG).show();
+                }else startActivity(new Intent(this,LocationComparisonActivity.class));
+                break;
+            case IMU_TOGGLE:hud.toggleSensors();break;
+            case LAYERS:
+                hud.cycleLayers();getSharedPreferences("spatial_explorer",MODE_PRIVATE)
+                    .edit().putInt("overlay_layers",hud.layers()).apply();break;
+            case UNKNOWN_GROUND:
+                estimatedGround=!estimatedGround;
+                getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit()
+                    .putBoolean("estimated_ground",estimatedGround).apply();break;
+            case OVERLAY_RENDER:overlaySettings();break;
+            case VIDEO_TRAINING:
+                if(odometer.isRecording()){
+                    Toast.makeText(this,"Pause before changing video capture",Toast.LENGTH_LONG).show();break;
                 }
-                startActivity(new Intent(this,LocationComparisonActivity.class));return;
-            }
-            if(i==9){playbackPicker();return;}
-            if(i==8){startActivity(new Intent(this,GpsRoutesActivity.class));return;}
-            if(i==7){estimatedGround=!estimatedGround;getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("estimated_ground",estimatedGround).apply();return;}
-            if(i==6){
-                if(!returnTraceRequested&&!odometer.isRecording()){
-                    Toast.makeText(this,"Start tracking first; return mode needs one continuous session",Toast.LENGTH_LONG).show();return;
-                }
-                returnTraceRequested=!returnTraceRequested;return;
-            }
-            if(i==5){overlaySettings();return;}
-            if(i==4){startActivity(new Intent(this,CollectionActivity.class));return;}
-            if(i==0)hud.toggleSensors();
-            if(i==1){if(gps.enabled)gps.disable();else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED){gps.enabled=true;gps.start();}else requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_REQUEST);refreshHud();}
-            if(i==2){if(odometer.isRecording()){Toast.makeText(this,"Pause first to change video capture",Toast.LENGTH_LONG).show();return;}
                 if(trainingEnabled){trainingEnabled=false;refreshHud();}
-                else new AlertDialog.Builder(this).setTitle("Capture training video?").setMessage("START/RESUME will save the camera image and internal ARCore sensors in an MP4 on this phone, plus external IMU and frame metadata. PAUSE stops the video; RESUME creates another part. No microphone audio. Export as Dataset ZIP. Video may contain private surroundings. Capture uses extra storage and battery.").setNegativeButton("CANCEL",null).setPositiveButton("ARM CAPTURE",(a,b)->{trainingEnabled=true;training.status="VIDEO ARMED";refreshHud();}).show();
-            }
-            if(i==3)new AlertDialog.Builder(this).setTitle("Full camera frame · local data").setMessage("The reticle only selects the POI hit-test target. Cyan/violet polygons are detected planes, clipped for display; they do not crop the camera input. ARCore processes its camera stream.\n\nVIO speed measures motion relative to the viewed environment. Looking at a car interior can give near-zero VIO while the car moves: GPS ground speed is separate and is not silently fused.\n\nCSV: poses + diagnostic IMU. Dataset ZIP adds video parts only if armed, frame timestamps/intrinsics, device metadata and GPS fixes if enabled. ARCore poses are estimates, not training ground truth; camera/IMU offset and extrinsics need calibration. Simulation CSV is generated truth, not the estimated map or real footage.").setPositiveButton("OK",null).show();
-        }).show();
+                else new AlertDialog.Builder(this).setTitle("Capture camera + IMU video?")
+                    .setMessage("Opt-in training video creates ARCore MP4 dataset parts, stored privately. This uses extra power and storage. No audio.")
+                    .setNegativeButton("CANCEL",null)
+                    .setPositiveButton("ARM CAPTURE",(d,w)->{trainingEnabled=true;training.status="VIDEO ARMED";refreshHud();}).show();
+                break;
+            case COLLECT_ONLY:startActivity(new Intent(this,CollectionActivity.class));break;
+            case ARCORE_REPLAY:playbackPicker();break;
+            case EXPORT:pickExport();break;
+            case CAPTURE_INFO:
+                new AlertDialog.Builder(this).setTitle("What is captured?")
+                    .setMessage("ARCore poses are estimates, not independent ground truth. Odometer distance uses camera-based motion, not GPS. GPS coordinates and visual GPX placement are separate.\n\nRecording only saves video when explicitly armed; exported ZIPs may contain images and private location. Locking the screen stops live AR tracking.")
+                    .setPositiveButton("OK",null).show();break;
+            case MAP_VIEW:mapMenu();break;
+            case MAP_SAVED:openMaps();break;
+            case MAP_SETTINGS:mappingSettings();break;
+            case MAP_PLACE_POI:placePoi();break;
+            case POWER:powerMenu();break;
+            case SIMULATION:startActivity(new Intent(this,SimulationActivity.class));break;
+            case HELP:
+                new AlertDialog.Builder(this).setTitle("VECTOR VIO · guide")
+                    .setMessage("Navigation & GPX: imported track, visual direction and manual adjustment.\nLocation: GPS/Fused/IMU.\nCamera: overlays and depth.\nRecording: files, capture and export.\nMaps: points of interest and 3D scenes.\nPerformance: FPS and tests.\n\nManual GPX adjustment is not a new GPS observation. GPS-free visual continuation can drift.")
+                    .setPositiveButton("OK",null).show();break;
+            default:throw new IllegalArgumentException("Unknown menu action "+a);
+        }
     }
 
     private void installGpxArRoute(dev.jboehm.vectorvio.gps.GpsRoute route){gpxAr.setRoute(route);selectedArRoute=route;gpxRouteRevision++;}
