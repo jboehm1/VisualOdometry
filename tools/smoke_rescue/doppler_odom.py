@@ -17,6 +17,7 @@ from pathlib import Path
 import statistics
 
 from upo_real import ros_stamp, quantile, sha256_file
+from radar_map import project_hits
 
 SOURCE_TOPICS = {
     "radar": "/ti_mmwave_left_radar/radar_scan",
@@ -269,13 +270,27 @@ def input_original(bag:Path,max_seconds=60.):
     return data,stats
 
 
-def render_map(traj,path:Path):
+def render_map(traj,path:Path,echo_cells=None,cell_size_m=.25):
     pts=[(p["x"],p["y"]) for p in traj]
     xs=[v[0] for v in pts];ys=[v[1] for v in pts]
     minx,maxx,miny,maxy=min(xs),max(xs),min(ys),max(ys)
     scale=650/max(maxx-minx,maxy-miny,0.5)
     coords=" ".join(f"{(x-minx)*scale+30:.1f},{690-(y-miny)*scale:.1f}" for x,y in pts)
     breaks=sum(1 for p in traj if p["new_segment"])
+    echo_cells=echo_cells or {}
+    for cx,cy in echo_cells:
+        xs.append(cx*cell_size_m)
+        ys.append(cy*cell_size_m)
+    minx,maxx,miny,maxy=min(xs),max(xs),min(ys)
+    scale=650/max(maxx-minx,maxy-miny,0.5)
+    coords=" ".join(f"{(x-minx)*scale+30:.1f},{690-(y-miny)*scale:.1f}" for x,y in pts)
+    rects=[]
+    for cx,cy in sorted(echo_cells):
+        xx=(cx*cell_size_m-minx)*scale+30
+        yy=690-((cy+1)*cell_size_m-miny)*scale
+        size=cell_size_m*scale
+        rects.append(f'<rect x="{xx:.1f}" y="{yy:.1f}" width="{size:.1f}" height="{size:.1f}" fill="#ffa46d" opacity=".40"/>')
+    background="".join(rects)
     page=f"""<!DOCTYPE html><html lang="fr"><meta charset="utf-8"><title>UPO Doppler/IMU — recherche</title>
 <style>body{{background:#0e1722;color:#e9eff4;font:17px system-ui;padding:2em}}.warn{{border:2px solid orange;padding:1em}}</style>
 <h1>Radar Doppler + gyro — trajectoire de recherche</h1>
@@ -301,6 +316,7 @@ def main(argv=None):
     samples,source=input_original(args.bag,args.max_seconds)
     trajectory,flags=estimate(samples["radar"],samples["gyro"])
     # Exactly after estimate() returned — marker/odometry truth is only evaluation data.
+    cells, map_health=project_hits(trajectory,samples["radar"])
     evals=rigid_2d_align_and_score(trajectory,samples["reference"])
     report={"dataset":"upo-smoke-exp7","source_license":"CC-BY-NC-SA-3.0",
             "source_sha256":sha256_file(args.bag),
@@ -308,6 +324,7 @@ def main(argv=None):
             "actual_own_estimator_executed":True,"reference_used_during_estimation":False,
             "independent_accurate_ground_truth":False,"certified_navigation":False,
             "sensor_source":source,"motion_observability":flags,
+            "sparse_positive_echo_map":map_health,
             "pseudo_reference_posthoc_evaluation":evals,
             "trajectory":trajectory,
             "limits":["Unverified radar↔IMU rotation/frame_id: do not claim physical heading",
@@ -320,7 +337,7 @@ def main(argv=None):
                       "Radar ≠ photorealistic see-through-smoke, never guide a real firefighter"]}
     args.out.parent.mkdir(parents=True,exist_ok=True)
     args.out.write_text(json.dumps(report,indent=2,allow_nan=False),encoding="utf-8")
-    render_map(trajectory,args.html)
+    render_map(trajectory,args.html,cells)
     print(json.dumps({"status":"RESEARCH","observability":flags,
                       "reference_score":evals,"source_sha256":report["source_sha256"],
                       "frames":len(trajectory),"html":str(args.html)},sort_keys=True))
