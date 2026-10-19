@@ -133,4 +133,27 @@ public class ArRouteGuideTest {
         assertTrue(resumed.edges.isEmpty());
     }
 
+    @Test public void gnssOutageRetainsAnchoredRouteOnlyWhileVioTrackingIsFreshAndBounded(){
+        ArRouteGuide g=engine();long now=feed(g,0,false,0);
+        ArRouteGuide.Snapshot initial=g.snapshot(now);
+        assertEquals(ArRouteGuide.State.CANDIDATE,initial.state);
+        long t=now;
+        for(int i=1;i<=80;i++){
+            t+=100_000_000L;
+            g.onPose(1,t,t,20,0); // continuous VIO poses, but no GNSS fixes
+        }
+        ArRouteGuide.Snapshot hold=g.snapshot(t);
+        assertEquals(ArRouteGuide.State.VIO_HOLD,hold.state);
+        assertTrue(hold.holdSeconds>=7);
+        assertTrue(hold.horizontalAllowanceMeters>initial.horizontalAllowanceMeters);
+        assertFalse(hold.edges.isEmpty());
+        assertTrue(Double.isNaN(hold.targetX)); // no stale GPS heading arrow
+        for(int i=0;i<250;i++){t+=100_000_000L;g.onPose(1,t,t,20,0);}
+        ArRouteGuide.Snapshot expired=g.snapshot(t);
+        assertEquals(ArRouteGuide.State.STALE,expired.state);
+        assertTrue(expired.edges.isEmpty());
+        g.trackingLost();
+        assertTrue(g.snapshot(t).edges.isEmpty());
+    }
+
 }
