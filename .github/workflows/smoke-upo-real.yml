@@ -1,0 +1,257 @@
+name: Smoke UPO real-bag sensor benchmark (2.18GB)
+on:
+  # Avoid two parallel 2.18 GB jobs for a single PR branch push.
+  # Run this expensive real corpus check on branch pushes or manual dispatch.
+  push:
+    branches:
+      - feature/smoke-rescue-research
+    paths:
+      - '.github/workflows/smoke-upo-real.yml'
+      - 'tools/testenv/suites/smoke-upo7-real.json'
+      - 'tools/campaigns/unified.py'
+      - 'tools/smoke_rescue/upo_real.py'
+      - 'tools/smoke_rescue/probe.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: smoke-upo-real
+  cancel-in-progress: false
+jobs:
+  real-upo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    env:
+      ORIGINAL_URL: https://robotics.upo.es/datasets/smoke/experiment_7.bag
+      EXPECTED_BYTES: '2183007782'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned ROS1 decoder (ROS installation not needed)
+        run: python -m pip install --disable-pip-version-check rosbags==0.11.4
+      - name: Validate adapter and no-silent-accuracy contract
+        run: python -m unittest discover -s tools/smoke_rescue/tests -p 'test_*.py' -v
+      - name: Download EXACT original public UPO experiment 7 bag
+        timeout-minutes: 27
+        run: |
+          mkdir -p campaign_results/smoke-upo7
+          # Original noncommercial dataset is transient, never an uploaded artifact.
+          curl --fail --show-error --location --retry 2 --retry-delay 5 \
+            --connect-timeout 30 --max-time 1500 \
+            --proto '=https' --tlsv1.2 \
+            --output "campaign_results/smoke-upo7/experiment_7.bag" "$ORIGINAL_URL"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          data=Path('campaign_results/smoke-upo7/experiment_7.bag')
+          actual=data.stat().st_size
+          assert actual == int(os.environ["EXPECTED_BYTES"]), f"Not the full published recording: {actual} bytes"
+          print(f"ORIGINAL_PUBLIC_BAG_BYTES_VERIFIED={actual}")
+          PY
+      - name: Probe original Doppler / IMU / TF headers for calibrated motion research
+        run: |
+          python tools/smoke_rescue/probe.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --out campaign_results/smoke-upo7/probe.json
+      - name: Audit full original TF and calibrate sensor-only IMU clock
+        timeout-minutes: 5
+        run: |
+          python tools/smoke_rescue/calibration_audit.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --out campaign_results/smoke-upo7/tf_and_clock_report.json
+      - name: Plan and execute canonical Test Environment V2 on original UPO recording
+        timeout-minutes: 12
+        run: |
+          python -m tools.testenv.cli plan \
+            --suite tools/testenv/suites/smoke-upo7-real.json \
+            > campaign_results/smoke-upo7/plan.json
+          python -m tools.testenv.cli run \
+            --suite tools/testenv/suites/smoke-upo7-real.json \
+            --out campaign_results/smoke-upo7-benchmark \
+            > campaign_results/smoke-upo7/suite-run.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          cases=list(Path("campaign_results/smoke-upo7-benchmark/runs").glob("*/cases/upo7-radar-sensor/report.json"))
+          assert len(cases)==1, f"Expected exactly one canonical case, got {len(cases)}"
+          report=json.loads(cases[0].read_text())
+          assert report["status"]=="PASS" and report["dataset_id"]=="upo_smoke"
+          assert report["requested_engine"]=="radar-sensor-audit"
+          assert report["actual_estimator_executed"] is False
+          assert report["reference_used_to_score"] is False
+          assert report["metric_distance_accuracy_proven"] is False
+          print("REAL UPO original ROS data benchmarked via TESTENV V2; sensor metrics follow:")
+          print(json.dumps(report["metrics"],sort_keys=True))
+          PY
+      - name: Infer actual Doppler + measured gyro dead reckoning, then posthoc score
+        timeout-minutes: 7
+        run: |
+          python tools/smoke_rescue/doppler_odom.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --max-seconds 60 \
+            --out campaign_results/smoke-upo7/doppler_imu_research.json \
+            --html campaign_results/smoke-upo7/doppler_imu_trajectory.html
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("campaign_results/smoke-upo7/doppler_imu_research.json")
+          d=json.loads(p.read_text())
+          assert d["actual_own_estimator_executed"] is True
+          assert d["reference_used_during_estimation"] is False
+          assert d["certified_navigation"] is False
+          assert d["independent_accurate_ground_truth"] is False
+          assert len(d["trajectory"]) >= 5
+          print("Own radar+gyro estimator executed, posthoc pseudo-GT score:",d["pseudo_reference_posthoc_evaluation"])
+          PY
+      - name: Full 168-second real smoke generalization (same frozen estimator)
+        timeout-minutes: 7
+        run: |
+          python tools/smoke_rescue/doppler_odom.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --max-seconds 168 \
+            --out campaign_results/smoke-upo7/doppler_imu_full168.json \
+            --html campaign_results/smoke-upo7/doppler_imu_full168.html
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          first=json.loads(Path('campaign_results/smoke-upo7/doppler_imu_research.json').read_text())
+          whole=json.loads(Path('campaign_results/smoke-upo7/doppler_imu_full168.json').read_text())
+          assert whole['reference_used_during_estimation'] is False
+          assert whole['independent_accurate_ground_truth'] is False
+          assert whole['motion_observability']['accepted_bins'] >= first['motion_observability']['accepted_bins']
+          print('REAL 168s source, frozen params:',json.dumps({
+              'bins_accepted':whole['motion_observability']['accepted_bins'],
+              'integrated_s':whole['motion_observability']['active_integrated_seconds'],
+              'estimated_path_m':whole['motion_observability']['estimated_traveled_path_m'],
+              'reference_posthoc':whole['pseudo_reference_posthoc_evaluation'],
+              'positive_map':whole['sparse_positive_echo_map'],
+          },sort_keys=True))
+          PY
+      - name: Run sensor-only calibrated IMU-clock ablation on full 168s original data
+        timeout-minutes: 7
+        run: |
+          python tools/smoke_rescue/doppler_odom.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --clock-audit campaign_results/smoke-upo7/tf_and_clock_report.json \
+            --max-seconds 168 \
+            --out campaign_results/smoke-upo7/doppler_clock_corrected_full168.json \
+            --html campaign_results/smoke-upo7/doppler_clock_corrected_full168.html
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('campaign_results/smoke-upo7')
+          old=json.loads((root/'doppler_imu_full168.json').read_text())
+          new=json.loads((root/'doppler_clock_corrected_full168.json').read_text())
+          a=old['pseudo_reference_posthoc_evaluation']
+          b=new['pseudo_reference_posthoc_evaluation']
+          assert new['clock_estimation_uses_reference'] is False
+          assert new['reference_used_during_estimation'] is False
+          print('Sensor-only clock calibration A/B: ',json.dumps({
+              'receipt_time_posthoc_rmse_m':a.get('ate_rmse_m_vs_pseudo_reference'),
+              'corrected_header_time_posthoc_rmse_m':b.get('ate_rmse_m_vs_pseudo_reference'),
+              'corrected_clock_parameters':new['sensor_source'].get('gyro_clock_audit_summary'),
+              'corrected_motion_observability':new['motion_observability']},sort_keys=True))
+          PY
+      - name: Evaluate frozen full-run estimator against held-out direct fiducial markers
+        timeout-minutes: 5
+        run: |
+          python tools/smoke_rescue/marker_eval.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --trajectory-report campaign_results/smoke-upo7/doppler_imu_full168.json \
+            --max-seconds 168 \
+            --out campaign_results/smoke-upo7/marker_heldout_report.json
+      - name: Estimate and score calibrated dual-radar plus hardware-clock gyro without GT leakage
+        timeout-minutes: 8
+        run: |
+          python tools/smoke_rescue/dual_radar.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --tf-clock campaign_results/smoke-upo7/tf_and_clock_report.json \
+            --out campaign_results/smoke-upo7/dual_radar_estimator.json
+          python tools/smoke_rescue/dual_posthoc_score.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --trajectory-report campaign_results/smoke-upo7/dual_radar_estimator.json \
+            --out campaign_results/smoke-upo7/dual_radar_pseudo_reference.json
+          python tools/smoke_rescue/marker_eval.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --trajectory-report campaign_results/smoke-upo7/dual_radar_estimator.json \
+            --out campaign_results/smoke-upo7/dual_marker_heldout.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("campaign_results/smoke-upo7")
+          old=json.loads((root/"doppler_imu_full168.json").read_text())
+          dual=json.loads((root/"dual_radar_estimator.json").read_text())
+          evaluation=json.loads((root/"dual_radar_pseudo_reference.json").read_text())
+          assert old["source_sha256"]==dual["source_sha256"]==evaluation["source_original_sha256"]
+          assert dual["reference_used_during_estimation"] is False
+          assert evaluation["reference_seen_after_estimation"] is True
+          dual["pseudo_reference_posthoc_evaluation"]=evaluation["pseudo_reference_posthoc_evaluation"]
+          (root/"dual_for_dashboard.json").write_text(json.dumps(dual,indent=2,allow_nan=False))
+          print("SENSOR-ONLY dual radar vs existing left-only:",
+                json.dumps({
+                  "left_only_ate_pseudo_rmse_m":old["pseudo_reference_posthoc_evaluation"].get("ate_rmse_m_vs_pseudo_reference"),
+                  "dual_ate_pseudo_rmse_m":evaluation["pseudo_reference_posthoc_evaluation"].get("ate_rmse_m_vs_pseudo_reference"),
+                  "dual_accepted_windows":dual["motion_observability"]["accepted_windows"],
+                  "dual_integrated_path_m":dual["motion_observability"]["integrated_path_m"],
+                  "dual_marker_heldout":json.loads((root/"dual_marker_heldout.json").read_text())["score"]
+                },sort_keys=True))
+          PY
+      - name: Quantify real calibrated radar-vs-LiDAR echo co-observation (not obstacle recall)
+        timeout-minutes: 8
+        run: |
+          python tools/smoke_rescue/cross_sensor.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --tf-clock campaign_results/smoke-upo7/tf_and_clock_report.json \
+            --max-seconds 168 \
+            --out campaign_results/smoke-upo7/radar_lidar_proximity.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("campaign_results/smoke-upo7/radar_lidar_proximity.json").read_text())
+          assert r["reference_pose_used"] is False
+          assert r["lidar_in_smoke_is_not_a_ground_truth_surface"] is True
+          assert r["type"]=="CO_OBSERVATION_GEOMETRY_NOT_GROUND_TRUTH"
+          for side in ["left","right"]:
+            assert r["relative_sensor_observability"][side]["evaluated_radar_returns"]>=10
+          print('Calibrated REAL radar-LiDAR co-observation computed; not recall.')
+          PY
+      - name: Publish standalone premium offline smoke laboratory dashboard
+        timeout-minutes: 3
+        run: |
+          python tools/smoke_rescue/dashboard.py \
+            --short campaign_results/smoke-upo7/doppler_imu_research.json \
+            --full campaign_results/smoke-upo7/doppler_imu_full168.json \
+            --corrected campaign_results/smoke-upo7/doppler_clock_corrected_full168.json \
+            --clock campaign_results/smoke-upo7/tf_and_clock_report.json \
+            --marker campaign_results/smoke-upo7/marker_heldout_report.json \
+            --dual campaign_results/smoke-upo7/dual_for_dashboard.json \
+            --dual-marker campaign_results/smoke-upo7/dual_marker_heldout.json \
+            --cross-sensor campaign_results/smoke-upo7/radar_lidar_proximity.json \
+            --out campaign_results/smoke-upo7/VECTOR_SMOKE_LAB.html
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('campaign_results/smoke-upo7/VECTOR_SMOKE_LAB.html')
+          data=p.read_text(encoding='utf-8')
+          assert len(data)>15000 and 'RECHERCHE UNIQUEMENT' in data
+          assert 'Radar + IMU' in data or 'Doppler' in data
+          assert '<canvas' in data and 'application/json' in data
+          assert '2,18' in data or '2.18' in data
+          print(f'Final portable Smoke Rescue Research viewer: {p.stat().st_size} bytes')
+          PY
+      - name: Upload evidence (reports and HTML only, never the dataset)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-upo7-testenv-v2-evidence
+          path: |
+            campaign_results/smoke-upo7/*.json
+            campaign_results/smoke-upo7/*.html
+            campaign_results/smoke-upo7-benchmark/**/*.json
+            campaign_results/smoke-upo7-benchmark/**/*.html
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Delete local copyrighted original
+        if: always()
+        run: rm -f "campaign_results/smoke-upo7/experiment_7.bag"

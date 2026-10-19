@@ -1,0 +1,99 @@
+name: Smoke UPO external-heldout Exp6 (real 2.91GB)
+on:
+  push:
+    branches:
+      - feature/smoke-rescue-research
+    paths:
+      - '.github/workflows/smoke-upo6-heldout.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: smoke-upo6-heldout
+  cancel-in-progress: false
+jobs:
+  exp6-heldout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 48
+    env:
+      BAG_URL: https://robotics.upo.es/datasets/smoke/experiment_6.bag
+      BAG_BYTES: '2914876693'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned pure Python ROS bag reader
+        run: python -m pip install --disable-pip-version-check rosbags==0.11.4
+      - name: Research module regression
+        run: python -m unittest discover -s tools/smoke_rescue/tests -p 'test_*.py' -v
+      - name: Download a DIFFERENT original UPO smoke experiment
+        timeout-minutes: 32
+        run: |
+          mkdir -p campaign_results/upo6
+          curl --fail --show-error --location --retry 2 --retry-delay 8 \
+            --connect-timeout 30 --max-time 1800 --proto '=https' --tlsv1.2 \
+            -o campaign_results/upo6/experiment_6.bag "$BAG_URL"
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          f=Path('campaign_results/upo6/experiment_6.bag')
+          assert f.stat().st_size==int(os.environ['BAG_BYTES']), "Wrong or partial external corpus"
+          print("ORIGINAL DIFFERENT smoke corpus verified:",f.stat().st_size)
+          PY
+      - name: Frozen sensor-only calibration from different recording
+        timeout-minutes: 5
+        run: |
+          python tools/smoke_rescue/calibration_audit.py \
+            --bag campaign_results/upo6/experiment_6.bag \
+            --out campaign_results/upo6/tf_clock.json
+      - name: Run unchanged two-radar gyro estimator and independent withheld marker evaluation
+        timeout-minutes: 10
+        run: |
+          python tools/smoke_rescue/dual_radar.py \
+            --bag campaign_results/upo6/experiment_6.bag \
+            --tf-clock campaign_results/upo6/tf_clock.json \
+            --out campaign_results/upo6/dual_sensor_only_estimate.json
+          python tools/smoke_rescue/dual_posthoc_score.py \
+            --bag campaign_results/upo6/experiment_6.bag \
+            --trajectory-report campaign_results/upo6/dual_sensor_only_estimate.json \
+            --out campaign_results/upo6/pseudo_reference_score.json
+          python tools/smoke_rescue/marker_eval.py \
+            --bag campaign_results/upo6/experiment_6.bag \
+            --trajectory-report campaign_results/upo6/dual_sensor_only_estimate.json \
+            --out campaign_results/upo6/heldout_direct_marker_score.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('campaign_results/upo6')
+          est=json.loads((root/'dual_sensor_only_estimate.json').read_text())
+          score=json.loads((root/'pseudo_reference_score.json').read_text())
+          marker=json.loads((root/'heldout_direct_marker_score.json').read_text())
+          assert est['source_sha256']==score['source_original_sha256']
+          assert est['reference_used_during_estimation'] is False
+          assert est['actual_own_estimator_executed'] is True
+          assert score['reference_seen_after_estimation'] is True
+          assert est['motion_observability']['accepted_windows']>=10
+          assert marker['source_estimator_sha256']==est['source_sha256']
+          print("GENUINE external heldout experiment completed (not production):")
+          print(json.dumps({
+              'dataset':'UPO real experiment 6',
+              'estimator':'unmodified calibrated dual radar + gyro',
+              'pseudo_reference_rmse':score['pseudo_reference_posthoc_evaluation'].get('ate_rmse_m_vs_pseudo_reference'),
+              'marker_heldout_rmse':marker['score'].get('heldout_aligned_rmse_m'),
+              'marker_heldout_pairs':marker['score'].get('heldout_pairs'),
+              'radar_accepted_windows':est['motion_observability']['accepted_windows'],
+              'reference_used_to_estimate_pose':False
+          },sort_keys=True))
+          PY
+      - name: Publish ONLY research metadata and scorecards
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-upo6-external-heldout-research-metrics
+          path: campaign_results/upo6/*.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Purge original CC BY-NC-SA data from runner
+        if: always()
+        run: rm -f campaign_results/upo6/experiment_6.bag
