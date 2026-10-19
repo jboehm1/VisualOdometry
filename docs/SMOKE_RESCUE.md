@@ -175,3 +175,16 @@ The workflow really:
 **Measured result summary**: left radar median **3** returns/scan at **19.6004 Hz** during **39.795s** of activity; right radar median **2** at **18.8215 Hz** during **39.795s**; LiDAR median **31,647** points at **10.0018 Hz** during **59.889s**; time coverage within ±100ms of reference **79.6415% left / 79.2% right**; reference reports **479** poses. Zero published empty-cloud scans does **NOT** prove it detects obstacles continuously: driver may omit empty messages. Extremely sparse radar scenes are a warning that a single low-cost radar is unlikely to yield photorealistic 3D structures without tracking, temporal accumulation and fusion.
 
 **What this success does NOT prove**: position/heading accuracy (ATE/RPE), physical obstacle detection recall, free-space safety, smoke density comparisons, thermal fusion, wearable device feasibility, or firefighter readiness. Current score is *actual sensor observability + reference timestamp coverage*, not full VECTOR VIO algorithm performance. True SLAM benchmark requires TF calibration, an estimator blind to pose truth, independent test GT and other smoke sequences.
+
+
+## 10. Own RIO research estimator on ORIGINAL smoke dataset — score and limits
+
+See [SMOKE_RESCUE_ALGORITHMS.md](SMOKE_RESCUE_ALGORITHMS.md) for complete reproducibility, strict sensor/GT separation, physics and independent caveats.
+
+GitHub Actions [39211106764 — SUCCESS](https://github.com/jboehm1/VisualOdometry/actions/runs/39211106764) executed original UPO Experiment 7 on the same frozen radar Doppler + OS1 gyro model at **60s and 168s**. It creates real positive radar-return maps (no free-space classification), trajectory HTML and metric JSON; **35 smoke suite Python tests PASS**. SHA of original 2.18GB bag recorded; raw dataset immediately deleted.
+
+**60-second window:** 69/80 valid radar velocity bins, integrated 32.52s motion, 2,045 actual radar echoes mapped to 212 positive-evidence cells; rigid SE2 posthoc ATE RMSE **0.891m** on 60 matched AR-marker/odometry-smoothed reference samples, vs stationary RMSE **1.788m**.
+
+**Full 168-second window:** 269/290 accepted bins, 127.66s of integrated motion, 8,241 radar echoes mapped to **723** positive-evidence cells; 258 matched reference samples; **ATE RMSE 3.242m**, worse than stationary **2.930m**; estimated vs pseudo-reference path over matched intervals 33.366m vs 26.569m (**25.6% overestimate**). P95 aligned pose error **7.105m**. This is **not acceptable reliable localization**, not a true SLAM system, and not an emergency navigation tool. Timebases and extrinsics are not calibrated; reference partly uses odometry; scores are exploratory posthoc alignment only. The long test uncovers a failure hidden by the short test.
+
+Next important work: calibrated TF + IMU hardware timestamp mapping, marker-only independently observable reference, echo-vs-LiDAR structural association, multisensor dropout studies, held-out smoke sequence. For eventual fusion thermal+radar+IMU see IRS RTVI source (non-smoke) documented in [SMOKE_RESCUE_ALGORITHMS.md](SMOKE_RESCUE_ALGORITHMS.md).
