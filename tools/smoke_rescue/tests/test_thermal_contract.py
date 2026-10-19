@@ -21,7 +21,7 @@ class ThermalContractTest(unittest.TestCase):
         heat=m.heat_components(f)
         self.assertEqual(len(heat),1)
         self.assertEqual(heat[0]["pixel_count"],9)
-        self.assertAlmostEqual(heat[0]["azimuth_relative_sensor_rad"],0,places=3)
+        self.assertAlmostEqual(heat[0]["azimuth_relative_sensor_rad"],(16.5/32-.5)*55*3.141592653589793/180,places=6)
         self.assertIsNone(heat[0]["distance_m"])
         self.assertEqual(heat[0]["object_class"],"UNCLASSIFIED_HEAT_REGION")
     def test_unverified_unknown_pixel(self):
