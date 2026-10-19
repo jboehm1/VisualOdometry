@@ -162,6 +162,42 @@ jobs:
             --trajectory-report campaign_results/smoke-upo7/doppler_imu_full168.json \
             --max-seconds 168 \
             --out campaign_results/smoke-upo7/marker_heldout_report.json
+      - name: Estimate and score calibrated dual-radar plus hardware-clock gyro without GT leakage
+        timeout-minutes: 8
+        run: |
+          python tools/smoke_rescue/dual_radar.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --tf-clock campaign_results/smoke-upo7/tf_and_clock_report.json \
+            --out campaign_results/smoke-upo7/dual_radar_estimator.json
+          python tools/smoke_rescue/dual_posthoc_score.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --trajectory-report campaign_results/smoke-upo7/dual_radar_estimator.json \
+            --out campaign_results/smoke-upo7/dual_radar_pseudo_reference.json
+          python tools/smoke_rescue/marker_eval.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --trajectory-report campaign_results/smoke-upo7/dual_radar_estimator.json \
+            --out campaign_results/smoke-upo7/dual_marker_heldout.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("campaign_results/smoke-upo7")
+          old=json.loads((root/"doppler_imu_full168.json").read_text())
+          dual=json.loads((root/"dual_radar_estimator.json").read_text())
+          evaluation=json.loads((root/"dual_radar_pseudo_reference.json").read_text())
+          assert old["source_sha256"]==dual["source_sha256"]==evaluation["source_original_sha256"]
+          assert dual["reference_used_during_estimation"] is False
+          assert evaluation["reference_seen_after_estimation"] is True
+          dual["pseudo_reference_posthoc_evaluation"]=evaluation["pseudo_reference_posthoc_evaluation"]
+          (root/"dual_for_dashboard.json").write_text(json.dumps(dual,indent=2,allow_nan=False))
+          print("SENSOR-ONLY dual radar vs existing left-only:",
+                json.dumps({
+                  "left_only_ate_pseudo_rmse_m":old["pseudo_reference_posthoc_evaluation"].get("ate_rmse_m_vs_pseudo_reference"),
+                  "dual_ate_pseudo_rmse_m":evaluation["pseudo_reference_posthoc_evaluation"].get("ate_rmse_m_vs_pseudo_reference"),
+                  "dual_accepted_windows":dual["motion_observability"]["accepted_windows"],
+                  "dual_integrated_path_m":dual["motion_observability"]["integrated_path_m"],
+                  "dual_marker_heldout":json.loads((root/"dual_marker_heldout.json").read_text())["score"]
+                },sort_keys=True))
+          PY
       - name: Publish standalone premium offline smoke laboratory dashboard
         timeout-minutes: 3
         run: |
@@ -171,6 +207,8 @@ jobs:
             --corrected campaign_results/smoke-upo7/doppler_clock_corrected_full168.json \
             --clock campaign_results/smoke-upo7/tf_and_clock_report.json \
             --marker campaign_results/smoke-upo7/marker_heldout_report.json \
+            --dual campaign_results/smoke-upo7/dual_for_dashboard.json \
+            --dual-marker campaign_results/smoke-upo7/dual_marker_heldout.json \
             --out campaign_results/smoke-upo7/VECTOR_SMOKE_LAB.html
           python - <<'PY'
           from pathlib import Path
