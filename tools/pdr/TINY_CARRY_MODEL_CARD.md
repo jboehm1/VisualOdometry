@@ -37,3 +37,18 @@ JVM/Robolectric/lint/APK CI on PDR tool changes; no shared workflow edited.
   fresh persons (prior failure on SIMUL #26 back pocket) and S21 measurements.
 - Sensor continuous power draw, wakeup costs, RAM overhead, thermal effects
   and device latency have **not** been measured on S21.
+
+## Detector fixture correction after failed Android CI
+
+The existing PDR baseline was deliberately restored following poor
+held-out SIMUL F1 for the earlier more aggressive rhythmic filter. A
+previous test `shortReboundDoesNotResetEstablishedCadence` assumed that
+removed filter's 320-ms impact rejection. It was inconsistent with the
+restored baseline, which guarantees **only** a 300-ms refractory window,
+not 320 ms. Exact GitHub Android run `39211176795` failed this test
+before the TinyML functionality was added. The fixture has been narrowed
+to a 240-ms rebound (a real guarantee of the selected code), and its
+comment explicitly notes >300-ms shocks can still suppress true steps.
+No failing held-out SIMUL validation has been suppressed or re-labeled.
+The separate 24-trial F1 quality gate must remain red until genuinely
+improved on unseen subjects. CI must be rerun on the new HEAD.
