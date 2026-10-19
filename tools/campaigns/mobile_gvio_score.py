@@ -4,7 +4,7 @@
 Sim3 fits scale to held-out LiDAR-IMU reference. Thus score indicates
 trajectory SHAPE only. It is not metric monocular odometry accuracy.
 """
-import argparse,json
+import argparse,json,math
 from pathlib import Path
 import numpy as np
 
@@ -54,9 +54,16 @@ def rotation_speed_clock_offset(estimate,truth):
         raise ValueError("Camera/IMU and LiDAR clocks cannot be matched reliably from rotation")
     return best[1],best[0],best[2]
 
-def score(estimate,reference,infer_clock=False):
+def score(estimate,reference,infer_clock=False,clock_offset_seconds=None):
+    if clock_offset_seconds is not None and infer_clock:
+        raise ValueError("Cannot fit clock from GT and supply a fixed clock offset simultaneously")
+    if clock_offset_seconds is not None and (
+        isinstance(clock_offset_seconds,bool) or not math.isfinite(clock_offset_seconds)
+    ):
+        raise ValueError("Shared clock offset must be a finite number")
     pred,truth=poses(estimate),poses(reference)
-    shift,corr,n=rotation_speed_clock_offset(pred,truth) if infer_clock else (0.0,None,0)
+    shift,corr,n=(rotation_speed_clock_offset(pred,truth) if infer_clock else
+                  (float(clock_offset_seconds) if clock_offset_seconds is not None else 0.0,None,0))
     x=[];y=[]
     for row in pred:
         i=np.searchsorted(truth[:,0],row[0]+shift)
@@ -80,7 +87,8 @@ def score(estimate,reference,infer_clock=False):
       "posthoc_clock_shift_seconds":shift,
       "posthoc_clock_angular_speed_corr":corr,
       "clock_shift_fitted_using_reference_after_inference":infer_clock,
-      "timestamp_calibration_independently_verified":False if infer_clock else True,
+      "clock_shift_shared_from_reference_fitted_baseline":clock_offset_seconds is not None,
+      "timestamp_calibration_independently_verified":not infer_clock and clock_offset_seconds is None,
       "matched_pose_pairs":len(x),
       "after_truth_similarity_scale":scale,
       "sim3_shape_ate_rmse_m":float(np.sqrt(np.mean(np.sum(residual**2,axis=1)))),
@@ -97,8 +105,9 @@ if __name__=="__main__":
     p.add_argument("--truth",type=Path,required=True)
     p.add_argument("--out",type=Path,required=True)
     p.add_argument("--infer-clock-from-reference-rotations",action="store_true")
+    p.add_argument("--clock-offset-seconds",type=float)
     a=p.parse_args()
-    result=score(a.estimate,a.truth,a.infer_clock_from_reference_rotations)
+    result=score(a.estimate,a.truth,a.infer_clock_from_reference_rotations,a.clock_offset_seconds)
     a.out.parent.mkdir(parents=True,exist_ok=True)
     a.out.write_text(json.dumps(result,indent=2)+"\n")
     print("AFTER_INFERENCE_REAL_REFERENCE_SCORE",json.dumps(result),flush=True)
