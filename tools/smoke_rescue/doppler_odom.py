@@ -273,9 +273,6 @@ def input_original(bag:Path,max_seconds=60.):
 def render_map(traj,path:Path,echo_cells=None,cell_size_m=.25):
     pts=[(p["x"],p["y"]) for p in traj]
     xs=[v[0] for v in pts];ys=[v[1] for v in pts]
-    minx,maxx,miny,maxy=min(xs),max(xs),min(ys),max(ys)
-    scale=650/max(maxx-minx,maxy-miny,0.5)
-    coords=" ".join(f"{(x-minx)*scale+30:.1f},{690-(y-miny)*scale:.1f}" for x,y in pts)
     breaks=sum(1 for p in traj if p["new_segment"])
     echo_cells=echo_cells or {}
     for cx,cy in echo_cells:
@@ -298,8 +295,10 @@ def render_map(traj,path:Path,echo_cells=None,cell_size_m=.25):
 hypothèse extrinsèque non calibrée, pas de chemin de sortie. La courbe est uniquement
 reconstruite à partir des retours Doppler et du gyroscope, pas depuis la référence de position.
 Des interruptions d'observabilité peuvent créer des segments non connectés physiquement.</p>
-<p>{len(traj)} poses, {breaks} débuts de segments, aucune carte d'obstacles certifiée.</p>
+<p>{len(traj)} poses, {breaks} débuts de segments, {len(echo_cells)} cellules de retours radar positifs observés.</p>
+<p>Orange = observations radar positives, PAS obstacle confirmé ; les zones non observées sont INCONNUES, jamais libres.</p>
 <svg viewBox="0 0 750 750" style="max-width:800px;background:#182838">
+{background}
 <polyline fill="none" stroke="#73e8e0" stroke-width="3" points="{coords}"/></svg></html>"""
     path.parent.mkdir(parents=True,exist_ok=True)
     path.write_text(page,encoding="utf-8")
