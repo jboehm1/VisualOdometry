@@ -121,7 +121,7 @@ def synthesize(real_arcore, reference, cut_seconds, out, seed=SEED,
     route=[["route_revision","index","latitude_deg","longitude_deg","gpx_elevation_m","vertical_datum"]]
     step=max(1,len(truth)//500)
     for i in list(range(0,len(truth),step))+([len(truth)-1] if (len(truth)-1)%step else []):
-        _,east,north,_=truth[i]
+        _,east,_,north=truth[i]
         route.append([1,len(route)-1,*world_to_geo(east,north),"","UNKNOWN"])
     poses=[["ar_frame_ns","android_camera_elapsed_ns","receipt_elapsed_ns","tracking_segment",
             "world_x","world_y","world_z","metric_x","metric_y","metric_z","route_revision"]]
@@ -138,12 +138,12 @@ def synthesize(real_arcore, reference, cut_seconds, out, seed=SEED,
         vx,vz=pose[1]+bias,pose[3]
         poses.append([ns,ns,ns+20_000_000,1,vx,pose[2],vz,
                       vx,pose[2],vz,1])
-        truth_out.append((ns,gt[1],gt[2],seconds))
+        truth_out.append((ns,gt[1],gt[3],seconds))
         if pose[0]<cutoff and seconds-last_fix>=.99:
             last_fix=seconds
             # Real GNSS is NOT present: add separately seeded, labeled noise.
             east=gt[1]+rng.gauss(0,sigma_gnss)
-            north=gt[2]+rng.gauss(0,sigma_gnss)
+            north=gt[3]+rng.gauss(0,sigma_gnss)
             fixes.append([1,"GPS_PROVIDER",ns,ns+30_000_000,0,
                           *world_to_geo(east,north),max(1,2*sigma_gnss),
                           "","","","","","","false","true"])
@@ -216,7 +216,7 @@ def run(source,out,calibration_seconds=(20.0,40.0),noise=1.5,seed=SEED):
         route="Reference-derived illustrative GPX proxy; route shape is NOT withheld independent truth",
         rendering="No real ARCore floors, camera frames, screen-lock or Depth replayed",
         no_posthoc_scale_fitting=True,
-        relative_coordinates="External Pixel ARCore x/z vs ADVIO reference x/y; evaluate horizontal alignment as specified, no automatic 3D axis fitting",
+        relative_coordinates="External Pixel ARCore x/z vs ADVIO reference x/z (both y-up; dataset convention subject to independent check); no GT-fitted rotation/scale",
         seed=seed,results=results)
     (out/"report.json").write_text(json.dumps(summary,indent=2,allow_nan=False)+"\n")
     return summary
