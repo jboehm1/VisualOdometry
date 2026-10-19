@@ -28,7 +28,10 @@ MODES={
 CURRENT_BASELINE=("GPS_ROUTES","ARCORE_REPLAY","FLP_AB")
 TARGET_COMBINED=tuple(MODES)
 
-def inspect(main_source,manifest_text,required=CURRENT_BASELINE):
+def inspect(main_source,manifest_text,required=CURRENT_BASELINE,catalog_source=""):
+    # Accept both the legacy flat DATA list and the categorized semantic action
+    # catalog. The latter is only trusted if MainActivity actually dispatches
+    # its stable enum IDs. A disconnected catalog alone cannot pass the gate.
     missing=set(required)-set(MODES)
     if missing:raise ValueError("Unknown modes: "+", ".join(sorted(missing)))
     root=ET.fromstring(manifest_text)
@@ -37,11 +40,19 @@ def inspect(main_source,manifest_text,required=CURRENT_BASELINE):
     menu_start=main_source.find("void dataMenu()")
     if menu_start<0:raise ValueError("DATA menu missing")
     menu=main_source[menu_start:menu_start+12_000]
-    # This gate specifically checks the DATA menu, not incidental mentions in docs.
+    # The old DATA menu and its semantic handler stay the only permitted
+    # dispatch scope, not incidental mentions in documentation elsewhere.
+    categorized="SettingsCatalog.items(category)" in menu and "void performSettingsAction(" in menu
+    catalog_actions={"GPS_ROUTES":"Action.GPS_ROUTES", "ARCORE_REPLAY":"Action.ARCORE_REPLAY",
+                     "FLP_AB":"Action.GPS_COMPARISON",
+                     "PDR":"Action.PDR", "COURSES":"Action.COURSES"}
     result={}
     for key,(label,action,activity) in MODES.items():
-        label_present=label in menu
-        action_present=action in menu
+        in_catalog=(categorized and label in catalog_source
+                    and catalog_actions.get(key,"") in catalog_source)
+        label_present=label in menu or in_catalog
+        action_present=action in menu and (not in_catalog or
+             ("case "+catalog_actions[key].split(".")[-1]+":" in menu))
         declared=activity is None or activities.get(activity)=="false"
         good=label_present and action_present and declared
         result[key]={"ok":good,"label_present":label_present,"action_present":action_present,
@@ -56,9 +67,12 @@ def main():
     p.add_argument("--main",type=Path,default=APP_ROOT/"java"/"dev"/"jboehm"/"vectorvio"/"MainActivity.java")
     p.add_argument("--manifest",type=Path,default=APP_ROOT/"AndroidManifest.xml")
     p.add_argument("--require",nargs="*",choices=tuple(MODES),default=list(CURRENT_BASELINE))
+    p.add_argument("--catalog",type=Path,
+        default=APP_ROOT/"java"/"dev"/"jboehm"/"vectorvio"/"SettingsCatalog.java")
     args=p.parse_args()
     data=inspect(args.main.read_text(encoding="utf-8"),
-                 args.manifest.read_text(encoding="utf-8"),args.require)
+                 args.manifest.read_text(encoding="utf-8"),args.require,
+                 args.catalog.read_text(encoding="utf-8") if args.catalog.exists() else "")
     print(json.dumps(data,indent=2,ensure_ascii=False))
     raise SystemExit(0 if data["pass"] else 2)
 
