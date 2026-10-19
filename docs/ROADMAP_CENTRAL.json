@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-19 (audit PRs after #11 merge)",
+  "updated_at": "2026-10-19 — add low-light/precision research use cases",
   "source_of_truth": "feature/slam-explorer:docs/ROADMAP_CENTRAL.md",
   "branch_notes": {
     "default_github_branch": "master — archive 2019, non utilisée pour intégration Android",
@@ -280,6 +280,73 @@
           "acceptance": "Essais comparatifs avec professionnels/organisme qualifié ; pas de revendication secours à court terme."
         }
       ]
+    },
+    {
+      "id": "LOWLIGHT",
+      "name": "Course/trail, vélo, montagne, faible lumière et précision relative",
+      "owner_branch": "feature/slam-explorer (documentation; aucune implémentation Android nouvelle)",
+      "priority": "P0 exploration + P1 product validation",
+      "stage": "RECHERCHE — use cases documentés, précision décimétrique non démontrée",
+      "evidence": "docs/USE_CASES_PRECISION_LOW_LIGHT.md (sources ARCore et études GNSS sous canopée). Aucun test S21 spécifique ni métrique physique obtenus.",
+      "risks": "GNSS multipath/masquage en forêt et vallons ; VIO en faible lumière, flou, vitesse, vibrations ; risque de confondre précision relative et géographique absolue. Aucun guidage sécuritaire garanti.",
+      "tasks": [
+        {
+          "id": "L01",
+          "name": "Journaliser tracking VIO, causes d'échec et âge GNSS",
+          "priority": "P0",
+          "state": "NON_FAIT",
+          "acceptance": "CSV/ZIP conserve segments, temps, pertes et causes ARCore sans faux échantillons."
+        },
+        {
+          "id": "L02",
+          "name": "Campagne course + vélo jour, crépuscule et faible lumière avec référence indépendante",
+          "priority": "P0",
+          "state": "NON_FAIT",
+          "acceptance": "Parcours répétés forêt, relief, sentiers parallèles, tunnels courts ; vérité indépendante, couverture."
+        },
+        {
+          "id": "L03",
+          "name": "Comparer GNSS, FLP, VIO et fusion conservatrice sur mêmes parcours",
+          "priority": "P0",
+          "state": "NON_FAIT",
+          "acceptance": "Erreur p50/p95/p99, couverture, faux embranchements, énergie et défaillances, moteur exact."
+        },
+        {
+          "id": "L04",
+          "name": "Mode dégradé et abstention explicite en tracking insuffisant",
+          "priority": "P1",
+          "state": "NON_FAIT",
+          "acceptance": "Pas de trajectoire inventée à travers trous ni fausse promesse ±0,10 m."
+        },
+        {
+          "id": "L05",
+          "name": "Décision de sentier GPX avec incertitude, bifurcations et épingles",
+          "priority": "P1",
+          "state": "RECHERCHE",
+          "acceptance": "Baisse mesurée du taux de mauvais embranchements, abstention en ambiguïté."
+        },
+        {
+          "id": "L06",
+          "name": "Étudier montages guidon, poitrine, poche et vibrations vélo",
+          "priority": "P1",
+          "state": "NON_FAIT",
+          "acceptance": "Essais par montage et vitesse, pas de PDR piéton appliqué au vélo."
+        },
+        {
+          "id": "L07",
+          "name": "Cartographie locale et analyse de trajectoire sportive",
+          "priority": "P2",
+          "state": "RECHERCHE",
+          "acceptance": "Valeur supplémentaire démontrée vs GNSS ordinaire, coûts et vie privée."
+        },
+        {
+          "id": "L08",
+          "name": "Étudier le décimètre relatif sur courte fenêtre, avec ancrage externe",
+          "priority": "P2",
+          "state": "RECHERCHE",
+          "acceptance": "Erreur locale vs absolue distinguée, dérive et conditions de réussite mesurées."
+        }
+      ]
     }
   ],
   "git_audit": {
@@ -327,5 +394,30 @@
       }
     ],
     "pr19": "Temporary coordination PR, close by merge after CI; not an independent Android feature."
+  },
+  "precision_low_light_research": {
+    "document": "docs/USE_CASES_PRECISION_LOW_LIGHT.md",
+    "relative_10cm_proven": false,
+    "absolute_10cm_proven": false,
+    "field_tested": false,
+    "safety_navigation_qualified": false,
+    "priority_use_cases": [
+      "trail_dense_forest",
+      "mountain_valley",
+      "parallel_trails",
+      "mtb_hairpins",
+      "urban_canyon_short_tunnel",
+      "night_bike"
+    ],
+    "new_tasks": [
+      "L01",
+      "L02",
+      "L03",
+      "L04",
+      "L05",
+      "L06",
+      "L07",
+      "L08"
+    ]
   }
 }
