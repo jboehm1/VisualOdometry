@@ -26,6 +26,23 @@ On Mobile-GVIO Indoor-2 the existing research monocular+gyro pipeline is run fou
 
 Evidence: `campaign_results/mobile_vio_ab/comparison.json`, plus small per-inference reports and trajectory points. The new CI `.github/workflows/mobile-vio-ab.yml` executes exact original downloaded 951MB archive and uploads small JSON only (no imagery, raw gyro or LiDAR). Replaying a different source and selecting hyperparameters **using its reference** would be leakage; these two tracker presets are frozen before evaluation.
 
+## Verified real dataset result on GitHub Actions
+
+The original download/real execution and offline contract tests passed on the isolated VIO changes:
+[GitHub Actions A/B run #39211234948](https://github.com/jboehm1/VisualOdometry/actions/runs/39211234948).
+
+| Same Mobile-GVIO Indoor-2 source / ABBA two repetitions each | Balanced | Low-compute |
+| --- | ---: | ---: |
+| Host median inference wall time, 131 genuine camera frames | **1.1213 s** | **0.9747 s** |
+| Posthoc Sim3 GT-fitted trajectory-shape RMSE | **0.40149 m** | **0.41561 m** |
+| Common posthoc reference clock shift (applied to both) | 282.95965 s | 282.95965 s |
+| Physical Samsung S21 measured | **No** | **No** |
+| Independent metric distance accuracy | **No** | **No** |
+
+The low-compute tracker was **about 13.1% faster in elapsed time** (median elapsed-time reduction) on this GitHub runner, with a slightly worse GT-fitted *shape* RMSE. These are **not** accuracy/thermal/power claims for a physical handset; two repeats and one 22-second data window are not statistically robust generalization.
+
+For actual smartphone CSVs, use [the field qualification CLI and repeatable trials](ANDROID_FIELD_QUALIFICATION.md). No user phone session or measured route is bundled, so physical results must remain **INSUFFICIENT_EVIDENCE** until genuinely recorded.
+
 ## Remaining independent scientific / device gates
 
 - **Metric six-axis VIO:** integrate gravity, accelerometer bias, velocity and temporal/camera-IMU calibration with observability checks; compare to OpenVINS/ORB-SLAM3 only using exactly the same sequence and validation protocol. Existing experimental image+gyro direction integration does not solve monocular metric scale.
