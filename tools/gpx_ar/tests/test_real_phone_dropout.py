@@ -60,7 +60,7 @@ class RealPhoneDropoutContracts(unittest.TestCase):
             out=mod.score(tmp/"replayed"/"replay.csv",truth,31_000_000_000,nfix,.1,30)
             self.assertEqual(out["status"],"SCORED")
             self.assertGreater(out["last_dropout_seconds"],70)
-            self.assertLess(out["p95_error_m"],2.0)
+            self.assertLess(out["p95_error_m"],2.0,"Synthetic dropout expected 0 drift: "+str(out)+"; replay="+(tmp/"replayed"/"replay.csv").read_text()[-1300:])
             self.assertIn("VIO_HOLD",out["states"])
     def test_calibration_rejects_disconnected_segments(self):
         with tempfile.TemporaryDirectory() as tmp:
