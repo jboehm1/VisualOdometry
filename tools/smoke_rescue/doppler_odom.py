@@ -102,7 +102,7 @@ def integrate_gyro(samples):
         if dt>0.20 or not math.isfinite(rate) or abs(rate)>8.:
             # This gap is unsafe for motion inference; fail rather than skip yaw.
             raise ValueError("Gyro time gap or invalid angular rate prevents yaw integration")
-        theta.append(theta[-1]+(rate+ordered[0][1] if False else rate)*dt)
+        theta.append(theta[-1]+rate*dt)
         t.append(time)
     # Absolute angular heading has arbitrary offset. z-axis sign/extrinsic TBD.
     return t,theta
@@ -225,7 +225,8 @@ def input_original(bag:Path,max_seconds=60.):
         raise ValueError("Wrong source size")
     from rosbags.highlevel import AnyReader
     data={"radar":[],"gyro":[],"reference":[]}
-    stats={"bag_source_counts":{},"frame_ids":{},"recording_duration_selected_s":max_seconds}
+    stats={"bag_source_counts":{},"frame_ids":{},"recording_duration_selected_s":max_seconds,
+           "clock_warning":"IMU device-uptime headers mismatch radar Unix epoch; IMU bag receipt time substituted. Latency not measured."}
     with AnyReader([bag]) as reader:
         connection={c.topic:c for c in reader.connections}
         if any(v not in connection for v in SOURCE_TOPICS.values()):
@@ -253,7 +254,11 @@ def input_original(bag:Path,max_seconds=60.):
             elif kind=="gyro":
                 z=float(obj.angular_velocity.z)
                 if math.isfinite(z):
-                    data["gyro"].append((stamp,z))
+                    # Ouster IMU ROS header stamps are device-uptime (~2788 s)
+                    # while radar and GT are Unix epoch (~1.6e9 s).
+                    # Use bag receipt time as a common *approximate* clock;
+                    # this incurs non-characterized USB/ROS scheduling latency.
+                    data["gyro"].append((bag_time*1e-9,z))
             else:
                 x=float(obj.pose.position.x);y=float(obj.pose.position.y)
                 if math.isfinite(x) and math.isfinite(y):
@@ -307,6 +312,7 @@ def main(argv=None):
             "trajectory":trajectory,
             "limits":["Unverified radar↔IMU rotation/frame_id: do not claim physical heading",
                       "Moving targets violate static-scatterer Doppler assumption",
+                      "Ouster IMU header timestamps use uptime clock; approximate ROS bag arrival time instead",
                       "Gyro-only yaw accumulates drift; no gravity/lever arm compensation",
                       "Radar outages cause unknown unintegrated motion; plotted segments may join gaps",
                       "Reference is AR marker plus wheel-odometry-smoothed, not independent everywhere",
