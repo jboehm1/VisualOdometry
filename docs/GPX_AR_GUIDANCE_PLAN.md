@@ -121,10 +121,17 @@ Dataset ZIP conserve les nouveaux sidecars CSV : `_gpx_ar_fixes.csv` (tous les c
 
 Capture de recalage : `_gpx_ar_poses.csv` relie chaque translation monde reçue à son timestamp ARCore, timestamp caméra Android vérifié (0 si inconnu), réception et segment. Cela permet un futur replay du même moteur sans supposer les timebases égales; aucune décimation liée au profil VIEW. Sérialisation sur le worker CSV.
 
-## Livraison logicielle vérifiée
+## Livraison logicielle vérifiée — GPX AR avec ancres, 19 octobre 2026
 
-SHA APK : `37eda6d71308748956fffe7f3ef94b424b6a18eb`. CI Android : https://github.com/jboehm1/VisualOdometry/actions/runs/39305523845 . 153 tests JUnit Android, zéro échec; lint et builds debug/release, régression GPS et deux scènes générées (sens initial/inverse) réussis. Les scènes générées ne valident pas la précision de placement GPX réel.
+**Commit exact du code APK :** `1920c6e17c88844df99d26c56c0ca902b856e82b`. La branche peut ensuite recevoir des commits documentaires; le code de l’APK reste identifié par ce SHA. PR #24 brouillon, non fusionnée dans `feature/slam-explorer`.
 
-Guide d’essai : [GPX_AR_MANUAL_TEST.md](GPX_AR_MANUAL_TEST.md). PR isolée : https://github.com/jboehm1/VisualOdometry/pull/24 . Le handoff documentaire peut être un commit ultérieur avec app/ identique; citer le SHA APK pour reproduire le binaire.
+- CI Android verte : https://github.com/jboehm1/VisualOdometry/actions/runs/39317910882 — **163/163 tests Android**, zéro échec/ignoré (rapport HTML Gradle), `lintDebug`, `assembleDebug`, `assembleRelease`, régressions GPS et rejeux synthétiques dans les deux sens.
+- CI Three Campaigns verte : https://github.com/jboehm1/VisualOdometry/actions/runs/39317910825 — campagnes A (exemple externe VINS-Mono/EuRoC), B (baseline PDR Python synthétique), C (compilation/replay ARCore); **ce ne sont pas trois validations de la précision Android sur terrain**.
+- Archive debug `vector-vio-debug-apk`, artefact GitHub 12218742148 : https://github.com/jboehm1/VisualOdometry/actions/runs/39317910882/artifacts/12218742148 (rétention GitHub 14 jours).
+- `app-debug.apk` extrait et vérifié : **3 638 136 octets**, SHA256 `22b86224112e1ea4aec13cf808756e02720ce8f8e046fd138e4f39745d5c40ff`; ZIP externe SHA256 `fc98ff9da33ea01ed49e065d27d01856ec820b8643c67d24497b249b80d836a5`. Archive et APK contrôlés par CRC et présence du manifeste.
+- Simulations de régression : aller +0,417 % distance et fermeture 0,879 m, retour +0,628 % et 1,298 m; **scores de simulation**, aucunement précision GPS→caméra.
+- Tests de rejeu GPX (Java équivalent Android, sans pixel vidéo/IMU/ARCore) et bruit Python passent; les tests n’établissent pas la précision absolue.
 
-Précision géodésique : les entrées sont latitudes/longitudes WGS84, mais GeoAlignment et l’index utilisent une approximation métrique locale sphérique avec rayon moyen, pas une conversion ellipsoïdale ENU exacte. L’aller-retour et la chiralité sont testés; cela ne qualifie pas la précision absolue, les très longues arêtes GPX peu échantillonnées ni un relief lointain. F02 reste partiel pour cette raison.
+**Évolution géodésique depuis l’ancien APK `37eda6d` :** `Wgs84LocalFrame` utilise désormais WGS84 ellipsoïdal ECEF↔ENU horizontal. `GeoAlignment` et `RouteIndex` utilisent cette conversion; l’index densifie les arêtes jusqu’à 25 m entre sommets. Le GPX source reste inchangé. Cette correction améliore la cohérence des repères, sans supprimer l’incertitude GNSS, le biais partagé, le datum vertical inconnu ou l’ambiguïté de trajectoire.
+
+Le nouveau système d’ancres locales ARCore et le rejeu ZIP sont intégrés à ce code. Ils ont des tests simulés et une compilation Android réussie; **pas d’essai physique S21, de vérité terrain indépendante ni de garantie centimétrique**. L04, Q02, calibration d’incertitude, consommation et essais ARCore longs restent ouverts. Guide : [GPX_AR_MANUAL_TEST.md](GPX_AR_MANUAL_TEST.md); [rapport release](coordination/gpx-ar-release-1920c6e1.md).

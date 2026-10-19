@@ -1,6 +1,6 @@
 # Handover — GPX caméra, reprise immédiate
 
-État vérifié le **19 octobre 2026, vers 21:50 Europe/Berlin**. Dernière demande : « Status ? Give a handover to continue in another chat ». L’utilisateur attend encore la finalisation et un **nouvel APK validé**. Ne pas déclarer le travail terminé.
+> **RELEASE LOGICIELLE GPX AR VALIDÉE EN CI LE 19/10/2026 (mise à jour prioritaire)** : code `1920c6e17c88844df99d26c56c0ca902b856e82b`, [Android CI verte](https://github.com/jboehm1/VisualOdometry/actions/runs/39317910882) (163/163 tests; lint; debug/release; GPS et simulations), [Three Campaigns vertes](https://github.com/jboehm1/VisualOdometry/actions/runs/39317910825); [APK artifact 12218742148](https://github.com/jboehm1/VisualOdometry/actions/runs/39317910882/artifacts/12218742148) ; APK SHA256 `22b86224112e1ea4aec13cf808756e02720ce8f8e046fd138e4f39745d5c40ff`. **Les éléments ci-dessous décrivent un blocage historique maintenant corrigé**. PR #24 toujours brouillon, aucune validation physique/absolue; voir [rapport final logiciel](gpx-ar-release-1920c6e1.md).\n\nÉtat vérifié le **19 octobre 2026, vers 21:50 Europe/Berlin**. Dernière demande : « Status ? Give a handover to continue in another chat ». L’utilisateur attend encore la finalisation et un **nouvel APK validé**. Ne pas déclarer le travail terminé.
 
 ## Git et environnement
 

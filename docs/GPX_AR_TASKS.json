@@ -340,13 +340,13 @@
       "id": "Q03",
       "phase": "Qualification",
       "title": "Produire APK de la branche réunie",
-      "status": "PARTIEL",
-      "percent": 50,
+      "status": "VERIFIE_CI_BRANCHE_APK_DISPONIBLE_NON_INTEGREE",
+      "percent": 85,
       "depends_on": [
         "Q02"
       ],
       "acceptance": "CI tests/lint/build et smoke menus/export au SHA exact; APK et rapport avec limites; pas de validation via APK d’une autre branche.",
-      "evidence": "APK expérimentale générée par CI 39305523845 au SHA 37eda6d71308748956fffe7f3ef94b424b6a18eb; tests/lint/debug/release et fixtures réussis. Pas de qualification physique Q02 ni livraison production.",
+      "evidence": "Code exact 1920c6e17c88844df99d26c56c0ca902b856e82b; Android CI 39317910882 SUCCESS (163/163 JUnit, lint, debug/release, GPS et deux scènes synthétiques); Three Campaigns 39317910825 SUCCESS; APK artifact 12218742148, SHA256 22b86224112e1ea4aec13cf808756e02720ce8f8e046fd138e4f39745d5c40ff. PR #24 isolée; fusion et essais réels Q02 manquants.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },

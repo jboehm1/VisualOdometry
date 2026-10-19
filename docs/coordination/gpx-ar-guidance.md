@@ -1,6 +1,6 @@
 # Mise à jour — finalisation logicielle, 19 octobre 2026
 
-Branche `feature/gpx-ar-guidance`, intégration auditée `ab577a14b29261f2047503b2432e47ceb97e06ac`, départ `8641432`. Aucun autre module fusionné. Les preuves APK/CI ci-dessous sont **historiques**, antérieures à cette itération; la nouvelle CI sera consignée après compilation.
+> **Statut postérieur au texte historique ci-dessous** : code GPX ancré `1920c6e17c88844df99d26c56c0ca902b856e82b`, [Android CI 39317910882](https://github.com/jboehm1/VisualOdometry/actions/runs/39317910882) verte (163 tests), [Three Campaigns 39317910825](https://github.com/jboehm1/VisualOdometry/actions/runs/39317910825) vertes, APK artifact 12218742148 (SHA256 `22b86224112e1ea4aec13cf808756e02720ce8f8e046fd138e4f39745d5c40ff`). Les phrases « CI en attente » et ancien SHA APK ci-dessous sont des références **historiques**. Détails : [gpx-ar-release-1920c6e1.md](gpx-ar-release-1920c6e1.md). Pas de qualification terrain; PR #24 non fusionnée.\n\nBranche `feature/gpx-ar-guidance`, intégration auditée `ab577a14b29261f2047503b2432e47ceb97e06ac`, départ `8641432`. Aucun autre module fusionné. Les preuves APK/CI ci-dessous sont **historiques**, antérieures à cette itération; la nouvelle CI sera consignée après compilation.
 
 - Référence métrique GPX distincte de l’odomètre; inverse additive AnchorCoordinates/AnchoredOdometry, sans modification des mesures.
 - GpxRibbonAnchors : portions 6 m, 32 références maximum, 2 créations par présentation, cleanup et masque en échec. SceneMapper réutilise la géométrie ancrée GPU/Canvas.
