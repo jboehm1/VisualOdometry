@@ -10,7 +10,9 @@ import java.util.*;
 /** Pure-Java experimental placement. Never writes poses, distance, GPX or raw fixes. */
 public final class ArRouteGuide {
     public static final long STALE_NS=5_000_000_000L;
-    public enum State { OFF, NO_ROUTE, WAITING_POSES, CLOCK_MISMATCH, WAITING_FIXES, NEED_BASELINE, INCONSISTENT, STALE, CANDIDATE }
+    /** Tracking-only hold after location goes stale; bounded, never absolute truth. */
+    public static final long MAX_VIO_HOLD_NS=30_000_000_000L;
+    public enum State { OFF, NO_ROUTE, WAITING_POSES, CLOCK_MISMATCH, WAITING_FIXES, NEED_BASELINE, INCONSISTENT, STALE, VIO_HOLD, CANDIDATE }
     public static final class Marker {
         public final double x,z;public final String label;public final boolean endpoint;
         Marker(double x,double z,String label,boolean endpoint){this.x=x;this.z=z;this.label=label;this.endpoint=endpoint;}
@@ -21,15 +23,16 @@ public final class ArRouteGuide {
         public final int samples,segment;
         public long alignmentRevision;
         public List<Marker> markers=Collections.emptyList();
-        public final double residualMeters,horizontalAllowanceMeters,headingAllowanceRadians;
+        public final double residualMeters,horizontalAllowanceMeters,headingAllowanceRadians,holdSeconds;
         public final boolean absoluteBiasObservable=false,verticalDatumKnown=false;
         /** AR x/z edge endpoints, clipped near the camera. No terrain heights invented. */
         public final List<double[]> edges;
         public final GpsNavigator.Status navigationStatus;
         public final double remainingMeters,offRouteMeters,targetX,targetZ,latitude,longitude;
-        Snapshot(State state,String name,int segment,GeoAlignment.Result fit,List<double[]> edges,GpsNavigator navigator,double[] target,double x,double z){
+        Snapshot(State state,String name,int segment,GeoAlignment.Result fit,List<double[]> edges,GpsNavigator navigator,double[] target,double x,double z,double holdSeconds){
             this.state=state;routeName=name;this.segment=segment;this.edges=Collections.unmodifiableList(edges);
-            double[] geo=state==State.CANDIDATE&&fit!=null?fit.project(x,-z):null;
+            this.holdSeconds=holdSeconds;
+            double[] geo=(state==State.CANDIDATE||state==State.VIO_HOLD)&&fit!=null?fit.project(x,-z):null;
             latitude=geo==null?Double.NaN:geo[0];longitude=geo==null?Double.NaN:geo[1];
             navigationStatus=navigator==null?GpsNavigator.Status.SEARCHING:navigator.status;
             remainingMeters=navigator==null?Double.NaN:Math.max(0,navigator.route.length-navigator.progress);
@@ -37,7 +40,10 @@ public final class ArRouteGuide {
             targetX=target==null?Double.NaN:target[0];targetZ=target==null?Double.NaN:-target[1];
             samples=fit==null?0:fit.samples;residualMeters=fit==null?Double.NaN:fit.residualRmsMeters;
             // Diagnostic allowances, NOT calibrated confidence intervals. No sqrt(sample count).
-            horizontalAllowanceMeters=fit==null?Double.NaN:Math.max(fit.typicalGpsAccuracyMeters,fit.residualRmsMeters);
+            // NOT a calibrated confidence interval. Increase the displayed
+            // allowance during GNSS outage rather than claiming fixed accuracy.
+            horizontalAllowanceMeters=fit==null?Double.NaN:
+                Math.max(fit.typicalGpsAccuracyMeters,fit.residualRmsMeters)+.15*holdSeconds;
             headingAllowanceRadians=fit==null||fit.baselineMeters<=0?Double.NaN:
                 Math.atan2(2*horizontalAllowanceMeters,fit.baselineMeters);
         }
@@ -130,11 +136,18 @@ public final class ArRouteGuide {
     }
     public synchronized Snapshot snapshot(long nowNs){
         State shown=state;
-        if(shown==State.CANDIDATE&&(nowNs<lastFixNs||nowNs-lastFixNs>STALE_NS||nowNs-lastPoseNs>700_000_000L))shown=State.STALE;
+        if(shown==State.CANDIDATE){
+            // Hold only when visual tracking stays continuous/fresh. No GPS,
+            // no camera pose, or exceeded fixed time budget => fail closed.
+            if(nowNs<lastFixNs||nowNs<lastPoseNs||nowNs-lastPoseNs>700_000_000L)
+                shown=State.STALE;
+            else if(nowNs-lastFixNs>MAX_VIO_HOLD_NS)shown=State.STALE;
+            else if(nowNs-lastFixNs>STALE_NS)shown=State.VIO_HOLD;
+        }
         ArrayList<double[]> edges=new ArrayList<>();
         if(navigator!=null)navigator.tick(nowNs);
         double[] target=null;
-        if(shown==State.CANDIDATE&&fit!=null){
+        if((shown==State.CANDIDATE||shown==State.VIO_HOLD)&&fit!=null){
             if(navigator.status==GpsNavigator.Status.FOLLOWING||navigator.status==GpsNavigator.Status.OFF_ROUTE||navigator.status==GpsNavigator.Status.ARRIVED){
                 GpsRoute.Point next=route.at(Math.min(route.length,navigator.progress+(navigator.status==GpsNavigator.Status.OFF_ROUTE?0:10)));
                 target=fit.unproject(next.lat,next.lon);
@@ -145,7 +158,8 @@ public final class ArRouteGuide {
                 if(a!=null&&b!=null)edges.add(new double[]{a[0],-a[1],b[0],-b[1]});
             }
         }
-        Snapshot snapshot=new Snapshot(shown,route==null?"":route.name,segment,fit,edges,navigator,target,x,z);snapshot.alignmentRevision=alignmentRevision;
+        double hold=shown==State.VIO_HOLD?Math.max(0,(nowNs-lastFixNs)*1e-9):0;
+        Snapshot snapshot=new Snapshot(shown,route==null?"":route.name,segment,fit,edges,navigator,target,x,z,hold);snapshot.alignmentRevision=alignmentRevision;
         if(shown==State.CANDIDATE&&fit!=null&&target!=null){
             List<Marker> markers=new ArrayList<>();
             double progress=navigator.progress;
