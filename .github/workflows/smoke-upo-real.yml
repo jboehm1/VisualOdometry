@@ -228,6 +228,7 @@ jobs:
             --marker campaign_results/smoke-upo7/marker_heldout_report.json \
             --dual campaign_results/smoke-upo7/dual_for_dashboard.json \
             --dual-marker campaign_results/smoke-upo7/dual_marker_heldout.json \
+            --cross-sensor campaign_results/smoke-upo7/radar_lidar_proximity.json \
             --out campaign_results/smoke-upo7/VECTOR_SMOKE_LAB.html
           python - <<'PY'
           from pathlib import Path
