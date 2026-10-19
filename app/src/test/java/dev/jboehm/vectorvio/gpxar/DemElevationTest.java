@@ -38,7 +38,7 @@ public final class DemElevationTest {
     }
     @Test public void errorAndMissingSamplesCannotProduceFalsifiedHeights() throws Exception{
         GpsRoute r=route(Double.NaN,Double.NaN);
-        for(double[] reply:new double[][]{{0},{100,Double.NaN},{100,Double.POSITIVE_INFINITY},{100,200,300,400}}){
+        for(double[] reply:new double[][]{{0},{100,Double.NaN},{100,Double.POSITIVE_INFINITY},{100,200,300,400,500,600}}){
             try{DemElevation.fill(r,points->reply);fail("Expected strict DEM validation");}
             catch(IllegalArgumentException expected){}
         }
