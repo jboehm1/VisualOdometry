@@ -217,6 +217,30 @@
       "access": "article linked data repository",
       "licence": "check_datasets_independently",
       "caveat": "NO radar navigation"
+    },
+    {
+      "reviewed_on": "2026-10-19",
+      "status": "discovered_not_downloaded",
+      "downloaded_bytes": 0,
+      "parsed_frames": 0,
+      "scored_frames": 0,
+      "gt_verified": false,
+      "id": "irs-rtvi-2021",
+      "priority": "P1",
+      "url": "https://christopherdoer.github.io/datasets/irs_rtvi_datasets_iros2021",
+      "modalities": [
+        "radar_ti_iwr6843aop",
+        "thermal_flir_boson_640",
+        "monochrome_rgb",
+        "imu_409hz",
+        "calibration_files",
+        "mocap_reference_subset"
+      ],
+      "smoke": "not_reported; darkness and other visual degradation recorded, NOT smoke",
+      "access": "original ROS1 bags + calibration from authors' Google Drive; download/byte size not checked",
+      "licence": "verify before download and reuse",
+      "independent_ground_truth": "five laboratory sequences have Vicon+IMU optimized ground truth; four other sequences have non-independent VINS pseudo truth",
+      "caveat": "Best directly co-recorded option-C radar + thermal + IMU resource found, but NOT a smoke dataset; complementary to UPO smoke; RRxIO example code GPL-3.0"
     }
   ]
 }
