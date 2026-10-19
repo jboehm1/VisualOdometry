@@ -83,6 +83,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private long lastOverlayErrorMs;
     private final MapCapture mapCapture=new MapCapture();
     private final java.util.concurrent.ExecutorService mapIo=java.util.concurrent.Executors.newSingleThreadExecutor();
+    private final java.util.concurrent.ExecutorService elevationIo=java.util.concurrent.Executors.newSingleThreadExecutor();
+    private final java.util.concurrent.atomic.AtomicBoolean elevationBusy=new java.util.concurrent.atomic.AtomicBoolean();
     private volatile boolean photoKeyframes=false;
     private volatile int savedKeyframes=0,capturedImages=0,savedPois=0;
     private volatile boolean mapFull=false;
@@ -411,7 +413,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     private void postGpxUi(Runnable task){runOnUiThread(()->{if(!isFinishing()&&!isDestroyed())task.run();});}
     private void gpxArMenu(){
-        String[] actions={gpxArEnabled?"PAUSE AR GPX":"ENABLE AR GPX", "IMPORT GPX", "LOCATION SOURCE", "REVERSE SELECTED ROUTE", "RESET ALIGNMENT", "REMOVE SELECTED ROUTE", "HELP / ACCURACY", "DISPLAY OPTIONS"};
+        String[] actions={gpxArEnabled?"PAUSE AR GPX":"ENABLE AR GPX", "IMPORT GPX", "LOCATION SOURCE", "REVERSE SELECTED ROUTE", "RESET ALIGNMENT", "REMOVE SELECTED ROUTE", "HELP / ACCURACY", "DISPLAY OPTIONS", "ADD ALTITUDE · EU-DEM (ONLINE)"};
         new AlertDialog.Builder(this).setTitle("GPX AR · experimental").setItems(actions,(d,i)->{
             if(i==0){if(gpxArEnabled)setGpxArEnabled(false);else if(!gpxAr.hasRoute())Toast.makeText(this,"Import a GPX first",Toast.LENGTH_LONG).show();
                 else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},GPX_AR_LOCATION_REQUEST);
@@ -423,10 +425,55 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             if(i==4)gpxAr.trackingLost();
             if(i==5){setGpxArEnabled(false);mapIo.execute(()->{gpxRouteStore.clear();installGpxArRoute(null);});}
             if(i==7)gpxDisplayMenu();
+            if(i==8)gpxEnrichElevation();
             if(i==6)new AlertDialog.Builder(this).setTitle("GPX in the camera · limits")
                 .setMessage("Import one continuous GPX segment, enable location, START/RESUME and walk with the camera. Alignment needs several fresh positions and a baseline larger than GPS noise; rotating on the spot cannot establish it. Blue = imported GPX candidate; orange = measured local trail. No automatic snapping to the GPX.\n\nBlue uses bounded nearby ARCore anchors, with observed upward planes within 30 m; unknown ground stays hidden. GPX elevation is retained but is not trusted as AR ground height. This is a see-through overlay, without obstacle occlusion. GPS bias and route errors can shift the line; the allowance shown is diagnostic, not a calibrated confidence interval.\n\nAUTO uses Google Fused when available and falls back to native GPS on unavailable/stale Fused. Both can share GNSS. Pause/background, tracking loss and reset require alignment again. No change to odometer distance. Imported route stays on this phone; enable is explicit after app restart. DISPLAY OPTIONS toggles estimated direction, 25 m markers, endpoints and local map POIs. POI distances are straight-line local AR distances; route markers use distance along the GPX. Imported named GPX waypoints are not shown in this iteration.")
                 .setPositiveButton("OK",null).show();
         }).show();
+    }
+    /** Sends sampled track coordinates to a third-party DEM only after consent.
+     * Network I/O is never on the UI, map, GL or pose-acquisition thread. */
+    private void gpxEnrichElevation(){
+        dev.jboehm.vectorvio.gps.GpsRoute route=selectedArRoute;
+        if(route==null){Toast.makeText(this,"Import a GPX first",Toast.LENGTH_LONG).show();return;}
+        if(odometer.isRecording()||gpxArEnabled){
+            Toast.makeText(this,"Pause recording and GPX AR before changing altitude",Toast.LENGTH_LONG).show();return;
+        }
+        int missing=dev.jboehm.vectorvio.gpxar.DemElevation.missing(route);
+        if(missing==0){Toast.makeText(this,"GPX already contains elevation; original heights preserved",Toast.LENGTH_LONG).show();return;}
+        if(missing!=route.points.size()){
+            Toast.makeText(this,"Partial GPX elevations: datum unknown; cannot safely mix with EU-DEM",Toast.LENGTH_LONG).show();return;
+        }
+        if(elevationBusy.get()){Toast.makeText(this,"Altitude lookup already running",Toast.LENGTH_LONG).show();return;}
+        new AlertDialog.Builder(this).setTitle("Add estimated GPX altitude?")
+            .setMessage("Optional online EU-DEM 25 m (EVRS2000) elevation for a GPX with NO altitude. Up to 1001 sampled route coordinates will be sent to the independent api.opentopodata.org service. The route's geographic coordinates are shared with that provider. Accuracy is limited (EU-DEM ~7 m vertical RMSE); cliffs, bridges, floors, and stairs are NOT resolved. Existing GPX elevations are never overwritten.\n\nThe camera ribbon still uses locally observed ARCore ground rather than assuming these DEM heights are exact. Requires an internet connection. No lookup runs without your confirmation.")
+            .setNegativeButton("CANCEL",null)
+            .setPositiveButton("SHARE ROUTE & FETCH",(dialog,which)->{
+                if(!elevationBusy.compareAndSet(false,true))return;
+                Toast.makeText(this,"Fetching approximate terrain elevation...",Toast.LENGTH_LONG).show();
+                try{elevationIo.execute(()->{
+                    try{
+                        dev.jboehm.vectorvio.gps.GpsRoute enriched=dev.jboehm.vectorvio.gpxar.DemElevation.fill(route,
+                            new dev.jboehm.vectorvio.gpxar.DemElevation.OpenTopoData());
+                        mapIo.execute(()->{
+                            try{
+                                if(selectedArRoute!=route || odometer.isRecording() || gpxArEnabled){
+                                    postGpxUi(()->Toast.makeText(this,"Route changed or recording started; altitude not replaced",Toast.LENGTH_LONG).show());
+                                    return;
+                                }
+                                gpxRouteStore.save(enriched);
+                                installGpxArRoute(enriched);
+                                postGpxUi(()->Toast.makeText(this,"Estimated EU-DEM altitude saved; re-enable GPX AR",Toast.LENGTH_LONG).show());
+                            }catch(Exception error){
+                                postGpxUi(()->Toast.makeText(this,"Altitude save failed: "+error.getMessage(),Toast.LENGTH_LONG).show());
+                            }finally{elevationBusy.set(false);}
+                        });
+                    }catch(Exception error){
+                        elevationBusy.set(false);
+                        postGpxUi(()->Toast.makeText(this,"Altitude lookup failed; original GPX kept: "+error.getMessage(),Toast.LENGTH_LONG).show());
+                    }
+                });}catch(java.util.concurrent.RejectedExecutionException closed){elevationBusy.set(false);}
+            }).show();
     }
     private void gpxDisplayMenu(){
         String[] labels={"Estimated direction arrow","Distance markers every 25 m","Start / finish markers","Local map POIs + distance","Remaining distance in banner"};
@@ -994,6 +1041,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(frameScheduler!=null)frameScheduler.stop();
         if(cadenceThread!=null)cadenceThread.quitSafely();
         recorder.shutdown();
+        elevationIo.shutdownNow();
         mapIo.shutdown();
         super.onDestroy();
     }
