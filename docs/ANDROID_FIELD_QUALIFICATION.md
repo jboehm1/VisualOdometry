@@ -32,7 +32,7 @@ Run after obtaining the **real** files:
     python tools/field/qualify.py --manifest /private/s21_trials/trials.json \
       --out /private/s21_results/qualification.json
 
-The resulting report contains per-trial SHA256, actual pose update rate, maximum gap, detected gaps/rejections, reference length, path deviation, drift/minute and optional battery/temperature deltas, plus aggregated repeat gates. Paths/lat/lon are **not** copied. A `FAILED` exit code 1 identifies insufficient accuracy; `INSUFFICIENT_EVIDENCE` exit code 2 means missing repeated trials. Green synthetic CI tests **do not qualify the phone**.
+The resulting report contains per-trial SHA256, actual pose update rate, maximum gap, detected gaps/rejections, reference length, path deviation, drift/minute and optional battery/temperature deltas, plus aggregated repeat gates. **A passing run must maintain at least 10 observed pose updates/s, no inter-pose interval above 0.5s, and each stationary/rotation trial must last at least 60s.** Poorly sampled data fails rather than quietly reducing the tested duration. Paths/lat/lon are **not** copied. A `FAILED` exit code 1 identifies insufficient accuracy; `INSUFFICIENT_EVIDENCE` exit code 2 means missing repeated trials. Green synthetic CI tests **do not qualify the phone**.
 
 **Proposed acceptance targets, not yet measured:** for at least three 10m straights, median absolute relative length error below 5%, p90 below 10%; for at least three stationary runs, median false distance below 0.5 m/min. All tracking gaps and outliers remain visible; never drop bad runs to make a percentile pass.
 
