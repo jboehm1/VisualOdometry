@@ -62,6 +62,23 @@ class RealPhoneDropoutContracts(unittest.TestCase):
             self.assertGreater(out["last_dropout_seconds"],70)
             self.assertLess(out["p95_error_m"],2.0,"Synthetic dropout expected 0 drift: "+str(out)+"; replay="+(tmp/"replayed"/"replay.csv").read_text()[-1300:])
             self.assertIn("VIO_HOLD",out["states"])
+    def test_reference_calibrated_camera_drift_is_scored_without_postcut_truth_in_fit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp=Path(tmp);fixture(tmp/"data.zip")
+            with zipfile.ZipFile(tmp/"data.zip") as z:
+                pixel=mod.read_pose_csv(z,mod.SOURCE_NAMES["pixel"])
+                ref=mod.read_pose_csv(z,mod.SOURCE_NAMES["reference"])
+            best=mod.relative_vio_with_calibrated_initial_pose(pixel,ref,30)
+            self.assertGreater(best["scored_pose_count"],800)
+            self.assertGreater(best["post_dropout_duration_s"],90)
+            self.assertLess(best["post_dropout_p95_m"],.001)
+            self.assertTrue(best["minimum_baseline_met"])
+            # Injection post-cutoff is visible as measured drift; scorer does
+            # not use held-out truth to fix estimated poses.
+            injection=0.04
+            shifted=[r[:1]+[r[1]+injection*max(0,r[0]-30)]+r[2:] for r in pixel]
+            degraded=mod.relative_vio_with_calibrated_initial_pose(shifted,ref,30)
+            self.assertGreater(degraded["post_dropout_p95_m"],3)
     def test_calibration_rejects_disconnected_segments(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp=Path(tmp);fixture(tmp/"advio.zip")
