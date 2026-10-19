@@ -74,3 +74,35 @@ F1 non-regression, >=3 percentage-point reduction in mean absolute step
 count error, <=0.04 per-trial F1 loss, plus improvements on the two newly
 reserved subjects. If any gate fails, report failure rather than
 silently removing hard participants.
+
+## Final reserved-subject check — gate FAIL (2026-10-19)
+
+**Run:** https://github.com/jboehm1/VisualOdometry/actions/runs/39179451806
+at candidate `1857d9f97f4a83f9c8596507b89ecde74c4530f6`.
+Dataset: 8 genuine SIMUL participants × 3 placements = **24 trials**.
+New reserved participant IDs 10 and 26 were not used for choosing the
+candidate; this test consumed their held-out status, so they MUST NOT
+be reused as pristine untouched data after another parameter iteration.
+
+| Metric | Pinned original Java | Selected PDR candidate | Result |
+|---|---:|---:|---|
+| 24-trial mean abs step count error | 13.135% | **7.167%** | **Improved by 5.968 percentage points (~45.4% relative)** |
+| 24-trial macro temporal step F1 | 0.916047 | **0.915470** | **Regression -0.000577** |
+| New reserved six-trial mean abs count error | 6.079% | **1.288%** | Improved |
+| New reserved six-trial temporal F1 | 0.944469 | **0.929793** | **Regressed -0.014676** |
+| Participant 26, back pocket temporal F1 | 0.916 | **0.814** | **Serious regression** |
+
+**Quality gate FAILED (intentionally):** macro F1 non-regression, reserved
+participant F1 non-regression and maximum 0.04 per-trial F1 loss all failed.
+Step count improvement alone must never be sold as globally better
+pedestrian odometry. Two successful subgates: >=3 percentage points lower
+count error and improvement of count error on the new participants.
+
+The new detector reduces excess counted peaks but suppresses or shifts
+valid step events in some carrying conditions. Next engineering tasks:
+identify timestamp alignment and peak-phase errors independently of
+count totals; build separate training/validation/test subjects for a more
+robust classifier; carry a pre-registered frozen evaluation; prefer Android
+hardware STEP_DETECTOR when actually available on phone. Never tune against
+IDs 10/26 and call their new results held out. No metric pose error or
+S21 measurements have been obtained.
