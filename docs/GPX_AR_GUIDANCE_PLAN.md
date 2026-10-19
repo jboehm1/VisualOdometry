@@ -6,7 +6,7 @@
 
 Importer un GPX, estimer son placement dans le repère local ARCore à partir de positions absolues et de poses caméra synchronisées, puis afficher un chemin 3D avec une précision annoncée qui corresponde aux preuves disponibles. Le téléphone peut bouger en hauteur et tourner sans entraîner le chemin. Le terrain ne doit pas être inventé au-delà de ce qui est connu.
 
-**Implémentation expérimentale, itération 1 :** import GPX/segment et stockage atomique, providers AUTO/GPS/FUSED, appariement poses/fixes, inverse géographique→AR, fenêtre spatiale bornée, ruban bleu GPU/Canvas sur plans de sol observés, reset aux discontinuités, CSV brut/diagnostic et états visibles. Aucun changement à l’odomètre. 17 tests JUnit moteur Java/projection/journal réussis localement et 7 tests étude bruit; CI Android et téléphone restent à confirmer.
+**Implémentation expérimentale, itération 1 :** import GPX/segment et stockage atomique, providers AUTO/GPS/FUSED, appariement poses/fixes, inverse géographique→AR, fenêtre spatiale bornée, ruban bleu GPU/Canvas sur plans de sol observés, reset aux discontinuités, CSV brut/diagnostic et états visibles. Aucun changement à l’odomètre. 19 tests JUnit moteur Java/projection/journal réussis localement et 7 tests étude bruit; CI Android et téléphone restent à confirmer.
 
 Le pilote A/B et le navigateur GPX 2D existants restent séparés. `GeoAlignment` et `PoseFixSynchronizer` sont repris de B1–B8; pas de fusion du reste de cette branche. L’adaptateur traite AR x/−z pour respecter la chiralité des repères, vérifiée sur courbes dans les deux sens.
 

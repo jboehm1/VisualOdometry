@@ -16,19 +16,21 @@ final class GroundTrail {
             return (float)(y-(nx*(px-x)+nz*(pz-z))/ny);
         }
     }
-    static float floorY(Odometer.Point p,List<Floor> floors){
+    static float floorY(Odometer.Point p,List<Floor> floors){return floorY(p.x,p.y,p.z,floors);}
+    static float floorY(double x,double cameraY,double z,List<Floor> floors){
         float best=Float.NaN;
-        for(Floor f:floors){
-            if(!f.validFootprint)continue;
-            float y=f.height(p.x,p.z);double height=p.y-y;
-            if(!Float.isFinite(y)||height<.1||height>2.7)continue;
-            boolean inside=false;int n=f.xz.length/2;
-            for(int i=0,j=n-1;i<n;j=i++){
-                double xi=f.xz[2*i],zi=f.xz[2*i+1],xj=f.xz[2*j],zj=f.xz[2*j+1];
-                if((zi>p.z)!=(zj>p.z)&&p.x<(xj-xi)*(p.z-zi)/(zj-zi)+xi)inside=!inside;
-            }
-            if(inside&&(!Float.isFinite(best)||y<best))best=y;
-        }
+        for(Floor f:floors){float y=floorY(x,cameraY,z,f);if(Float.isFinite(y)&&(!Float.isFinite(best)||y<best))best=y;}
         return best;
+    }
+    static float floorY(double x,double cameraY,double z,Floor f){
+        if(!f.validFootprint)return Float.NaN;
+        float y=f.height(x,z);double height=cameraY-y;
+        if(!Float.isFinite(y)||height<.1||height>2.7)return Float.NaN;
+        boolean inside=false;int n=f.xz.length/2;
+        for(int i=0,j=n-1;i<n;j=i++){
+            double xi=f.xz[2*i],zi=f.xz[2*i+1],xj=f.xz[2*j],zj=f.xz[2*j+1];
+            if((zi>z)!=(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi)inside=!inside;
+        }
+        return inside?y:Float.NaN;
     }
 }

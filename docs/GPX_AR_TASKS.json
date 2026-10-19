@@ -316,7 +316,7 @@
         "R03"
       ],
       "acceptance": "Mêmes classes Java que l’app; métriques par moteur; perturbations biais, corrélation, perte, GPX erroné, sens inversé; données de test distinctes du réglage.",
-      "evidence": "17 tests JUnit Java locaux et 7 tests Python bruit; tests Robolectric ajoutés. CI Android en cours, vrais replays GPS/AR restant.",
+      "evidence": "29 tests JUnit Java locaux réussis (19 nouveaux GPX AR + 10 existants sol/ruban), 7 tests Python bruit; tests Android en CI. Validation réelle GPS/VIO restante.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },

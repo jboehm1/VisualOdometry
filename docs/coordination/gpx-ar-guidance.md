@@ -37,3 +37,5 @@ Limites : candidat non calibré, GPS/FLP pas vérités indépendantes, pas de VP
 
 
 Durcissement supplémentaire : imports Android/Google explicites après conflit de noms signalé par compilation CI; source de timestamp caméra vérifiée REALTIME avant appariement. Ajout ArPoseClock, GpxArJournal et tests sérialisation; réutilisation de GpsNavigator/RouteMatcher pour progression/flèche estimée sans modifier ces moteurs. SessionBundle.java ne change que le README d’export pour documenter les sidecars; ajouter ce fichier à la liste partagée à préserver. 17 tests Java hôte réussis à cette itération, CI complète relancée après corrections.
+
+Optimisation de projection : sélection du sol bas plausible plutôt qu’une table selon l’ordre des plans; aucun singleton/Point alloué dans la boucle par plan. GroundTrail.java refactorise le même sélecteur scalaire sans changer le comportement de la trace existante. 29 tests Java locaux passent, dont 19 nouveaux tests GPX AR et 10 régressions existantes sol/ruban.

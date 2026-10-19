@@ -99,4 +99,14 @@ public class ArRouteGuideTest {
         assertFalse(s.verticalDatumKnown);
     }
 
+    @Test public void datelineUsesShortArcAndInverseKeepsMetricCoordinates(){
+        dev.jboehm.vectorvio.GeoAlignment a=new dev.jboehm.vectorvio.GeoAlignment();
+        for(int i=0;i<10;i++){
+            double e=i*10,n=(i%3)*3,longitude=((179.9998+Math.toDegrees(e/(R*Math.cos(Math.toRadians(LAT))))+540)%360)-180;
+            assertTrue(a.add(1,1_000_000_000L+i*1_000_000_000L,e,n,lat(n),longitude,1));
+        }
+        dev.jboehm.vectorvio.GeoAlignment.Result fit=a.estimate();assertEquals(dev.jboehm.vectorvio.GeoAlignment.State.CANDIDATE,fit.state);
+        double[] geo=fit.project(80,3),back=fit.unproject(geo[0],geo[1]);assertTrue(geo[1]<0);assertArrayEquals(new double[]{80,3},back,.0001);
+    }
+
 }

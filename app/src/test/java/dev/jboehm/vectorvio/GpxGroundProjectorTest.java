@@ -20,4 +20,9 @@ public class GpxGroundProjectorTest {
         List<float[]> lines=GpxGroundProjector.project(Collections.singletonList(new double[]{0,0,3,0}),2,Collections.singletonList(slope));
         assertFalse(lines.isEmpty());for(float[] l:lines){assertEquals(.2*l[0]+.035,l[1],1e-5);assertEquals(.2*l[3]+.035,l[4],1e-5);}
     }
+    @Test public void tabletopOrderDoesNotOverrideObservedLowerFloor(){
+        List<float[]> lines=GpxGroundProjector.project(Collections.singletonList(new double[]{0,0,3,0}),2,Arrays.asList(floor(1.2f),floor(0)));
+        assertFalse(lines.isEmpty());for(float[] edge:lines){assertEquals(.035f,edge[1],1e-6);assertEquals(.035f,edge[4],1e-6);}
+    }
+
 }

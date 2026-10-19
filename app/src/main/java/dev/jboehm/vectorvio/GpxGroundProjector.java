@@ -16,12 +16,13 @@ final class GpxGroundProjector {
                 double a=(double)i/parts,b=(double)(i+1)/parts;
                 double ax=edge[0]+a*(edge[2]-edge[0]),az=edge[1]+a*(edge[3]-edge[1]);
                 double bx=edge[0]+b*(edge[2]-edge[0]),bz=edge[1]+b*(edge[3]-edge[1]);
+                // Prefer the same lowest plausible floor as the local trail, not a tabletop.
+                float lowestA=GroundTrail.floorY(ax,cameraY,az,floors),lowestB=GroundTrail.floorY(bx,cameraY,bz,floors);
+                if(!Float.isFinite(lowestA)||!Float.isFinite(lowestB))continue;
                 // A single ARCore plane footprint is convex. Both endpoints must lie on it.
                 for(GroundTrail.Floor floor:floors){
-                    List<GroundTrail.Floor> one=Collections.singletonList(floor);
-                    float ay=GroundTrail.floorY(new Odometer.Point(ax,cameraY,az),one);
-                    float by=GroundTrail.floorY(new Odometer.Point(bx,cameraY,bz),one);
-                    if(Float.isFinite(ay)&&Float.isFinite(by)){
+                    float ay=GroundTrail.floorY(ax,cameraY,az,floor),by=GroundTrail.floorY(bx,cameraY,bz,floor);
+                    if(Float.isFinite(ay)&&Float.isFinite(by)&&Math.abs(ay-lowestA)<.001f&&Math.abs(by-lowestB)<.001f){
                         result.add(new float[]{(float)ax,ay+.035f,(float)az,(float)bx,by+.035f,(float)bz});break;
                     }
                 }
