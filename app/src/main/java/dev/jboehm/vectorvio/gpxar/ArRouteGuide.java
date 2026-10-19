@@ -99,6 +99,11 @@ public final class ArRouteGuide {
         if(fix.fixElapsedNs<=lastSeenFixNs)return false;
         lastSeenFixNs=fix.fixElapsedNs;
         if(pending.size()==8)pending.removeFirst();pending.addLast(fix);
+        // A screen-unlock glance may have a fresh GPS fix before any VIO
+        // baseline exists. GPS-only progress is explicitly approximate and
+        // MUST NOT force a geographic AR ribbon/yaw correction.
+        navigator.update(new GpsNavigator.Fix(fix.latitude,fix.longitude,fix.accuracyMeters,
+            fix.speedMps,fix.bearingDegrees,fix.altitudeMeters,fix.fixElapsedNs),fix.receiveElapsedNs);
         drain(fix.receiveElapsedNs);return true;
     }
     private void drain(long nowNs){
@@ -112,7 +117,8 @@ public final class ArRouteGuide {
             // ARCore x/y(up)/z(back) -> right-handed horizontal x/-z before EN rotation.
             if(alignment.add(p.segment,f.fixElapsedNs,p.x,-p.z,f.latitude,f.longitude,f.accuracyMeters)){
                 lastFixNs=f.fixElapsedNs;fit=alignment.estimate();alignmentRevision++;
-                navigator.update(new GpsNavigator.Fix(f.latitude,f.longitude,f.accuracyMeters,f.speedMps,f.bearingDegrees,f.altitudeMeters,f.fixElapsedNs),nowNs);
+                // GPS-only navigator already received the unique raw fix in onFix.
+                // Never feed it twice merely because VIO interpolation arrived.
                 switch(fit.state){
                     case CANDIDATE:state=State.CANDIDATE;break;
                     case NEED_BASELINE:state=State.NEED_BASELINE;break;
