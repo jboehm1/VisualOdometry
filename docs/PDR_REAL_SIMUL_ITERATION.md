@@ -29,3 +29,22 @@ CI: `.github/workflows/pdr-real-steps.yml`.
 Keep other teams' `tools/campaigns`, `tools/benchmark`, `tools/testenv`
 untouched. **No claim of improved accuracy until per-participant measured
 results are inspected**; never target a fabricated 100% metric.
+
+## Iteration after first real 18-trial report
+
+First exact report (GitHub Actions run 39178813507, candidate
+`b502376c1206054501f738abe4dcbe7bae2a69a1`):
+- **Macro F1** 0.906572 (original Java) -> **0.910695** (current), +0.004123.
+- **Mean absolute step-count error** 15.486% -> **9.127%**,
+  **6.359 percentage-points lower** (about 41% relative reduction).
+- Overall false positives 608 -> 443, but missed annotation steps
+  134 -> 238. More conservative detector may suppress valid steps.
+- Two newly frozen participant IDs 12/31: 14.630% -> 8.942%
+  mean absolute count error, macro F1 0.909158 -> 0.916643.
+
+These improvements are real measured annotation-based results for the Java
+fallback but do NOT establish 100%, a metric distance guarantee, or S21
+performance. In fact some hand-held placement F1 decreased. A later
+candidate explores rejecting fast rebound peaks without resetting previously
+established gait period. The next runner output must decide whether that
+change should remain. It must not be advertised as proven until it passes.

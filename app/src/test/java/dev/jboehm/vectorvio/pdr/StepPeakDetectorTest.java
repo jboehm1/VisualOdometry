@@ -41,6 +41,28 @@ public final class StepPeakDetectorTest {
         }
         assertEquals(0,accepted);
     }
+    @Test public void shortReboundDoesNotResetEstablishedCadence(){
+        StepPeakDetector detector=new StepPeakDetector();
+        long time=1_000_000_000L;
+        int counted=0;
+        int reboundCounted=0;
+        // 600ms genuine rhythmic gait, with extra shock 320ms after
+        // each of the final 3 real peaks. A rebound must not replace the
+        // previous valid gait interval and cause a following real step loss.
+        for(int k=0;k<9;k++){
+            for(int j=0;j<30;j++){
+                boolean extra=k>=6 && j==26;
+                double z=(j==10 || extra)?14.5:9.81;
+                if(detector.accept(time,0,0,z)){
+                    counted++;
+                    if(extra)reboundCounted++;
+                }
+                time+=20_000_000L;
+            }
+        }
+        assertEquals(0,reboundCounted);
+        assertTrue("real steps lost after rebound",counted>=7);
+    }
     @Test public void resetDiscardsPreviousCadence(){
         StepPeakDetector p=new StepPeakDetector();
         long t=1_000_000_000L;

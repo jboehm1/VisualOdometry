@@ -118,3 +118,16 @@ frozen participants; each benchmark compiles the exact candidate engine.
 Goal: quantify step F1 and count-error vs original pinned Java engine
 on actual IMU; no trajectory accuracy or Galaxy S21 claim. Next: inspect
 exact-SHA CI and report and modify detector only if warranted by evidence.
+
+### SIMUL 1.3 initial empirical result — 2026-10-19
+GitHub Actions **39178813507** ran `b502376c1206054501f738abe4dcbe7bae2a69a1`
+against pinned original `f8228aa` on **18 actual SIMUL trials**, recording
+sensor and annotation SHA256. Mean absolute step-count error improved
+15.486% -> 9.127%; macro timed-step F1 0.906572 -> 0.910695.
+False positives down 608 -> 443, missed up 134 -> 238: accuracy trade-off
+must not be concealed. The additional 12/31 subjects are NOW exposed,
+so any subsequent iterations must score them as seen; choose fresh
+participants for truly independent final validation. No step accuracy 100%,
+no position GT, no S21 test.
+Next iteration adjusts refractory cadence rule only after proving with new
+CI; no shared files touched.
