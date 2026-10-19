@@ -242,7 +242,7 @@ def rigid_2d_align_and_score(traj, reference, max_gap_s=.12):
     }
 
 
-def input_original(bag:Path,max_seconds=60.):
+def input_original(bag:Path,max_seconds=60.,clock_model=None):
     if bag.name!="experiment_7.bag" or not bag.is_file():
         raise ValueError("Require original UPO experiment_7.bag")
     if not 1e5<bag.stat().st_size<MAX_SOURCE_BYTES:
@@ -282,7 +282,7 @@ def input_original(bag:Path,max_seconds=60.):
                     # while radar and GT are Unix epoch (~1.6e9 s).
                     # Use bag receipt time as a common *approximate* clock;
                     # this incurs non-characterized USB/ROS scheduling latency.
-                    data["gyro"].append((bag_time*1e-9,z))
+                    data["gyro"].append(((clock_model["intercept_s"]+clock_model["slope"]*stamp) if clock_model is not None else bag_time*1e-9,z))
             else:
                 x=float(obj.pose.position.x);y=float(obj.pose.position.y)
                 if math.isfinite(x) and math.isfinite(y):
@@ -333,15 +333,26 @@ def main(argv=None):
     ap.add_argument("--out",type=Path,required=True)
     ap.add_argument("--html",type=Path,required=True)
     ap.add_argument("--max-seconds",type=float,default=60.)
+    ap.add_argument("--clock-audit",type=Path,help="Optional sensor-only IMU uptime->host clock audit JSON. No GT.")
     args=ap.parse_args(argv)
     if not 10<=args.max_seconds<=168:raise ValueError("limit 10..168 sec")
-    samples,source=input_original(args.bag,args.max_seconds)
+    clock_data=json.loads(args.clock_audit.read_text(encoding="utf-8")) if args.clock_audit else None
+    if clock_data is not None:
+        if clock_data.get("ground_truth_accessed") is not False or clock_data.get("imu_uptime_to_unix",{}).get("reference_pose_used") is not False:
+            raise ValueError("Reject clock transform if reference was used in calibration")
+        if clock_data.get("sensor_frames_missing_base_link_tf") is None:
+            raise ValueError("Invalid clock audit provenance")
+    model=clock_data["imu_uptime_to_unix"] if clock_data else None
+    samples,source=input_original(args.bag,args.max_seconds,clock_model=model)
+    source["gyro_clock_mode"]="uptime_robust_sensor_only_affine" if model else "bag_receipt_time_unverified_delay"
+    if model: source["gyro_clock_audit_summary"]={k:model[k] for k in ("reported_clock_drift_ppm","median_arrival_lag_ms","p95_minus_p05_arrival_delay_ms")}
     trajectory,flags=estimate(samples["radar"],samples["gyro"])
     # Exactly after estimate() returned — marker/odometry truth is only evaluation data.
     cells, map_health=project_hits(trajectory,samples["radar"])
     evals=rigid_2d_align_and_score(trajectory,samples["reference"])
     report={"dataset":"upo-smoke-exp7","source_license":"CC-BY-NC-SA-3.0",
             "source_sha256":sha256_file(args.bag),
+            "clock_estimation_uses_reference":False,
             "mode":"MEASURED_RADAR_DOPPLER_PLUS_GYRO_UNCALIBRATED_EXTRINSICS",
             "actual_own_estimator_executed":True,"reference_used_during_estimation":False,
             "independent_accurate_ground_truth":False,"certified_navigation":False,
