@@ -433,8 +433,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(event.getActionMasked()==MotionEvent.ACTION_MOVE||event.getActionMasked()==MotionEvent.ACTION_UP){
             long now=SystemClock.elapsedRealtime();
             if(event.getActionMasked()==MotionEvent.ACTION_MOVE&&now-manualTouchMs<35)return true;
-            float dx=event.getX()-manualTouchX,dy=event.getY()-manualTouchY;
-            manualTouchX=event.getX();manualTouchY=event.getY();manualTouchMs=now;
+            final float beforeX=manualTouchX,beforeY=manualTouchY;
+            final float afterX=event.getX(),afterY=event.getY();
+            float dx=afterX-beforeX,dy=afterY-beforeY;
+            manualTouchX=afterX;manualTouchY=afterY;manualTouchMs=now;
             if(Math.hypot(dx,dy)<.5)return true;
             surface.queueEvent(()->{
                 if(!gpxManualMode||!rendererRunning||latestFrame==null)return;
@@ -445,9 +447,13 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 float[] right=camera.getXAxis(),forward=camera.getZAxis();
                 double rn=Math.hypot(right[0],right[2]),fn=Math.hypot(forward[0],forward[2]);
                 if(rn<.3||fn<.3)return;
+                // Where available, derive displacement from TWO hits on the
+                // SAME ARCore-observed upward plane. This respects slope and
+                // camera pitch rather than assuming metres per pixel.
+                float[] observed=manualGroundDisplacement(latestFrame,beforeX,beforeY,afterX,afterY);
                 double scale=10.0/Math.max(320,width);
-                double mx=(right[0]/rn*dx+forward[0]/fn*dy)*scale;
-                double mz=(right[2]/rn*dx+forward[2]/fn*dy)*scale;
+                double mx=observed==null?(right[0]/rn*dx+forward[0]/fn*dy)*scale:observed[0];
+                double mz=observed==null?(right[2]/rn*dx+forward[2]/fn*dy)*scale:observed[2];
                 double magnitude=Math.hypot(mx,mz);
                 if(magnitude>2){mx*=2/magnitude;mz*=2/magnitude;}
                 Pose metricFromWorld=reference.inverse();
@@ -458,6 +464,27 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             return true;
         }
         return true;
+    }
+
+    /** Difference between ray hits on the same detected ground patch. */
+    private float[] manualGroundDisplacement(Frame frame,float ax,float ay,float bx,float by){
+        try{
+            java.util.List<com.google.ar.core.HitResult> first=frame.hitTest(ax,ay);
+            java.util.List<com.google.ar.core.HitResult> second=frame.hitTest(bx,by);
+            for(com.google.ar.core.HitResult a:first){
+                if(!(a.getTrackable() instanceof com.google.ar.core.Plane))continue;
+                com.google.ar.core.Plane plane=(com.google.ar.core.Plane)a.getTrackable();
+                if(plane.getTrackingState()!=TrackingState.TRACKING ||
+                    plane.getType()!=com.google.ar.core.Plane.Type.HORIZONTAL_UPWARD_FACING ||
+                    !plane.isPoseInPolygon(a.getHitPose()))continue;
+                for(com.google.ar.core.HitResult b:second){
+                    if(!plane.equals(b.getTrackable())||!plane.isPoseInPolygon(b.getHitPose()))continue;
+                    float[] u=a.getHitPose().getTranslation(),v=b.getHitPose().getTranslation();
+                    return new float[]{v[0]-u[0],v[1]-u[1],v[2]-u[2]};
+                }
+            }
+        }catch(RuntimeException missingGround){/* Manual approximate drag still available. */}
+        return null;
     }
 
     /**
