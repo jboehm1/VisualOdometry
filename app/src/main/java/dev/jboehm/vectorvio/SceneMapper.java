@@ -23,7 +23,7 @@ final class SceneMapper {
         final List<MapArchive.Poi> pois;
         final int horizontal,vertical,points,anchors,segment;
         final float confidence;
-        float heading,pitch,targetMeters=-1;
+        float heading,pitch,targetMeters=-1,gpxDirectionRadians=Float.NaN;
         float cameraX,cameraZ;
         boolean groundEstimated,groundMissing,cameraPoseValid;
         int groundPoints;
@@ -133,6 +133,14 @@ final class SceneMapper {
         snapshot.groundMissing=groundMissing;snapshot.groundPoints=groundPoints;
         snapshot.cameraPoseValid=true;
         snapshot.cameraX=camera.getPose().tx();snapshot.cameraZ=camera.getPose().tz();
+        if(gpxRoute!=null&&Double.isFinite(gpxRoute.targetX)&&Double.isFinite(gpxRoute.targetZ)){
+            double dx=gpxRoute.targetX-snapshot.cameraX,dz=gpxRoute.targetZ-snapshot.cameraZ;
+            float[] direction=camera.getDisplayOrientedPose().getZAxis();
+            if(Math.hypot(dx,dz)>.5&&Math.hypot(direction[0],direction[2])>.2){
+                double angle=Math.atan2(dx,-dz)-Math.atan2(-direction[0],direction[2]);
+                snapshot.gpxDirectionRadians=(float)Math.atan2(Math.sin(angle),Math.cos(angle));
+            }
+        }
         float[] axis=camera.getDisplayOrientedPose().getZAxis();
         snapshot.heading=(float)Math.atan2(-axis[0],-axis[2]);
         snapshot.pitch=(float)Math.asin(Math.max(-1,Math.min(1,-axis[1])));

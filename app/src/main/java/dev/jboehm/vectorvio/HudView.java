@@ -165,6 +165,12 @@ public final class HudView extends View {
             }
             path.close();resetPaint();p.setColor((color&0xFFFFFF)|0x14000000);c.drawPath(path,p);
         }
+        if(Float.isFinite(scene.gpxDirectionRadians)){
+            float x=w*.5f,y=d(190);c.save();c.rotate((float)Math.toDegrees(scene.gpxDirectionRadians),x,y);
+            Path arrow=new Path();arrow.moveTo(x,y-d(13));arrow.lineTo(x-d(8),y+d(8));arrow.lineTo(x,y+d(4));arrow.lineTo(x+d(8),y+d(8));arrow.close();
+            resetPaint();p.setColor(0xCC59B8FF);c.drawPath(arrow,p);c.restore();
+            label(c,"GPX · EST.",x-d(22),y+d(25),8,0xCC59B8FF,false);
+        }
         c.restore();
     }
 

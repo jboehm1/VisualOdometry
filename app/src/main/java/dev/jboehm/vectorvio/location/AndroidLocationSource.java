@@ -3,16 +3,24 @@ package dev.jboehm.vectorvio.location;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.location.*;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.os.*;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
-import com.google.android.gms.location.*;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 
 /** One active provider. Tokens cancel stale async subscriptions and callbacks after stop. */
 public final class AndroidLocationSource implements LocationSource {
     private final Context context;
     private final Listener listener;
+    private final java.util.function.BooleanSupplier fusedAvailable;
     private final HandlerThread thread=new HandlerThread("GpxArLocation");
     private final Handler handler;
     private final LocationManager manager;
@@ -22,7 +30,10 @@ public final class AndroidLocationSource implements LocationSource {
     private int generation;
     private volatile boolean closed;
     public AndroidLocationSource(Context context,Listener listener){
-        this.context=context.getApplicationContext();this.listener=listener;
+        this(context,listener,()->GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)==ConnectionResult.SUCCESS);
+    }
+    AndroidLocationSource(Context context,Listener listener,java.util.function.BooleanSupplier fusedAvailable){
+        this.context=context.getApplicationContext();this.listener=listener;this.fusedAvailable=fusedAvailable;
         manager=(LocationManager)this.context.getSystemService(Context.LOCATION_SERVICE);
         thread.start();handler=new Handler(thread.getLooper());
     }
@@ -40,7 +51,7 @@ public final class AndroidLocationSource implements LocationSource {
         if(!current(token))return;
         if(context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){listener.onStatus("PRECISE LOCATION REQUIRED");return;}
         boolean available=false;
-        if(mode!=Mode.GPS)try{available=GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)==ConnectionResult.SUCCESS;}catch(RuntimeException ignored){}
+        if(mode!=Mode.GPS)try{available=fusedAvailable.getAsBoolean();}catch(RuntimeException ignored){}
         if(mode!=Mode.GPS&&available){
             try{
                 fused=LocationServices.getFusedLocationProviderClient(context);

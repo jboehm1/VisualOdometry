@@ -83,7 +83,7 @@
         "L01"
       ],
       "acceptance": "Original elapsedRealtimeNanos, arrivée, provenance conservés; doublons/réordonnancement/batch testés; données brutes intactes.",
-      "evidence": "PoseFixSynchronizer réutilisé; timestamps originaux/arrivée, file 8 fixes, doublons et ordre, horloge/gaps testés; traces brutes séparées.",
+      "evidence": "PoseFixSynchronizer réutilisé; timestamps originaux/arrivée, file 8 fixes, doublons et ordre, horloge/gaps testés; traces brutes séparées. Adaptateur ArPoseClock: timestamp caméra Android uniquement si CameraCharacteristics déclare REALTIME; aucune hypothèse sur Frame.getTimestamp().",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -150,13 +150,13 @@
       "phase": "Recalage",
       "title": "Gérer géométries ambiguës et suivi GPX",
       "status": "PARTIEL",
-      "percent": 30,
+      "percent": 55,
       "depends_on": [
         "F02",
         "F03"
       ],
       "acceptance": "Immobilité/rotation pure/courte base ne créent pas un cap fiable; routes parallèles, croisements et boucle gardent plusieurs hypothèses; pas de snap certifié.",
-      "evidence": "Rotation/immobilité demandent baseline; aucun snapping GPX. Pas de sélection multi-hypothèses caméra pour chemins parallèles.",
+      "evidence": "GpsNavigator/RouteMatcher existants réutilisés sans snap du recalage; progression/off-route et états ambigus; tests synthétiques. Validation terrain parallèle restante.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -251,13 +251,13 @@
       "phase": "Rendu",
       "title": "Afficher états de confiance compréhensibles",
       "status": "PARTIEL",
-      "percent": 50,
+      "percent": 70,
       "depends_on": [
         "F03",
         "R01"
       ],
       "acceptance": "Acquisition/ambigu/recalage utilisable/perdu; corridor ou flèche si précision insuffisante; mode précis réservé aux conditions validées; cap/position/hauteur séparés.",
-      "evidence": "États acquisition/baseline/candidat/stale/incohérent/horloge et allowance; aucun intervalle certifié. Corridor/flèche et seuils terrain restent.",
+      "evidence": "États explicites, flèche 2D estimée si matching utilisable, masquée sur ambiguïté/absence de cible; terrain inconnu non inventé. Calibration et corridor restant.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -294,13 +294,13 @@
       "phase": "Intégration",
       "title": "Borner coût et préserver acquisition",
       "status": "PARTIEL",
-      "percent": 40,
+      "percent": 60,
       "depends_on": [
         "I01",
         "R02"
       ],
       "acceptance": "Pose cible 30/s séparée de VIEW; files bornées; pas de deadband translation; export asynchrone brut/estimé séparés; métriques perf/power.",
-      "evidence": "Acquisition poses/VIEW inchangée; files/indices/rendu bornés; CSV GPS brut et alignement via IO recorder. Mesure énergie/thermique manquante.",
+      "evidence": "Files bornées et cadence inchangée; export CSV complet des fixes, GPX source par révision et diagnostics via IO asynchrone. Batterie/thermique à mesurer.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -316,7 +316,7 @@
         "R03"
       ],
       "acceptance": "Mêmes classes Java que l’app; métriques par moteur; perturbations biais, corrélation, perte, GPX erroné, sens inversé; données de test distinctes du réglage.",
-      "evidence": "14 JUnit moteur Java/projection réussis localement + 7 tests étude bruit. Tests Android et vrais replays à compléter.",
+      "evidence": "17 tests JUnit Java locaux et 7 tests Python bruit; tests Robolectric ajoutés. CI Android en cours, vrais replays GPS/AR restant.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },

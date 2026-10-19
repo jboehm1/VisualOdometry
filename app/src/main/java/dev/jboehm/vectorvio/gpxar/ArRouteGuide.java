@@ -3,6 +3,7 @@ package dev.jboehm.vectorvio.gpxar;
 import dev.jboehm.vectorvio.GeoAlignment;
 import dev.jboehm.vectorvio.geo.PoseFixSynchronizer;
 import dev.jboehm.vectorvio.gps.GpsRoute;
+import dev.jboehm.vectorvio.gps.GpsNavigator;
 import dev.jboehm.vectorvio.location.LocationSample;
 import java.util.*;
 
@@ -18,8 +19,14 @@ public final class ArRouteGuide {
         public final boolean absoluteBiasObservable=false,verticalDatumKnown=false;
         /** AR x/z edge endpoints, clipped near the camera. No terrain heights invented. */
         public final List<double[]> edges;
-        Snapshot(State state,String name,int segment,GeoAlignment.Result fit,List<double[]> edges){
+        public final GpsNavigator.Status navigationStatus;
+        public final double remainingMeters,offRouteMeters,targetX,targetZ;
+        Snapshot(State state,String name,int segment,GeoAlignment.Result fit,List<double[]> edges,GpsNavigator navigator,double[] target){
             this.state=state;routeName=name;this.segment=segment;this.edges=Collections.unmodifiableList(edges);
+            navigationStatus=navigator==null?GpsNavigator.Status.SEARCHING:navigator.status;
+            remainingMeters=navigator==null?Double.NaN:Math.max(0,navigator.route.length-navigator.progress);
+            offRouteMeters=navigator==null?Double.NaN:navigator.offDistance;
+            targetX=target==null?Double.NaN:target[0];targetZ=target==null?Double.NaN:-target[1];
             samples=fit==null?0:fit.samples;residualMeters=fit==null?Double.NaN:fit.residualRmsMeters;
             // Diagnostic allowances, NOT calibrated confidence intervals. No sqrt(sample count).
             horizontalAllowanceMeters=fit==null?Double.NaN:Math.max(fit.typicalGpsAccuracyMeters,fit.residualRmsMeters);
@@ -32,6 +39,7 @@ public final class ArRouteGuide {
     private final ArrayDeque<LocationSample> pending=new ArrayDeque<>();
     private GpsRoute route;
     private RouteIndex index;
+    private GpsNavigator navigator;
     private GeoAlignment.Result fit;
     private int segment;
     private long lastPoseNs,lastFixNs,lastSeenFixNs;
@@ -47,6 +55,7 @@ public final class ArRouteGuide {
     public synchronized boolean hasRoute(){return route!=null;}
     public synchronized void resetTracking(){
         alignment.reset();poses.reset();pending.clear();fit=null;segment=0;
+        navigator=route==null?null:new GpsNavigator(route);if(navigator!=null)navigator.joinNearest();
         lastPoseNs=lastFixNs=lastSeenFixNs=0;source=null;
         state=!enabled?State.OFF:route==null?State.NO_ROUTE:State.WAITING_POSES;
     }
@@ -73,6 +82,7 @@ public final class ArRouteGuide {
            (double)fix.receiveElapsedNs-fix.fixElapsedNs>STALE_NS||(double)fix.receiveElapsedNs-fix.fixElapsedNs< -500_000_000)return false;
         if(source!=null&&source!=fix.source){
             alignment.reset();pending.clear();fit=null;lastFixNs=lastSeenFixNs=0;state=State.WAITING_FIXES;
+            navigator=new GpsNavigator(route);navigator.joinNearest();
         }
         source=fix.source;
         if(fix.fixElapsedNs<=lastSeenFixNs)return false;
@@ -91,6 +101,7 @@ public final class ArRouteGuide {
             // ARCore x/y(up)/z(back) -> right-handed horizontal x/-z before EN rotation.
             if(alignment.add(p.segment,f.fixElapsedNs,p.x,-p.z,f.latitude,f.longitude,f.accuracyMeters)){
                 lastFixNs=f.fixElapsedNs;fit=alignment.estimate();
+                navigator.update(new GpsNavigator.Fix(f.latitude,f.longitude,f.accuracyMeters,f.speedMps,f.bearingDegrees,f.altitudeMeters,f.fixElapsedNs),nowNs);
                 switch(fit.state){
                     case CANDIDATE:state=State.CANDIDATE;break;
                     case NEED_BASELINE:state=State.NEED_BASELINE;break;
@@ -104,13 +115,19 @@ public final class ArRouteGuide {
         State shown=state;
         if(shown==State.CANDIDATE&&(nowNs<lastFixNs||nowNs-lastFixNs>STALE_NS||nowNs-lastPoseNs>700_000_000L))shown=State.STALE;
         ArrayList<double[]> edges=new ArrayList<>();
+        if(navigator!=null)navigator.tick(nowNs);
+        double[] target=null;
         if(shown==State.CANDIDATE&&fit!=null){
+            if(navigator.status==GpsNavigator.Status.FOLLOWING||navigator.status==GpsNavigator.Status.OFF_ROUTE||navigator.status==GpsNavigator.Status.ARRIVED){
+                GpsRoute.Point next=route.at(Math.min(route.length,navigator.progress+(navigator.status==GpsNavigator.Status.OFF_ROUTE?0:10)));
+                target=fit.unproject(next.lat,next.lon);
+            }
             double[] geo=fit.project(x,-z);
             if(geo!=null)for(double[] edge:index.near(geo[0],geo[1],30,512)){
                 double[] a=fit.unproject(edge[0],edge[1]),b=fit.unproject(edge[2],edge[3]);
                 if(a!=null&&b!=null)edges.add(new double[]{a[0],-a[1],b[0],-b[1]});
             }
         }
-        return new Snapshot(shown,route==null?"":route.name,segment,fit,edges);
+        return new Snapshot(shown,route==null?"":route.name,segment,fit,edges,navigator,target);
     }
 }

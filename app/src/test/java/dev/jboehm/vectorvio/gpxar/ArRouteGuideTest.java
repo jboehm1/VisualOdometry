@@ -93,4 +93,10 @@ public class ArRouteGuideTest {
         ArRouteGuide g=engine();g.setEnabled(false);assertFalse(g.onFix(fix(1_000_000_000,0,0,LocationSample.Source.GPS_PROVIDER,false)));
         assertEquals(ArRouteGuide.State.OFF,g.snapshot(1_000_000_000).state);
     }
+    @Test public void navigatorIsReusedAndTargetDoesNotRequireInventedAltitude(){
+        ArRouteGuide g=engine();long now=feed(g,0,false,0);ArRouteGuide.Snapshot s=g.snapshot(now);
+        assertTrue(Double.isFinite(s.remainingMeters));assertTrue(Double.isFinite(s.offRouteMeters));
+        assertFalse(s.verticalDatumKnown);
+    }
+
 }

@@ -6,7 +6,7 @@
 
 Importer un GPX, estimer son placement dans le repère local ARCore à partir de positions absolues et de poses caméra synchronisées, puis afficher un chemin 3D avec une précision annoncée qui corresponde aux preuves disponibles. Le téléphone peut bouger en hauteur et tourner sans entraîner le chemin. Le terrain ne doit pas être inventé au-delà de ce qui est connu.
 
-**Implémentation expérimentale, itération 1 :** import GPX/segment et stockage atomique, providers AUTO/GPS/FUSED, appariement poses/fixes, inverse géographique→AR, fenêtre spatiale bornée, ruban bleu GPU/Canvas sur plans de sol observés, reset aux discontinuités, CSV brut/diagnostic et états visibles. Aucun changement à l’odomètre. 14 tests JUnit moteur Java/projection réussis localement et 7 tests étude bruit; CI Android et téléphone restent à confirmer.
+**Implémentation expérimentale, itération 1 :** import GPX/segment et stockage atomique, providers AUTO/GPS/FUSED, appariement poses/fixes, inverse géographique→AR, fenêtre spatiale bornée, ruban bleu GPU/Canvas sur plans de sol observés, reset aux discontinuités, CSV brut/diagnostic et états visibles. Aucun changement à l’odomètre. 17 tests JUnit moteur Java/projection/journal réussis localement et 7 tests étude bruit; CI Android et téléphone restent à confirmer.
 
 Le pilote A/B et le navigateur GPX 2D existants restent séparés. `GeoAlignment` et `PoseFixSynchronizer` sont repris de B1–B8; pas de fusion du reste de cette branche. L’adaptateur traite AR x/−z pour respecter la chiralité des repères, vérifiée sur courbes dans les deux sens.
 
@@ -62,17 +62,17 @@ Ordre pratique : A → L01/L03 → F01/F02 → L02 et H01/H02 → F03/F04/F05 �
 | F01 | Réutiliser synchronisation et alignement B1–B8 | 85 % | L03 | Revue GeoAlignment/GeoFusionTracker/PoseFixSynchronizer de PR #3; intégration ciblée; reset par segment, aucune copie divergente. |
 | F02 | Implémenter conversion GPX vers repère AR | 100 % | F01 | WGS84 vers ENU puis axes AR documentés; yaw et translation sans ajustement libre de l’échelle; aller-retour et signes testés. |
 | F03 | Conserver incertitude sous erreurs corrélées | 40 % | F01, A02 | Ne pas compter FLP et GNSS comme indépendants; doublons ne réduisent pas la confiance; biais commun déclaré non observable; couverture mesurée sur données tenues à part. |
-| F04 | Gérer géométries ambiguës et suivi GPX | 30 % | F02, F03 | Immobilité/rotation pure/courte base ne créent pas un cap fiable; routes parallèles, croisements et boucle gardent plusieurs hypothèses; pas de snap certifié. |
+| F04 | Gérer géométries ambiguës et suivi GPX | 55 % | F02, F03 | Immobilité/rotation pure/courte base ne créent pas un cap fiable; routes parallèles, croisements et boucle gardent plusieurs hypothèses; pas de snap certifié. |
 | F05 | Gérer pertes et corrections sans sauts cachés | 70 % | F04 | Perte GNSS/VIO, reset AR, reprise et changement provider testés; incertitude croissante; transformation datée/versionnée, correction visible. |
 | H01 | Préserver altitude et datum du GPX | 60 % | A03 | ele facultatif; datum inconnu explicite; aucune conversion implicite MSL↔ellipsoïde; ponts/étages distincts; import sans ele testé. |
 | H02 | Construire surface locale observée | 65 % | H01, F02 | Plans/raycast/depth quand supportés; aucune hauteur dérivée silencieusement de la hauteur téléphone; terrain inconnu reste inconnu. |
 | H03 | Tester montées, escaliers et téléphone vertical | 50 % | H02 | Lever/baisser le téléphone ne déplace pas la route au sol; pente suivie seulement sur géométrie observée; segments non observés identifiés. |
 | R01 | Créer géométrie de route 3D continue | 80 % | F05, H02 | Ruban continu, raccords sans rectangles visibles, épaisseur métrique, points finis; CPU fallback si GPU indisponible; mêmes positions géométriques. |
 | R02 | Stabiliser ancres et portions locales | 20 % | R01 | Chunks bornés; origine flottante si nécessaire; cohérence après relocalisation; pas d’accumulation illimitée; essai long. |
-| R03 | Afficher états de confiance compréhensibles | 50 % | F03, R01 | Acquisition/ambigu/recalage utilisable/perdu; corridor ou flèche si précision insuffisante; mode précis réservé aux conditions validées; cap/position/hauteur séparés. |
+| R03 | Afficher états de confiance compréhensibles | 70 % | F03, R01 | Acquisition/ambigu/recalage utilisable/perdu; corridor ou flèche si précision insuffisante; mode précis réservé aux conditions validées; cap/position/hauteur séparés. |
 | R04 | Offrir recalage manuel et aide au retour | 10 % | R03 | Point connu + direction avec incertitude déclarée; annuler/revenir en arrière; suivre/rejoindre trace sans masquer ambiguïtés. |
 | I01 | Ajouter mode expérimental sans collision DATA | 60 % | R03 | Actions DATA distinctes; préserver GPS ROUTES, A/B, replay, PDR et capture; tests navigation et lifecycle sur résultat combiné. |
-| I02 | Borner coût et préserver acquisition | 40 % | I01, R02 | Pose cible 30/s séparée de VIEW; files bornées; pas de deadband translation; export asynchrone brut/estimé séparés; métriques perf/power. |
+| I02 | Borner coût et préserver acquisition | 60 % | I01, R02 | Pose cible 30/s séparée de VIEW; files bornées; pas de deadband translation; export asynchrone brut/estimé séparés; métriques perf/power. |
 | Q01 | Tester moteur réel en replay et négatifs | 30 % | F05, H03, R03 | Mêmes classes Java que l’app; métriques par moteur; perturbations biais, corrélation, perte, GPX erroné, sens inversé; données de test distinctes du réglage. |
 | Q02 | Mesurer placement caméra sur parcours de référence | 0 % | Q01, L04, I02 | Points sol indépendamment référencés, marche/course/ville/forêt/pente/chemins parallèles; erreur latérale/longitudinale/cap/hauteur p50/p95, abstention et faux fiables. |
 | Q03 | Produire APK de la branche réunie | 0 % | Q02 | CI tests/lint/build et smoke menus/export au SHA exact; APK et rapport avec limites; pas de validation via APK d’une autre branche. |
@@ -110,3 +110,11 @@ Les sources motivent les hypothèses; les chiffres de l’étude viennent de not
 5. Pause/background/perte AR exigent une nouvelle acquisition de recalage. Le GPX reste stocké; le démarrage automatique du mode est désactivé après recréation de l’application. Le repli Fused stale intervient après 12 s sans fix frais, sans souscription simultanée volontaire.
 
 Cette itération ne fournit pas encore VPS, terrain lointain/DEM, occlusion, correction altitude/datum, recalage manuel point connu, recalage multi-hypothèses garanti, ancres GPX longue durée ni précision absolue validée. Le ruban est un affichage expérimental du candidat, pas une position certifiée. Les allowances sont diagnostiques et non des probabilités calibrées.
+
+### Durcissement horloge, guidage et export
+
+Le timestamp ARCore `Frame.getTimestamp()` n’a pas de timebase garantie. `ArPoseClock` vérifie `SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME` sur la caméra sélectionnée et utilise `Frame.getAndroidCameraTimestamp()` (présent dans l’AAR 1.56.0 inspectée). Source inconnue ou timestamp incompatible : recalage masqué avec état horloge explicite, aucune estimation d’offset par réception. Ceci ne qualifie pas encore les décalages matériels de pose/capture sur chaque appareil.
+
+Le matching direction/progression réutilise `GpsNavigator`/`RouteMatcher`, alimenté par la seule source absolue sélectionnée. Il n’altère pas la transformation GPS/VIO pour forcer le GPX. La petite flèche bleue est une indication de direction horizontale estimée, pas un point 3D ni une preuve de terrain; pas de flèche si cible/alignement absents ou matching ambigu. Le ruban bleu reste limité aux sols observés.
+
+Dataset ZIP conserve les nouveaux sidecars CSV : `_gpx_ar_fixes.csv` (tous les champs disponibles, horloges d’origine/arrivée, mock et admission à la file), `_gpx_ar_route.csv` (vertices exacts du GPX sélectionné, révision et datum UNKNOWN), `_gpx_ar_alignment.csv` (états/allowances, timestamp ARCore pour référence au journal vidéo). Pas de données de référence indépendante inventées; valeurs facultatives manquantes vides. La sérialisation des grands GPX se fait sur le worker CSV, pas sur la caméra.
