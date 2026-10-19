@@ -28,9 +28,6 @@ class DashboardTests(unittest.TestCase):
         d=mod.collect(fake(),fake())
         h=mod.render(d)
         self.assertIn('Smoke Rescue',h)
-        self.assertIn('NON',h)
-        self.assertIn('hors',h) if False else None
-        self.assertIn('ORIGINAL',h) if False else None
         self.assertIn('application/json',h)
         self.assertIn('echoes',h)
         self.assertIn('RECHERCHE UNIQUEMENT',h)
