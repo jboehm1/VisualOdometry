@@ -519,6 +519,19 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     private String describeGpxAr(dev.jboehm.vectorvio.gpxar.ArRouteGuide.Snapshot snap){
         if(!gpxArEnabled)return "";
+        // After screen unlock a fresh GPS fix can recover approximate route
+        // progress BEFORE walking far enough to establish absolute AR yaw.
+        // This banner is GPS-only: never draw an apparently anchored blue line.
+        if(snap.state!=dev.jboehm.vectorvio.gpxar.ArRouteGuide.State.CANDIDATE){
+            switch(snap.navigationStatus){
+                case FOLLOWING:case ARRIVED:case OFF_ROUTE:
+                    return String.format(Locale.US,"GPX GPS ONLY · approx %.0f m left · %s · WALK TO ALIGN AR",
+                        snap.remainingMeters,snap.navigationStatus);
+                case AMBIGUOUS:return "GPX GPS ONLY · PATH AMBIGUOUS · WALK TO ALIGN AR";
+                case POOR_ACCURACY:return "GPX GPS WEAK · WAIT FOR LOCATION";
+                default:break;
+            }
+        }
         switch(snap.state){
             case CANDIDATE:
                 if(snap.navigationStatus==dev.jboehm.vectorvio.gps.GpsNavigator.Status.AMBIGUOUS)return "GPX · AMBIGUOUS PATH · NO DIRECTION";
