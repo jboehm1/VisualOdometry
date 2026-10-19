@@ -7,7 +7,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.*;
 import org.robolectric.annotation.Config;
 import org.robolectric.android.controller.ActivityController;
-import java.lang.reflect.*;
+import android.view.View;
 import java.nio.file.*;
 import java.util.*;
 import dev.jboehm.vectorvio.gpxar.GpxArRouteStore;
@@ -19,7 +19,9 @@ public class GpxArAndroidTest {
     @Test public void dataActionCoexistsWithRoutesReplayAndFusedComparison()throws Exception{
         ActivityController<MainActivity> c=Robolectric.buildActivity(MainActivity.class).create();
         try{
-            Method menu=MainActivity.class.getDeclaredMethod("dataMenu");menu.setAccessible(true);menu.invoke(c.get());
+            ArrayList<View> buttons=new ArrayList<>();
+            c.get().getWindow().getDecorView().findViewsWithText(buttons,"DATA",View.FIND_VIEWS_WITH_TEXT);
+            assertEquals(1,buttons.size());assertTrue(buttons.get(0).performClick());
             AlertDialog data=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
             Set<String> labels=new HashSet<>();for(int i=0;i<data.getListView().getCount();i++)labels.add(data.getListView().getAdapter().getItem(i).toString());
             assertTrue(labels.contains("GPS ROUTES — import GPX / follow / record"));
