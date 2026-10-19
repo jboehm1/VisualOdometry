@@ -176,6 +176,11 @@ def estimate(radar, gyro, bin_seconds=WINDOW_S):
     return output,{"accepted_bins":accepted,"rejected_bins":reasons,
                    "received_bins":len(bins),"active_integrated_seconds":round(elapsed_valid,4),
                    "accepted_fraction":round(accepted/max(1,len(bins)),6),
+                   "estimated_traveled_path_m":round(sum(
+                       math.hypot(b["x"]-a["x"],b["y"]-a["y"])
+                       for a,b in zip(output,output[1:]) if not b["new_segment"]),5),
+                   "body_velocity_mps_p50":quantile(
+                       [math.hypot(p["velocity"]["vx"],p["velocity"]["vy"]) for p in output], .5),
                    "statistical_method":"IRLS fixed Huber Doppler LS; no pose truth used",
                    "gyro_heading":"integrated measured IMU_z, unverified radar-IMU extrinsic"}
 
@@ -205,7 +210,25 @@ def rigid_2d_align_and_score(traj, reference, max_gap_s=.12):
     c,s=math.cos(rotation),math.sin(rotation)
     errors=[math.hypot((c*(x-mx)-s*(y-my)+gx)-xx,(s*(x-mx)+c*(y-my)+gy)-yy)
             for x,y,xx,yy,_,_ in paired]
+    stationary_rmse=math.sqrt(sum((xx-gx)**2+(yy-gy)**2
+                                   for _,_,xx,yy,_,_ in paired)/len(paired))
+    rmse=math.sqrt(sum(e*e for e in errors)/len(errors))
+    relative_to_static=rmse/stationary_rmse if stationary_rmse>1e-6 else None
+    estimate_segment_path=sum(
+        math.hypot(b[0]-a[0],b[1]-a[1])
+        for a,b in zip(paired,paired[1:])
+        if (b[4]-a[4])<=1.0 and not b[5]
+    )
+    pseudo_segment_path=sum(
+        math.hypot(b[2]-a[2],b[3]-a[3])
+        for a,b in zip(paired,paired[1:])
+        if (b[4]-a[4])<=1.0 and not b[5]
+    )
     return {
+        "zero_motion_baseline_rmse_m":round(stationary_rmse,5),
+        "ate_rmse_over_stationary_baseline":round(relative_to_static,5) if relative_to_static is not None else None,
+        "pathlength_over_matched_contiguous_intervals_estimated_m":round(estimate_segment_path,5),
+        "pathlength_over_matched_contiguous_intervals_pseudo_reference_m":round(pseudo_segment_path,5),
         "status":"SE2_ALIGNED_AGAINST_PARTIALLY_ODOMETRY_DERIVED_REFERENCE",
         "pairs":len(errors),
         "ate_rmse_m_vs_pseudo_reference":round(math.sqrt(sum(e*e for e in errors)/len(errors)),5),
