@@ -22,7 +22,7 @@ public final class TinyCarryModelTest {
             path=java.nio.file.Paths.get("app/src/main/assets/pdr_carry_model.b64");
         }
         assertTrue("PDR trained checkpoint missing in source tree",java.nio.file.Files.isRegularFile(path));
-        return java.nio.file.Files.readString(path,StandardCharsets.US_ASCII);
+        return new String(java.nio.file.Files.readAllBytes(path),StandardCharsets.US_ASCII);
     }
     private TinyCarryModel model() throws Exception {
         return TinyCarryModel.loadBase64(assetText());
