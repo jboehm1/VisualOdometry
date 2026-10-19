@@ -4,7 +4,7 @@ import android.media.Image;
 import com.google.ar.core.Camera;
 import com.google.ar.core.Coordinates2d;
 import com.google.ar.core.Frame;
-import com.google.ar.core.NotYetAvailableException;
+import com.google.ar.core.exceptions.NotYetAvailableException;
 import com.google.ar.core.Pose;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
