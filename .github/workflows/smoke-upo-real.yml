@@ -55,6 +55,12 @@ jobs:
           python tools/smoke_rescue/probe.py \
             --bag campaign_results/smoke-upo7/experiment_7.bag \
             --out campaign_results/smoke-upo7/probe.json
+      - name: Audit full original TF and calibrate sensor-only IMU clock
+        timeout-minutes: 5
+        run: |
+          python tools/smoke_rescue/calibration_audit.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --out campaign_results/smoke-upo7/tf_and_clock_report.json
       - name: Plan and execute canonical Test Environment V2 on original UPO recording
         timeout-minutes: 12
         run: |
