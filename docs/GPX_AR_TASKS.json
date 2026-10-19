@@ -49,13 +49,13 @@
       "id": "L01",
       "phase": "Localisation",
       "title": "Créer interface neutre de localisation",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "IMPLEMENTE_TEST_HOTE",
+      "percent": 100,
       "depends_on": [
         "A03"
       ],
       "acceptance": "Réutiliser location/LocationSample; contrat indépendant de Play Services; GPS/FLP interchangeables; tests provider simulé.",
-      "evidence": "",
+      "evidence": "Interface LocationSource sans Android; moteur ArRouteGuide consomme LocationSample; adaptateur Android séparé.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -63,13 +63,13 @@
       "id": "L02",
       "phase": "Localisation",
       "title": "Brancher FLP et repli GPS natif",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 60,
       "depends_on": [
         "L01"
       ],
       "acceptance": "Tester Play Services absent, localisation désactivée, permission approximative/refusée, annulation et reprise; aucune panne globale.",
-      "evidence": "",
+      "evidence": "AUTO/FUSED/GPS, fallback absence/erreur/stale, tokens de souscription. Tests Android ajoutés, CI et S21 à exécuter.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -77,13 +77,13 @@
       "id": "L03",
       "phase": "Localisation",
       "title": "Contrôler horloge, fraîcheur et doublons",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 90,
       "depends_on": [
         "L01"
       ],
       "acceptance": "Original elapsedRealtimeNanos, arrivée, provenance conservés; doublons/réordonnancement/batch testés; données brutes intactes.",
-      "evidence": "",
+      "evidence": "PoseFixSynchronizer réutilisé; timestamps originaux/arrivée, file 8 fixes, doublons et ordre, horloge/gaps testés; traces brutes séparées.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -106,13 +106,13 @@
       "id": "F01",
       "phase": "Recalage",
       "title": "Réutiliser synchronisation et alignement B1–B8",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 85,
       "depends_on": [
         "L03"
       ],
       "acceptance": "Revue GeoAlignment/GeoFusionTracker/PoseFixSynchronizer de PR #3; intégration ciblée; reset par segment, aucune copie divergente.",
-      "evidence": "",
+      "evidence": "GeoAlignment et PoseFixSynchronizer repris depuis 51885d3; resets segment/gaps; GeoFusionTracker non dupliqué car ArRouteGuide fournit le contrat AR.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -120,13 +120,13 @@
       "id": "F02",
       "phase": "Recalage",
       "title": "Implémenter conversion GPX vers repère AR",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "IMPLEMENTE_TEST_HOTE",
+      "percent": 100,
       "depends_on": [
         "F01"
       ],
       "acceptance": "WGS84 vers ENU puis axes AR documentés; yaw et translation sans ajustement libre de l’échelle; aller-retour et signes testés.",
-      "evidence": "",
+      "evidence": "Inverse project/unproject, longitude dateline et passage explicite x/-z. 6 trajectoires courbes (2 sens, 3 orientations) dans ArRouteGuideTest.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -134,14 +134,14 @@
       "id": "F03",
       "phase": "Recalage",
       "title": "Conserver incertitude sous erreurs corrélées",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 40,
       "depends_on": [
         "F01",
         "A02"
       ],
       "acceptance": "Ne pas compter FLP et GNSS comme indépendants; doublons ne réduisent pas la confiance; biais commun déclaré non observable; couverture mesurée sur données tenues à part.",
-      "evidence": "",
+      "evidence": "Allowance sans division sqrt(N), biais non observable explicite, reset changement provider. Calibration probabiliste terrain absente.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -149,14 +149,14 @@
       "id": "F04",
       "phase": "Recalage",
       "title": "Gérer géométries ambiguës et suivi GPX",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 30,
       "depends_on": [
         "F02",
         "F03"
       ],
       "acceptance": "Immobilité/rotation pure/courte base ne créent pas un cap fiable; routes parallèles, croisements et boucle gardent plusieurs hypothèses; pas de snap certifié.",
-      "evidence": "",
+      "evidence": "Rotation/immobilité demandent baseline; aucun snapping GPX. Pas de sélection multi-hypothèses caméra pour chemins parallèles.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -164,13 +164,13 @@
       "id": "F05",
       "phase": "Recalage",
       "title": "Gérer pertes et corrections sans sauts cachés",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 70,
       "depends_on": [
         "F04"
       ],
       "acceptance": "Perte GNSS/VIO, reset AR, reprise et changement provider testés; incertitude croissante; transformation datée/versionnée, correction visible.",
-      "evidence": "",
+      "evidence": "Tests stale, tracking loss/segment/provider/clock; masquage au lieu de ligne figée. Corrections ancrées longues et visibilité des sauts restent.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -178,13 +178,13 @@
       "id": "H01",
       "phase": "Terrain",
       "title": "Préserver altitude et datum du GPX",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 60,
       "depends_on": [
         "A03"
       ],
       "acceptance": "ele facultatif; datum inconnu explicite; aucune conversion implicite MSL↔ellipsoïde; ponts/étages distincts; import sans ele testé.",
-      "evidence": "",
+      "evidence": "GPX ele conservé par stockage atomique; datum inconnu explicite et non utilisé pour terrain. Tests Android ajoutés; pont/étage à qualifier.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -192,14 +192,14 @@
       "id": "H02",
       "phase": "Terrain",
       "title": "Construire surface locale observée",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 65,
       "depends_on": [
         "H01",
         "F02"
       ],
       "acceptance": "Plans/raycast/depth quand supportés; aucune hauteur dérivée silencieusement de la hauteur téléphone; terrain inconnu reste inconnu.",
-      "evidence": "",
+      "evidence": "Projection dans empreintes de plans ARCore ascendants observés seulement; terrain inconnu masqué. Depth/raycast supplémentaire absent.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -207,13 +207,13 @@
       "id": "H03",
       "phase": "Terrain",
       "title": "Tester montées, escaliers et téléphone vertical",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 50,
       "depends_on": [
         "H02"
       ],
       "acceptance": "Lever/baisser le téléphone ne déplace pas la route au sol; pente suivie seulement sur géométrie observée; segments non observés identifiés.",
-      "evidence": "",
+      "evidence": "GpxGroundProjectorTest vérifie hauteur téléphone inchangée et équation de pente. Escaliers et essais physiques manquants.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -221,14 +221,14 @@
       "id": "R01",
       "phase": "Rendu",
       "title": "Créer géométrie de route 3D continue",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 80,
       "depends_on": [
         "F05",
         "H02"
       ],
       "acceptance": "Ruban continu, raccords sans rectangles visibles, épaisseur métrique, points finis; CPU fallback si GPU indisponible; mêmes positions géométriques.",
-      "evidence": "",
+      "evidence": "Batch GPU bleu et Canvas, réutilisation raccords continus WorldGeometry, clipping et limites 30m/512 edges/2048 subdivisions. Smoke GPU réel restant.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -236,13 +236,13 @@
       "id": "R02",
       "phase": "Rendu",
       "title": "Stabiliser ancres et portions locales",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 20,
       "depends_on": [
         "R01"
       ],
       "acceptance": "Chunks bornés; origine flottante si nécessaire; cohérence après relocalisation; pas d’accumulation illimitée; essai long.",
-      "evidence": "",
+      "evidence": "Fenêtre spatiale et mémoire bornées; pas de gestion dédiée des ancres/chunks GPX longue durée.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -250,14 +250,14 @@
       "id": "R03",
       "phase": "Rendu",
       "title": "Afficher états de confiance compréhensibles",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 50,
       "depends_on": [
         "F03",
         "R01"
       ],
       "acceptance": "Acquisition/ambigu/recalage utilisable/perdu; corridor ou flèche si précision insuffisante; mode précis réservé aux conditions validées; cap/position/hauteur séparés.",
-      "evidence": "",
+      "evidence": "États acquisition/baseline/candidat/stale/incohérent/horloge et allowance; aucun intervalle certifié. Corridor/flèche et seuils terrain restent.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -265,13 +265,13 @@
       "id": "R04",
       "phase": "Rendu",
       "title": "Offrir recalage manuel et aide au retour",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 10,
       "depends_on": [
         "R03"
       ],
       "acceptance": "Point connu + direction avec incertitude déclarée; annuler/revenir en arrière; suivre/rejoindre trace sans masquer ambiguïtés.",
-      "evidence": "",
+      "evidence": "Inversion et reset accessibles; pas encore recalage manuel point+direction ni guidage AR de retour spécifique.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -279,13 +279,13 @@
       "id": "I01",
       "phase": "Intégration",
       "title": "Ajouter mode expérimental sans collision DATA",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 60,
       "depends_on": [
         "R03"
       ],
       "acceptance": "Actions DATA distinctes; préserver GPS ROUTES, A/B, replay, PDR et capture; tests navigation et lifecycle sur résultat combiné.",
-      "evidence": "",
+      "evidence": "Entrée DATA sémantique distincte sans manifeste; import segment/provideur/enable/reset/reverse/remove. Test UI ajouté, CI restant.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -293,14 +293,14 @@
       "id": "I02",
       "phase": "Intégration",
       "title": "Borner coût et préserver acquisition",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 40,
       "depends_on": [
         "I01",
         "R02"
       ],
       "acceptance": "Pose cible 30/s séparée de VIEW; files bornées; pas de deadband translation; export asynchrone brut/estimé séparés; métriques perf/power.",
-      "evidence": "",
+      "evidence": "Acquisition poses/VIEW inchangée; files/indices/rendu bornés; CSV GPS brut et alignement via IO recorder. Mesure énergie/thermique manquante.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -308,15 +308,15 @@
       "id": "Q01",
       "phase": "Qualification",
       "title": "Tester moteur réel en replay et négatifs",
-      "status": "NON_COMMENCE",
-      "percent": 0,
+      "status": "PARTIEL",
+      "percent": 30,
       "depends_on": [
         "F05",
         "H03",
         "R03"
       ],
       "acceptance": "Mêmes classes Java que l’app; métriques par moteur; perturbations biais, corrélation, perte, GPX erroné, sens inversé; données de test distinctes du réglage.",
-      "evidence": "",
+      "evidence": "14 JUnit moteur Java/projection réussis localement + 7 tests étude bruit. Tests Android et vrais replays à compléter.",
       "owner": "gpx-ar-guidance",
       "optional": false
     },
@@ -365,5 +365,6 @@
       "owner": "gpx-ar-guidance",
       "optional": true
     }
-  ]
+  ],
+  "implementation_snapshot": "Experimental Android GPX AR wired; full CI and physical validation pending; no production certification."
 }

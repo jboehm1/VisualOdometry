@@ -21,3 +21,16 @@ PR #3 B1–B8, #5 PDR et #17 recherche restent des périmètres distincts au der
 Ces tests vérifient le modèle synthétique; ils ne valident ni FLP sur S21, ni le moteur Java GeoAlignment, ni la future ligne 3D. Pas de build Android exécuté pour ces seuls documents/scripts. Aucun changement de comportement de l’APK intégration. Le commit de livraison est celui ajoutant ce fichier (voir historique Git); toujours citer ce SHA pour reproduire les preuves.
 
 Prochaine tâche : L01/L03, interface neutre et horloges, puis F01 réutilisation du recalage; L04 mesure physique reste nécessaire à la décision FLP finale. Après intégration, exécuter CI Android au SHA combiné et produire son APK; ne pas présenter une APK de la base comme contenant le nouveau GPX AR.
+
+
+## Itération d’implémentation — PR #24
+
+Branche toujours isolée; base ab577a1. Premier commit logiciel 6ce7e2e5e86f3af3a58b2a5dd60e3a5aa12434b4; durcissement et suivi dans les commits suivants de la même PR. Lire le dernier SHA de la PR pour la validation finale. https://github.com/jboehm1/VisualOdometry/pull/24
+
+Nouveaux modules : LocationSource/AndroidLocationSource, ArRouteGuide/RouteIndex/GpxArRouteStore, GpxGroundProjector. Réutilisation ciblée GeoAlignment/PoseFixSynchronizer de B1–B8 avec inverse et traitement dateline. Convention critique : moteur 2D rigide consomme x/−z ARCore; ne pas réintroduire x/z sans réflexion dans la liaison EN.
+
+Fichiers partagés effectivement modifiés : MainActivity (action DATA et hooks poses/lifecycle/import/logs), SceneMapper (projection plans observés), WorldOverlayRenderer (5e batch bleu), HudView (Canvas bleu). Aucun manifeste, Gradle, navigateur GPX ou odomètre changé. .github/workflows/android.yml ajoute la branche de travail au push et les 7 tests étude bruit à la suite hôte; préserver les autres déclencheurs/jobs.
+
+Preuves locales : 14 JUnit moteur/projection Java, 7 tests Python bruit; régression GPS existante exécutée séparément (voir handoff final). Nouveaux tests Robolectric pour menu/import, stockage atomique et permissions provider; résultat CI à confirmer. Les échecs initiaux de lancement local (javac absent puis dépendance RouteHistory omise) étaient du harnais local, corrigé avec java com.sun.tools.javac.Main et la liste complète; la première assertion de courbe hors fenêtre a été corrigée pour rester dans la fenêtre locale 30 m. Aucun paramètre moteur ajusté pour cela.
+
+Limites : candidat non calibré, GPS/FLP pas vérités indépendantes, pas de VPS/DEM/occlusion/ancres GPX longues ni qualification terrain S21; pas de promesse centimétrique. Les tâches correspondantes restent partielles/non commencées. Pas de fusion automatique avec l’intégration ou PR #3/#5/#17.

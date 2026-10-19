@@ -107,7 +107,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile boolean gpxArEnabled;
     private boolean foreground;
     private volatile String gpxArText="",gpxLocationStatus="LOCATION OFF";
-    private int gpxGeneration=1;
+    private volatile int gpxGeneration=1;
     private long lastGpxDiagnosticNs;
 
     private boolean trainingEnabled=false,exportDataset=false;
@@ -393,6 +393,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }).show();
     }
 
+    private void postGpxUi(Runnable task){runOnUiThread(()->{if(!isFinishing()&&!isDestroyed())task.run();});}
     private void gpxArMenu(){
         String[] actions={gpxArEnabled?"PAUSE AR GPX":"ENABLE AR GPX", "IMPORT GPX", "LOCATION SOURCE", "REVERSE SELECTED ROUTE", "RESET ALIGNMENT", "REMOVE SELECTED ROUTE", "HELP / ACCURACY"};
         new AlertDialog.Builder(this).setTitle("GPX AR · experimental").setItems(actions,(d,i)->{
@@ -402,15 +403,16 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             if(i==1){Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(picker,IMPORT_GPX_AR_REQUEST);}
             if(i==2)new AlertDialog.Builder(this).setTitle("Location source").setSingleChoiceItems(new String[]{"AUTO · Google Fused, GPS fallback","GPS native","Google Fused only"},gpxLocationMode.ordinal(),(dialog,index)->{
                 gpxLocationMode=dev.jboehm.vectorvio.location.LocationSource.Mode.values()[index];gpxAr.trackingLost();if(gpxArEnabled&&foreground)gpxLocation.start(gpxLocationMode);dialog.dismiss();}).show();
-            if(i==3){setGpxArEnabled(false);mapIo.execute(()->{try{dev.jboehm.vectorvio.gps.GpsRoute old=gpxRouteStore.load();if(old!=null){dev.jboehm.vectorvio.gps.GpsRoute reversed=old.reverse();gpxRouteStore.save(reversed);gpxAr.setRoute(reversed);runOnUiThread(()->Toast.makeText(this,"AR route reversed · enable to start",Toast.LENGTH_LONG).show());}}catch(Exception e){runOnUiThread(()->Toast.makeText(this,"Cannot reverse saved route",Toast.LENGTH_LONG).show());}});}
+            if(i==3){setGpxArEnabled(false);mapIo.execute(()->{try{dev.jboehm.vectorvio.gps.GpsRoute old=gpxRouteStore.load();if(old!=null){dev.jboehm.vectorvio.gps.GpsRoute reversed=old.reverse();gpxRouteStore.save(reversed);gpxAr.setRoute(reversed);postGpxUi(()->Toast.makeText(this,"AR route reversed · enable to start",Toast.LENGTH_LONG).show());}}catch(Exception e){postGpxUi(()->Toast.makeText(this,"Cannot reverse saved route",Toast.LENGTH_LONG).show());}});}
             if(i==4)gpxAr.trackingLost();
-            if(i==5){setGpxArEnabled(false);gpxAr.setRoute(null);mapIo.execute(()->gpxRouteStore.clear());}
+            if(i==5){setGpxArEnabled(false);mapIo.execute(()->{gpxRouteStore.clear();gpxAr.setRoute(null);});}
             if(i==6)new AlertDialog.Builder(this).setTitle("GPX in the camera · limits")
                 .setMessage("Import one continuous GPX segment, enable location, START/RESUME and walk with the camera. Alignment needs several fresh positions and a baseline larger than GPS noise; rotating on the spot cannot establish it. Blue = imported GPX candidate; orange = measured local trail. No automatic snapping to the GPX.\n\nBlue is drawn only on observed upward planes within 30 m; unknown ground stays hidden. GPX elevation is retained but is not trusted as AR ground height. This is a see-through overlay, without obstacle occlusion. GPS bias and route errors can shift the line; the allowance shown is diagnostic, not a calibrated confidence interval.\n\nAUTO uses Google Fused when available and falls back to native GPS on unavailable/stale Fused. Both can share GNSS. Pause/background, tracking loss and reset require alignment again. No change to odometer distance. Imported route stays on this phone; enable is explicit after app restart.")
                 .setPositiveButton("OK",null).show();
         }).show();
     }
     private void setGpxArEnabled(boolean enabled){
+        if(enabled&&(playbackMode||CollectionService.running)){Toast.makeText(this,"GPX AR needs live camera mode",Toast.LENGTH_LONG).show();return;}
         gpxArEnabled=enabled;gpxAr.setEnabled(enabled);gpxArText="";
         if(enabled&&foreground&&!playbackMode)gpxLocation.start(gpxLocationMode);else gpxLocation.stop();
     }
@@ -419,15 +421,15 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         mapIo.execute(()->{try(java.io.InputStream input=getContentResolver().openInputStream(source)){
             if(input==null)throw new java.io.IOException("Cannot open GPX");
             java.util.List<dev.jboehm.vectorvio.gps.GpsRoute> routes=dev.jboehm.vectorvio.gps.GpxIO.read(input);
-            runOnUiThread(()->{
+            postGpxUi(()->{
                 String[] names=new String[routes.size()];for(int i=0;i<names.length;i++)names[i]=routes.get(i).name+String.format(Locale.US," · %.0f m",routes.get(i).length);
                 new AlertDialog.Builder(this).setTitle("Choose continuous AR route segment").setItems(names,(d,i)->{
                     dev.jboehm.vectorvio.gps.GpsRoute route=routes.get(i);
-                    mapIo.execute(()->{try{gpxRouteStore.save(route);gpxAr.setRoute(route);runOnUiThread(()->{Toast.makeText(this,"GPX saved · enable AR GPX to start",Toast.LENGTH_LONG).show();gpxArMenu();});}
-                    catch(Exception e){runOnUiThread(()->Toast.makeText(this,"AR GPX failed: "+e.getMessage(),Toast.LENGTH_LONG).show());}});
+                    mapIo.execute(()->{try{gpxRouteStore.save(route);gpxAr.setRoute(route);postGpxUi(()->{Toast.makeText(this,"GPX saved · enable AR GPX to start",Toast.LENGTH_LONG).show();gpxArMenu();});}
+                    catch(Exception e){postGpxUi(()->Toast.makeText(this,"AR GPX failed: "+e.getMessage(),Toast.LENGTH_LONG).show());}});
                 }).setNegativeButton("CANCEL",null).show();
             });
-        }catch(Exception e){runOnUiThread(()->Toast.makeText(this,"GPX import failed: "+e.getMessage(),Toast.LENGTH_LONG).show());}});
+        }catch(Exception e){postGpxUi(()->Toast.makeText(this,"GPX import failed: "+e.getMessage(),Toast.LENGTH_LONG).show());}});
     }
     private String describeGpxAr(dev.jboehm.vectorvio.gpxar.ArRouteGuide.Snapshot snap){
         if(!gpxArEnabled)return "";
@@ -822,12 +824,11 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     @Override protected void onResume() {
         super.onResume();foreground=true;
-        if(gpxArEnabled&&!playbackMode)gpxLocation.start(gpxLocationMode);
         if(CollectionService.running){
             startActivity(new Intent(this,CollectionActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
             return;
         }
-        if(!playbackMode){imu.start();gps.start();}
+        if(!playbackMode){imu.start();gps.start();if(gpxArEnabled)gpxLocation.start(gpxLocationMode);}
         if(liveModeRequested)startAr();
     }
     private void startAr() {

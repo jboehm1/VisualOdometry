@@ -5,6 +5,7 @@ on:
     branches:
       - feature/android-vio-odometer
       - feature/slam-explorer
+      - feature/gpx-ar-guidance
   pull_request:
   workflow_dispatch:
 
@@ -50,7 +51,9 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --install 'platforms;android-36' 'build-tools;35.0.0'
       - name: Python telemetry-analysis unit tests
-        run: python3 -m unittest discover -s tools/tests -v
+        run: |
+          python3 -m unittest discover -s tools/tests -v
+          python3 -m unittest discover -s tools/gpx_ar/tests -v
       - name: Unit tests and installable APK
         run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
       - name: GPS matching regression with noisy parallel paths and dense routes

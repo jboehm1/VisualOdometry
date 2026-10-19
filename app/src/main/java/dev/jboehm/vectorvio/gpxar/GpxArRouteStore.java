@@ -10,8 +10,8 @@ public final class GpxArRouteStore {
     private final AtomicFile file;
     public GpxArRouteStore(File directory){file=new AtomicFile(new File(directory,"gpx_ar_selected.gpx"));}
     public synchronized GpsRoute load()throws Exception{
-        if(!file.getBaseFile().exists())return null;
         try(InputStream in=file.openRead()){return GpxIO.read(in).get(0);}
+        catch(FileNotFoundException missing){return null;}
     }
     public synchronized void save(GpsRoute route)throws Exception{
         // Validate support before replacing the previous good route.
