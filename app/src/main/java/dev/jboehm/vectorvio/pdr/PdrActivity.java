@@ -103,11 +103,14 @@ public final class PdrActivity extends Activity {
         // Research-only model is fully checksum-pinned and opt-in each session.
         // A missing/replaced/corrupt asset cannot affect the operational odometer.
         try(InputStream in=getAssets().open("pdr_carry_model.b64")){
-            byte[] modelText=new byte[16_384];
-            int n=in.read(modelText);
-            if(n<=0||in.read()!=-1)throw new java.io.IOException("invalid model asset size");
+            java.io.ByteArrayOutputStream modelText=new java.io.ByteArrayOutputStream(4096);
+            byte[] buffer=new byte[1024];int n;
+            while((n=in.read(buffer))!=-1){
+                modelText.write(buffer,0,n);
+                if(modelText.size()>16_384)throw new java.io.IOException("oversized model asset");
+            }
             TinyCarryModel model=TinyCarryModel.loadBase64(new String(
-                    modelText,0,n,StandardCharsets.US_ASCII));
+                    modelText.toByteArray(),StandardCharsets.US_ASCII));
             tinyAi=new TinyCarryDiagnostic(model);
         }catch(Exception invalidModel){tinyAi=null;}
         runningMode=preferences.getBoolean("running_profile",false);

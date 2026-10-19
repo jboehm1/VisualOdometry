@@ -37,6 +37,14 @@ public final class TinyCarryModelTest {
         assertEquals(3,y.length);
         assertEquals(1.0,y[0]+y[1]+y[2],1e-9);
         for(double v:y)assertTrue(v>=0 && v<=1);
+        // Independent reference computed from the Python checkpoint layout:
+        // same fixed features, normalization, ReLU and softmax, no GT inputs.
+        assertEquals(0.0004716125376276549,y[0],1e-6);
+        assertEquals(0.5149571321795693,y[1],1e-6);
+        assertEquals(0.4845712552828031,y[2],1e-6);
+        for(int i=0;i<24;i++)x[i]=i*.5f-5f;
+        y=m.predictFeatures(x);
+        assertEquals(0.999989647309023,y[2],1e-6);
     }
     @Test public void tamperingAndInvalidModelFeaturesAreRejected() throws Exception {
         TinyCarryModel m=model();

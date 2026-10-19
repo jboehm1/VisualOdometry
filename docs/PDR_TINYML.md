@@ -94,3 +94,12 @@ additional APK binary dependencies. The experimentally reported ~59%
 test classification is not strong enough to gate operational steps.
 Power draw depends on sensor acquisition, task wakeups and continuous
 foreground lifecycle; hardware S21 battery profiling still required.
+
+### Numerical parity reference
+
+The checked-in research binary is audited with a fixed SHA and two
+checkpoint-reference softmax fixtures on the Android Robolectric/JUnit
+runner; these test real trained weights instead of synthetic constants.
+The Activity loader reads the asset through a bounded stream loop and
+refuses missing/corrupt files. The optional diagnostic resets with each
+session and does not change PDR distance, step, heading or path estimates.
