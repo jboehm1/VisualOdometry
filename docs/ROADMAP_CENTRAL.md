@@ -1,6 +1,8 @@
 # VECTOR VIO — Feuille de route CENTRALE (tous chantiers)
 
-> **Point d'entrée unique des développements actuels.** État arrêté le **19 octobre 2026** d'après les branches GitHub poussées. **Ni statut « 100 % global », ni qualification de sécurité ou de précision physique**. Une ligne « LOGICIEL_VALIDE » ne signifie pas « testé sur le S21 ».
+> **Point d'entrée unique des développements actuels.** État consolidé le **19 octobre 2026** après audit de 17 PR GitHub (11 fusionnées, 3 closes sans fusion, 3 ouvertes). **Ni statut « 100 % global », ni qualification de sécurité ou de précision physique**. Une ligne « LOGICIEL_VALIDE » ne signifie pas « testé sur le S21 ».
+
+**Audit des fusions et conflits :** [bilan Git et PR actualisés](coordination/git-consolidation-20261019.md). À l'ouverture de l'audit : 17 PR, #1/#2 clôturées, #11 intégrée ; **PR #18 (suites ADVIO/Mobile-GVIO)** a également été fusionnée depuis, et #19 est une PR documentaire transitoire. Seuls les trois chantiers #3/#5/#17 restent fonctionnellement ouverts. Le diagnostic Git est un instantané ; relire les têtes et la CI avant toute prochaine fusion.
 
 ## Quelle branche fait autorité ?
 
@@ -20,12 +22,12 @@ Le dépôt GitHub a encore pour branche par défaut `master`, **archive du proje
 
 | ID | Chantier / propriétaire | Priorité | État audité | Point bloquant |
 |:--|:--|:--:|:--|:--|
-| **CORE** | Application Android / exploration — `feature/slam-explorer` | P0 | Intégration partielle vérifiée | Précision/course/S21, régimes thermiques et comportement multi-modules non validés. |
+| **CORE** | Application Android / exploration — `feature/slam-explorer` | P0 | GPS↔FLP #11 intégré ; PDR #5 et B1–B8 #3 séparés | Précision/course/S21, régimes thermiques et comportement multi-modules non validés. |
 | **B1B8** | GPS↔VIO, GPX, vision exploratoire, courses, retour — `work/slam-roadmap-b1-b2-b8` | P0 | Fonctions développées sur branche séparée, PR #3 en brouillon | Certains prototypes ne sont pas liés à la caméra/au service GPS ; code non intégré avec PDR et replay. |
 | **PDR** | Sans caméra / inertiel seulement — `feature/camera-free-pdr` | P1 | Moteur Java/Android et replay sur branche séparée, PR #5 | PDR Python de campagne est différent du moteur Java ; pas de calibration course/rampement/fixation appareil. |
-| **FLP** | A/B localisation Android GNSS natif vs Google FLP — `feature/android-flp-comparison` | P0 | Pilote Android implémenté et CI verte sur SHA fonctionnel, PR #11 ouverte | Les deux sources partagent potentiellement le GNSS; désaccord ≠ précision, mesures physiques et batterie manquantes. |
+| **FLP** | A/B localisation Android GNSS natif vs Google FLP — `feature/slam-explorer` (source `feature/android-flp-comparison`) | P0 | **PR #11 fusionnée** ; CI branche réussie, S21 non testé | Les deux sources partagent potentiellement le GNSS; désaccord ≠ précision, mesures physiques et batterie manquantes. |
 | **LAB** | Datasets, validation A/B/C et benchmark métrique — `feature/three-validation-campaigns + feature/slam-explorer + work/slam-roadmap-b1-b2-b8` | P0 | Infrastructure et campagnes CI présentes, couverture réelle incomplète | Dataset catalogué ≠ acquis/rejoué ; baseline PDR Python ≠ Java; EuRoC non joué directement par ARCore Android. |
-| **SMOKE** | Fumée dense / pompier : recherche non sécuritaire — `R&D futur, aucun moteur pompier déclaré` | P2 (recherche) / P0 (interdire les promesses de sécurité) | Cas d'usage documenté ; aucun système qualifié ni essai réel | Erreur de position potentiellement mortelle ; visibilité nulle, repères modifiés, chaleur, communications rompues, étage ambigu. |
+| **SMOKE** | Fumée dense / pompier : recherche non sécuritaire — `feature/smoke-rescue-research` | P2 (recherche) / P0 (interdire les promesses de sécurité) | PR #17 brouillon actif : scripts/datasets de R&D, **aucun système qualifié** | Erreur de position potentiellement mortelle ; visibilité nulle, repères modifiés, chaleur, communications rompues, étage ambigu. |
 
 **Historique détaillé :** la feuille B1–B8 sur `work/slam-roadmap-b1-b2-b8` inventorie **41 sous-tâches** et annonçait une moyenne indicative de **68 % au 18/10/2026**. Cette moyenne ne reflète pas l'intégration avec les autres branches et n'est pas recalculée ici. Les seuils de sûreté, capacité à retrouver un pompier et précision GPS absolue sont **non validés**.
 
@@ -35,7 +37,7 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 
 ### CORE — Application Android / exploration
 
-**Branche(s)** : `feature/slam-explorer` · **Constat** : Intégration partielle vérifiée. **Évidence** : Odomètre ARCore, HUD, carte, GPS ROUTES, capture et replay déjà présents sur branche intégration.
+**Branche(s)** : `feature/slam-explorer` · **Constat** : FLP #11 fusionnée à `9ff7d3ae34019c759ca427c1f76a8e017039a4bc` ; intégration fonctionnelle PDR/B1–B8 encore incomplète. **Évidence** : Odomètre ARCore, HUD, carte, GPS ROUTES, capture et replay déjà présents sur branche intégration.
 
 | Tâche | Priorité | Statut | Critère d'acceptation précis |
 |---|---|---|---|
@@ -77,7 +79,7 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 
 ### FLP — A/B localisation Android GNSS natif vs Google FLP
 
-**Branche(s)** : `feature/android-flp-comparison` · **Constat** : Pilote Android implémenté et CI verte sur SHA fonctionnel, PR #11 ouverte. **Évidence** : 129 tests Android, Lint/APK et campagnes existantes au SHA 04ad04e ; raw/paired CSV, analyse Python offline, ZIP local.
+**Branche(s)** : `feature/slam-explorer` (issue de `feature/android-flp-comparison`) · **Constat** : pilote A/B expérimental fusionné via PR #11. CI tests/lint/APK réussie sur la tête de PR, mais essai physique et performance restent à démontrer. **Évidence** : 129 tests Android, Lint/APK et campagnes existantes au SHA 04ad04e ; raw/paired CSV, analyse Python offline, ZIP local.
 
 | Tâche | Priorité | Statut | Critère d'acceptation précis |
 |---|---|---|---|
@@ -92,7 +94,7 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 
 ### LAB — Datasets, validation A/B/C et benchmark métrique
 
-**Branche(s)** : `feature/three-validation-campaigns + feature/slam-explorer + work/slam-roadmap-b1-b2-b8` · **Constat** : Infrastructure et campagnes CI présentes, couverture réelle incomplète. **Évidence** : Campagnes A/B/C et scripts, provenance normalisée V5 B1–B8; PR #14 de benchmark ADVIO-09 ouverte.
+**Branche(s)** : `feature/three-validation-campaigns + feature/slam-explorer + work/slam-roadmap-b1-b2-b8` · **Constat** : Infrastructure et campagnes CI présentes, couverture réelle incomplète. **Évidence** : Campagnes A/B/C, PR #14 ADVIO-09, PR #16 testenv modulaire et **PR #18 suites smartphone** déjà fusionnées, provenance V5 B1–B8 conservée sur branche de travail.
 
 | Tâche | Priorité | Statut | Critère d'acceptation précis |
 |---|---|---|---|
@@ -106,7 +108,7 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 
 ### SMOKE — Fumée dense / pompier : recherche non sécuritaire
 
-**Branche(s)** : `R&D futur, aucun moteur pompier déclaré` · **Constat** : Cas d'usage documenté ; aucun système qualifié ni essai réel. **Évidence** : Références NIST sur localisation secours en fumée, GNSS non fiable indoor et capteurs complémentaires.
+**Branche(s)** : `feature/smoke-rescue-research` · **Constat** : PR #17 avec scripts de recherche radar/UPO et métriques offline synthétiques, en mouvement et non fusionnée ; aucun système qualifié ni essai réel. **Évidence** : Références NIST sur localisation secours en fumée, GNSS non fiable indoor et capteurs complémentaires.
 
 | Tâche | Priorité | Statut | Critère d'acceptation précis |
 |---|---|---|---|
@@ -143,10 +145,10 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 
 | Source | Référence consultée |
 |---|---|
-| Intégration Android actuelle | `feature/slam-explorer` — `5f0105effd4fb2fb66b7d23620189c9605576de7` |
+| Intégration Android actuelle | `feature/slam-explorer` — `9ff7d3ae34019c759ca427c1f76a8e017039a4bc` (après PR #11, avant consolidation docs) |
 | GPS+VIO B1–B8 | `work/slam-roadmap-b1-b2-b8` — `51885d3747721f176c14083ccb391c0719691bac` (PR #3) |
 | PDR Android | `feature/camera-free-pdr` — `a98b8ccf8a1a63aab8b233b2aed2f59dfd509a80` (PR #5) |
-| GPS↔FLP A/B | `feature/android-flp-comparison` — `ad48fdbdbf2dc789ca202a51edbdff5651fd7f4b` (PR #11) |
+| GPS↔FLP A/B | `feature/android-flp-comparison` — `ad48fdbdbf2dc789ca202a51edbdff5651fd7f4b` (PR #11 **fusionnée**, SHA de merge `9ff7d3a`) |
 | Campagnes A/B/C | `feature/three-validation-campaigns` — `9dbe7a26d16b57248b9f07fb03549e28ebc096a0` |
 | Historique GitHub | `master` — `d9e4a8b4fe6b3d6caa32d435e00d66b8fe5976c7`, archive 2019 |
 
