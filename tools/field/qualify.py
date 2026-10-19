@@ -96,7 +96,15 @@ def one_trial(row: dict, root: Path) -> dict:
     path_m=samples[-1]["path_m"]-samples[0]["path_m"]
     gt=float(row["known_path_m"])
     frame_deltas=[(b["frame_time_ns"]-a["frame_time_ns"])*1e-9 for a,b in zip(samples,samples[1:])]
+    min_still_time_s=60.
+    observed_hz=(len(samples)-1)/seconds
+    timing_quality=(observed_hz>=10 and max(frame_deltas)<=.5)
+    duration_quality=(row["scenario"] not in ("stationary","rotation") or seconds>=min_still_time_s)
     quality={
+        "sampling_valid_for_qualification":timing_quality,
+        "duration_valid_for_qualification":duration_quality,
+        "min_required_pose_hz":10,
+        "min_required_stationary_duration_s":min_still_time_s,
         "samples":len(samples),
         "source_csv_sha256":hashlib.sha256(path.read_bytes()).hexdigest(),
         "duration_s":seconds,
@@ -127,8 +135,10 @@ def one_trial(row: dict, root: Path) -> dict:
     if "temperature_start_c" in row:
         quality["temperature_delta_c_reported"]=(
             float(row["temperature_end_c"])-float(row["temperature_start_c"]))
+    trial_state="PASS" if timing_quality and duration_quality else "FAILED"
     return {"id":row["id"],"scenario":row["scenario"],"device":row.get("device"),
-            "environment":row.get("environment"),"metrics":quality}
+            "environment":row.get("environment"),"quality_gate":trial_state,
+            "metrics":quality}
 
 
 def _percentile(values: list[float],q: float):
@@ -155,8 +165,11 @@ def qualify(manifest: Path, out: Path) -> dict:
             measured=(statistics.median(values) if statistic=="median" else _percentile(values,.9))
             gates[label]={"state":"PASS" if measured<limit else "FAILED",
                           "n":len(values),"measured":measured,"target_less_than":limit}
-    state=("INSUFFICIENT_EVIDENCE" if any(g["state"]=="INSUFFICIENT_EVIDENCE" for g in gates.values())
-           else "FAILED" if any(g["state"]=="FAILED" for g in gates.values()) else "PASS")
+    state=("FAILED" if any(g["state"]=="FAILED" for g in gates.values()) or
+           any(t["quality_gate"]=="FAILED" for t in trials)
+           else "INSUFFICIENT_EVIDENCE" if any(
+               g["state"]=="INSUFFICIENT_EVIDENCE" for g in gates.values())
+           else "PASS")
     result={"schema_version":1,"status":state,"trials":trials,"gates":gates,
             "metric_6dof_ground_truth_available":False,
             "physical_android_app_executed_by_this_script":False,
