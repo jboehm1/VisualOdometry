@@ -60,15 +60,19 @@ public class GpxArAndroidTest {
             AlertDialog options=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(5,options.getListView().getCount());
             android.widget.ListView list=options.getListView();
             assertEquals("Direction preference initially ON",1,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",0)&1);
-            // Robolectric does not initialize the AlertDialog's checked rows on
-            // this synthetic performItemClick path; establish the Android state
-            // explicitly, then dispatch each checked-state transition.
+            // Robolectric does not hydrate the multi-choice checked state from
+            // Builder.setMultiChoiceItems(), even though the backing preference
+            // is ON. Prime the list only once. performItemClick then toggles
+            // the checked bit itself, just like a real touch.
             list.setItemChecked(0,true);assertTrue(list.isItemChecked(0));
-            list.setItemChecked(0,false);list.performItemClick(null,0,0);
+            list.performItemClick(null,0,0);
+            assertFalse(list.isItemChecked(0));
             assertEquals("Direction disabled",0,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",31)&1);
-            list.setItemChecked(0,true);list.performItemClick(null,0,0);
+            list.performItemClick(null,0,0);
+            assertTrue(list.isItemChecked(0));
             assertEquals("Direction re-enabled",1,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",0)&1);
-            list.setItemChecked(0,false);list.performItemClick(null,0,0);
+            list.performItemClick(null,0,0);
+            assertFalse(list.isItemChecked(0));
             assertEquals("Direction disabled again",0,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",31)&1);
             // The display-only menu must not request capture, a document or a service.
             assertNull(Shadows.shadowOf(c.get()).getNextStartedService());
