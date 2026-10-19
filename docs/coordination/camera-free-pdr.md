@@ -162,3 +162,19 @@ Roadmap 42.1% unchanged; no S21 validation; don't declare 100%.
 - Scoped work branch remains `feature/camera-free-pdr`; possible additions under `app/src/main/java/dev/jboehm/vectorvio/pdr/ai/`, module-local tests, `tools/pdr/tiny_carry_*.py`, isolated PDR-specific workflow `.github/workflows/pdr-tinyml.yml`, assets only for independently checked model, dedicated PDR docs and this coordination file. Android `PdrActivity.java`/PDR callback only if verified diagnostics are ready; do not change `PdrEngine` step count based on an unproven model.
 - Shared risky files **excluded**: `MainActivity.java`, `AndroidManifest.xml`, `app/build.gradle`, shared CI workflows, `README.md`, `AGENTS.md`, global coordination, `tools/campaigns/**`, `tools/benchmark/**`, `tools/testenv/**`. PR #5 remains draft, combined integration outside this scope.
 - Proposed first **supervised classification of carry placement from real SIMUL**, strictly labeled proxy for sensor placement, not physical phone location and not a stride/heading/step model; split by HUMAN, not windows. Train on known subjects only, freeze new participants 04/29 for one held-out check. Verify model license, SHA, numerical Python↔JVM parity, Android unit tests, latency microbenchmark. No accuracy claim until tests have run. Do not alter operational odometry or claim S21 thermal/power evidence.
+
+### PDR TinyML genuine weights and device diagnostic (2026-10-19)
+CI train run `39211176862` succeeded on real SIMUL, 6 train
+people / 2 validation / 2 fresh frozen research test; tiny 24→16→3
+451-param network (2,151-byte checkpoint) achieved frozen balanced
+carry-*sensor* accuracy 58.89% / macro F1 57.22%, front-pocket recall
+29.1%. Does NOT prove step/heading/distance improvement. Added only
+module-local `pdr/ai/TinyCarryModel.java`,
+`pdr/ai/TinyCarryDiagnostic.java`, Robolectric tests,
+`app/src/main/assets/pdr_carry_model.b64`, PDR Activity (opt-in
+diagnostic only), module docs. Never edit shared MainActivity,
+Manifest, Gradle, unrelated workflows, benchmarks or testenv. No
+changes to PdrEngine odometry or pace. Exact asset SHA pinned to
+`9e572920b796d03ea528a040694039851461b5c39e6d1549809c751da3940dc2`; expensive LiteRT SDK intentionally not added for tiny MLP.
+Next: CI at exact new SHA, inspect numerical parity/test failures, then
+measure CPU/battery on S21 before claims.

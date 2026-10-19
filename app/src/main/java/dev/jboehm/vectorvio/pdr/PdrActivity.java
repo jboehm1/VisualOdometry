@@ -28,6 +28,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.text.InputType;
 import java.util.Locale;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import dev.jboehm.vectorvio.pdr.ai.TinyCarryModel;
+import dev.jboehm.vectorvio.pdr.ai.TinyCarryDiagnostic;
 
 /**
  * Fully on-device, foreground-only walking/running PDR screen.
@@ -43,7 +47,9 @@ public final class PdrActivity extends Activity {
     private PdrTrailView trail;
     private TextView numbers,status,details,sensors;
     private Button start,finish,export,gpsButton,stepLengthButton;
-    private Button gaitButton,headingButton,calibrationButton;
+    private Button gaitButton,headingButton,calibrationButton,aiButton;
+    private TinyCarryDiagnostic tinyAi;
+    private boolean tinyAiEnabled;
     private LocationManager gps;
     private boolean gpsOn,exportReady,autoStopped;
     private boolean activityPermissionRequested;
@@ -94,6 +100,16 @@ public final class PdrActivity extends Activity {
         getWindow().setNavigationBarColor(0xFF0A2530);
         gps=(LocationManager)getSystemService(Context.LOCATION_SERVICE);
         preferences=getSharedPreferences("camera_free_pdr",Context.MODE_PRIVATE);
+        // Research-only model is fully checksum-pinned and opt-in each session.
+        // A missing/replaced/corrupt asset cannot affect the operational odometer.
+        try(InputStream in=getAssets().open("pdr_carry_model.b64")){
+            byte[] modelText=new byte[16_384];
+            int n=in.read(modelText);
+            if(n<=0||in.read()!=-1)throw new java.io.IOException("invalid model asset size");
+            TinyCarryModel model=TinyCarryModel.loadBase64(new String(
+                    modelText,0,n,StandardCharsets.US_ASCII));
+            tinyAi=new TinyCarryDiagnostic(model);
+        }catch(Exception invalidModel){tinyAi=null;}
         runningMode=preferences.getBoolean("running_profile",false);
         // Never silently reuse phone/body orientation assumptions between sessions.
         phoneTopForward=false;
@@ -101,6 +117,11 @@ public final class PdrActivity extends Activity {
         bridge=new PdrSensorBridge(this,engine,new PdrSensorBridge.Callback(){
             @Override public void sample(String type,long t,double x,double y,double z,int accuracy){
                 log(type,t,x,y,z,accuracy);
+                if(tinyAiEnabled && tinyAi!=null && engine.isRecording()){
+                    if("RAW_GYRO".equals(type))tinyAi.gyro(t,(float)x,(float)y,(float)z);
+                    else if("RAW_ACCEL".equals(type))
+                        tinyAi.acceleration(t,(float)x,(float)y,(float)z);
+                }
             }
             @Override public void step(long t){if(writer!=null)writer.step(t);}
             @Override public void rotationVector(long t,float[] values,int accuracy){
@@ -139,6 +160,9 @@ public final class PdrActivity extends Activity {
         gaitButton=button("WALK",options);
         headingButton=button("DISTANCE ONLY",options);
         layout.addView(options);
+        LinearLayout aiRow=new LinearLayout(this);
+        aiButton=button("AI CARRY DIAGNOSTIC OFF",aiRow);
+        layout.addView(aiRow);
         LinearLayout calibrateRow=new LinearLayout(this);
         calibrationButton=button("CALIBRATE LAST SESSION",calibrateRow);
         layout.addView(calibrateRow);
@@ -161,6 +185,11 @@ public final class PdrActivity extends Activity {
         stepLengthButton.setOnClickListener(v->editStepLength());
         gaitButton.setOnClickListener(v->toggleGait());
         headingButton.setOnClickListener(v->togglePhoneHeading());
+        aiButton.setOnClickListener(v->{
+            if(tinyAi==null)return;
+            tinyAiEnabled=!tinyAiEnabled;
+            tinyAi.reset();render();
+        });
         calibrationButton.setOnClickListener(v->calibrateLastSession());
         back.setOnClickListener(v->finish());
         render();
@@ -266,6 +295,7 @@ public final class PdrActivity extends Activity {
         engine.setStepLengthMeters(savedStride(recordedRunning));
         long startNs=SystemClock.elapsedRealtimeNanos();
         engine.start(startNs);
+        if(tinyAi!=null)tinyAi.reset();
         log("START",startNs,0,0,0,0);
         log("STEP_LENGTH",startNs,
             engine.snapshot(SystemClock.elapsedRealtimeNanos()).stepLengthM,0,0,0);
@@ -297,6 +327,7 @@ public final class PdrActivity extends Activity {
     private void finishSession(boolean background){
         if(!engine.isRecording())return;
         completedTimingReport=bridge.sessionTimingReport();
+        // The AI diagnostic remains a separate session and never updates PDR state.
         bridge.stop();stopGps();
         engine.pause();
         completedSnapshot=engine.snapshot(SystemClock.elapsedRealtimeNanos());
@@ -420,8 +451,13 @@ public final class PdrActivity extends Activity {
                                      completedSnapshot.steps>=5);
         gaitButton.setText(runningMode?"PROFILE: RUN":"PROFILE: WALK");
         headingButton.setText(phoneTopForward?"PHONE FORWARD":"DISTANCE ONLY");
+        aiButton.setEnabled(tinyAi!=null);
+        aiButton.setText(tinyAi==null?"AI CARRY MODEL UNAVAILABLE":
+            (tinyAiEnabled?"AI CARRY DIAGNOSTIC ON":"AI CARRY DIAGNOSTIC OFF"));
         sensors.setText(bridge.sensorInventory(stepPermissionGranted())+"\n"+
-                        bridge.sessionDiagnostics());
+                        bridge.sessionDiagnostics()+"\n"+
+                        (tinyAi==null?"AI research model unavailable":
+                         (tinyAiEnabled?tinyAi.status():"AI carrying-position proxy OFF (experimental)")));
         details.setText(String.format(Locale.US,
             "Steps: %s\nHeading source: %s%s\nLocal magnetic XY (m): %.1f, %.1f\n"
            +"Steps without usable direction: %d / %d\n"

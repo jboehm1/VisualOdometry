@@ -117,3 +117,15 @@ implement an appropriate `NeuralMotionModel` backend for RoNIN body
 heading or DeepILS/IMUNet (weight license permitting) and connect it
 **as a diagnostic only** on the Android Activity. Integrate into
 `PdrEngine` only once error and physical alignment are demonstrated.
+
+## Pilot diagnostic model trained 2026-10-19 (separate from motion odometry)
+
+An extremely compact **24→16→3** supervised IMU network has real
+weights now, but its sole task is to classify **original SIMUL sensor
+placement** among three body-mounted sensors, NOT step events,
+position, displacement, stride, motion speed or body heading.
+Frozen two-subject test balanced accuracy 58.89%, macro F1 57.22%,
+and front-pocket recall 29.1%: an experimental research diagnostic,
+**not a navigation quality gate**. Exact source, model hash, checkpoints,
+Java on-device diagnostic and limitations: `docs/PDR_TINYML.md`.
+The `PDR_AI_MLP_V1` displacement model above remains **untrained**.
