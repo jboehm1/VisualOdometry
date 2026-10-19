@@ -52,3 +52,17 @@ comment explicitly notes >300-ms shocks can still suppress true steps.
 No failing held-out SIMUL validation has been suppressed or re-labeled.
 The separate 24-trial F1 quality gate must remain red until genuinely
 improved on unseen subjects. CI must be rerun on the new HEAD.
+
+### Source-asset JVM test environment note (2026-10-19)
+
+Exact Android CI `39211943324` compiled the application and reached
+JUnit, but `TinyCarryModelTest` failed because Robolectric's default
+`RuntimeEnvironment.getApplication().getAssets()` did not expose packaged
+Android assets with this project's current Gradle test resources setting.
+No modifications to shared `app/build.gradle`: the JVM source-test
+fixture now reads the **same Git-tracked asset** under
+`app/src/main/assets/pdr_carry_model.b64` (working directory fallback),
+then enforces the pinned SHA and independently checked outputs.
+Android production code still uses the normal asset manager. APK
+packaging remains an additional CI build requirement; **do not equate
+source-asset tests with a physical Android run**.
