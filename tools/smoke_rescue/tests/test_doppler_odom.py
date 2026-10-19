@@ -79,6 +79,18 @@ class RadarDopplerResearch(unittest.TestCase):
         self.assertFalse(score["scale_fit"])
         self.assertFalse(score["used_reference_during_inference"])
 
+    def test_positive_echo_html_actual_render(self):
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as folder:
+            html_path=Path(folder)/"radar.html"
+            poses=[{"x":0.,"y":0.,"yaw":0.,"t":0.,"new_segment":True},
+                   {"x":1.,"y":0.,"yaw":0.,"t":1.,"new_segment":False}]
+            algo.render_map(poses,html_path,{(0,8):3,(4,8):2})
+            output=html_path.read_text(encoding="utf-8")
+            self.assertIn("<rect", output)
+            self.assertIn("INCONNUES", output)
+            self.assertIn("Doppler", output)
+
     def test_incomplete_ref_not_accuracy(self):
         traj=[{"x":0.,"y":0.,"t":0.,"new_segment":False}]
         self.assertEqual(algo.rigid_2d_align_and_score(traj,[])["status"],
