@@ -99,6 +99,30 @@ jobs:
           assert len(d["trajectory"]) >= 5
           print("Own radar+gyro estimator executed, posthoc pseudo-GT score:",d["pseudo_reference_posthoc_evaluation"])
           PY
+      - name: Full 168-second real smoke generalization (same frozen estimator)
+        timeout-minutes: 7
+        run: |
+          python tools/smoke_rescue/doppler_odom.py \
+            --bag campaign_results/smoke-upo7/experiment_7.bag \
+            --max-seconds 168 \
+            --out campaign_results/smoke-upo7/doppler_imu_full168.json \
+            --html campaign_results/smoke-upo7/doppler_imu_full168.html
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          first=json.loads(Path('campaign_results/smoke-upo7/doppler_imu_research.json').read_text())
+          whole=json.loads(Path('campaign_results/smoke-upo7/doppler_imu_full168.json').read_text())
+          assert whole['reference_used_during_estimation'] is False
+          assert whole['independent_accurate_ground_truth'] is False
+          assert whole['motion_observability']['accepted_bins'] >= first['motion_observability']['accepted_bins']
+          print('REAL 168s source, frozen params:',json.dumps({
+              'bins_accepted':whole['motion_observability']['accepted_bins'],
+              'integrated_s':whole['motion_observability']['active_integrated_seconds'],
+              'estimated_path_m':whole['motion_observability']['estimated_traveled_path_m'],
+              'reference_posthoc':whole['pseudo_reference_posthoc_evaluation'],
+              'positive_map':whole['sparse_positive_echo_map'],
+          },sort_keys=True))
+          PY
       - name: Upload evidence (reports and HTML only, never the dataset)
         if: always()
         uses: actions/upload-artifact@v4
