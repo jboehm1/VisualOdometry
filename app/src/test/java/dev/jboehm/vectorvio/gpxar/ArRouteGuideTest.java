@@ -163,7 +163,11 @@ public class ArRouteGuideTest {
         ArRouteGuide.Snapshot after=g.snapshot(now);
         assertTrue(after.manualAdjusted);assertTrue(g.visualShifted());
         assertEquals(old[0]+1.5,after.edges.get(0)[0],1e-5);
-        assertEquals(old[1]-.75,after.edges.get(0)[1],1e-5);
+        // The route window may reclip its first edge when the visual offset
+        // changes, so compare a fixed GPX marker instead of edge index zero.
+        assertFalse(before.markers.isEmpty());assertFalse(after.markers.isEmpty());
+        assertEquals(before.markers.get(0).x+1.5,after.markers.get(0).x,1e-5);
+        assertEquals(before.markers.get(0).z-.75,after.markers.get(0).z,1e-5);
         assertEquals(before.samples,after.samples);
         assertEquals(before.residualMeters,after.residualMeters,1e-10);
         assertFalse(g.shiftVisual(100,0));assertFalse(g.shiftVisual(Double.NaN,0));
