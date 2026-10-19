@@ -13,8 +13,8 @@ from doppler_odom import rigid_2d_align_and_score
 
 
 def load_pseudo(bag):
-    if bag.name!="experiment_7.bag":
-        raise ValueError("Not the UPO original expected source")
+    if not __import__("re").fullmatch(r"experiment_[1-7]\.bag",bag.name):
+        raise ValueError("Not an original UPO experiment bag")
     reference=[]
     with AnyReader([bag]) as reader:
         cs=[c for c in reader.connections if c.topic=="/ground_truth"]
