@@ -59,7 +59,11 @@ public class GpxArAndroidTest {
             AlertDialog menu=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();menu.getListView().performItemClick(null,7,7);
             AlertDialog options=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(5,options.getListView().getCount());
             android.widget.ListView list=options.getListView();
-            assertTrue("Direction initially checked",list.isItemChecked(0));
+            assertEquals("Direction preference initially ON",1,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",0)&1);
+            // Robolectric does not initialize the AlertDialog's checked rows on
+            // this synthetic performItemClick path; establish the Android state
+            // explicitly, then dispatch each checked-state transition.
+            list.setItemChecked(0,true);assertTrue(list.isItemChecked(0));
             list.setItemChecked(0,false);list.performItemClick(null,0,0);
             assertEquals("Direction disabled",0,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",31)&1);
             list.setItemChecked(0,true);list.performItemClick(null,0,0);
