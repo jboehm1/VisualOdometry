@@ -99,7 +99,7 @@ class PairwisePhoneBenchmarkTests(unittest.TestCase):
             points=np.stack([np.sin(times),np.cos(times),times*.001],axis=1)
             for target,xyz in [(a,points),(b,points*3)]:
                 target.write_text("".join(
-                    f"{t:.8f} {p[0]:.8f} {p[1]:.8f} {p[2]:.8f} 0 0 0 1\\n"
+                    f"{t:.8f} {p[0]:.8f} {p[1]:.8f} {p[2]:.8f} 0 0 0 1\n"
                     for t,p in zip(times,xyz)))
             r=score(a,b,clock_offset_seconds=0.)
             self.assertTrue(r["clock_shift_shared_from_reference_fitted_baseline"])
