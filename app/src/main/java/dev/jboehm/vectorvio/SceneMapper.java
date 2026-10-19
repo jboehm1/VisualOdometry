@@ -36,6 +36,8 @@ final class SceneMapper {
     }
     static final class MapPoint {final float x,y,z,confidence;MapPoint(float x,float y,float z,float q){this.x=x;this.y=y;this.z=z;confidence=q;}}
     static final class MapSurface {final float[] xz;final boolean vertical;MapSurface(float[] xz,boolean vertical){this.xz=xz;this.vertical=vertical;}}
+    dev.jboehm.vectorvio.gpxar.ArRouteGuide.Snapshot gpxRoute;
+    volatile int gpxGroundEdges;
     boolean worldRendering;
     boolean allowEstimatedGround;
     private final ArrayList<Anchor> trail=new ArrayList<>();
@@ -111,6 +113,12 @@ final class SceneMapper {
                 if(line!=null)shapes.add(new Shape(line,3,"",worldRendering?new float[]{previousGround[0],previousGround[1],previousGround[2],xyz[0],xyz[1],xyz[2]}:null));
             }
             previous=point;previousGround=xyz;
+        }
+        gpxGroundEdges=0;
+        if(gpxRoute!=null)for(float[] edge:GpxGroundProjector.project(gpxRoute.edges,camera.getPose().ty(),floors)){
+            float[] xy=worldRendering?EMPTY:Projection.line(vp,new float[]{edge[0],edge[1],edge[2]},new float[]{edge[3],edge[4],edge[5]});
+            if(xy!=null)shapes.add(new Shape(xy,5,"",worldRendering?edge:null));
+            gpxGroundEdges++;
         }
         ArrayList<MapArchive.Poi> currentPois=new ArrayList<>();
         for(MapArchive.Poi poi:pois) {
