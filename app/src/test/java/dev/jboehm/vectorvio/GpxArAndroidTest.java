@@ -60,7 +60,7 @@ public class GpxArAndroidTest {
             AlertDialog capture=openCategory(replay,SettingsCatalog.Section.CAPTURE);
             assertTrue(capture.getListView().getAdapter().getItem(2).toString().contains("ARCORE REPLAY"));
             capture.getListView().performItemClick(null,2,2);
-            assertTrue(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().getTitle().toString().contains("ARCore replay"));
+            assertTrue(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().getListView().getAdapter().getItem(0).toString().contains("Import an ARCore MP4"));
         }finally{replay.destroy();}
     }
     @Test public void selectedRouteRoundTripPreservesElevationAndInvalidReplacementKeepsPrevious()throws Exception{
