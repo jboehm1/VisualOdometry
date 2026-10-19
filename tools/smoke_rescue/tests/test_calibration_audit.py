@@ -47,7 +47,7 @@ class SensorOnlyCalibration(unittest.TestCase):
 
     def test_bad_quaternion(self):
         with self.assertRaises(ValueError):
-            m.rotation_y([0,0,0,0])
+            m.rotation_yaw([0,0,0,0])
 
 
 if __name__=="__main__":
