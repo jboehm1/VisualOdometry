@@ -4,14 +4,21 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-import numpy as np
-
+# Other campaign jobs (notably Java PDR) deliberately have no OpenCV/ROS bags.
+# Discovering this test must not fail an unrelated lightweight suite.
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-import mobile_gvio_ab as ab
-import mobile_gvio_raw as raw
-from mobile_gvio_score import score
+try:
+    import numpy as np
+    import mobile_gvio_ab as ab
+    import mobile_gvio_raw as raw
+    from mobile_gvio_score import score
+except ModuleNotFoundError as exc:
+    if exc.name not in {"numpy", "cv2", "rosbags", "scipy"}:
+        raise
+    np = ab = raw = score = None
 
 
+@unittest.skipIf(ab is None, "optional scientific VIO dependencies absent; real A/B CI installs them")
 class PairwisePhoneBenchmarkTests(unittest.TestCase):
     def test_presets_are_frozen_and_lower_compute_uses_fewer_corners(self):
         self.assertEqual(raw.PROFILES["balanced"]["maxCorners"],750)
