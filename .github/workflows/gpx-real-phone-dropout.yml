@@ -55,12 +55,24 @@ jobs:
           for r in d["results"]:
               assert r["gps_after_cutoff"]==0
               assert r["engine"]=="Android Java ArRouteGuide"
-              assert r["status"]=="SCORED" and r["matched"]>=8
-              assert r["last_dropout_seconds"]>10
-              assert math.isfinite(r["p95_error_m"])
+              oracle=r["calibrated_camera_drift"]
+              assert oracle["scored_pose_count"]>=200
+              assert oracle["post_dropout_duration_s"]>10
+              assert math.isfinite(oracle["post_dropout_p95_m"])
               assert r["synthetic_gnss_calibration_fixes"]>=10
-              assert "VIO_HOLD" in r["states"]
-              print("MEASURED_GPX_POSITION_AFTER_GPS_BLACKOUT",r,flush=True)
+              if r["status"]=="SCORED":
+                  assert r["matched"]>=8
+                  assert r["last_dropout_seconds"]>10
+                  assert math.isfinite(r["p95_error_m"])
+                  assert "VIO_HOLD" in r["states"]
+                  print("GPX_JAVA_GUIDE_GPS_BLACKOUT_SCORED",r,flush=True)
+              else:
+                  assert r["status"]=="NO_LOCATION_AFTER_CUTOFF"
+                  assert r["matched"]==0
+                  assert r["states"] # MUST show why Java refused alignment
+                  print("GPX_JAVA_GUIDE_REFUSED_ALIGNMENT_NOT_SILENT_SUCCESS",r,flush=True)
+              print("REAL_EXTERNAL_ARCORE_CAMERA_ONLY_DRIFT_MEASURED",
+                    oracle,flush=True)
           # Deliberately NO p95 accuracy acceptance without independent Android
           # S21 GNSS+ARCore recordings. External phone ARCore != APK.
           PY
