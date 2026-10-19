@@ -117,4 +117,20 @@ public class ArRouteGuideTest {
         assertEquals(samples,g.snapshot(now).samples);
     }
 
+    @Test public void gpsOnlyQuickViewAfterUnlockDoesNotFalsifyArAlignment(){
+        ArRouteGuide guide=engine();long t=1_000_000_000L;
+        assertTrue(guide.onFix(fix(t,0,0,LocationSample.Source.GPS_PROVIDER,false)));
+        ArRouteGuide.Snapshot snap=guide.snapshot(t+10_000_000L);
+        assertEquals(ArRouteGuide.State.WAITING_POSES,snap.state);
+        assertEquals(0,snap.samples);
+        assertTrue(snap.edges.isEmpty());
+        assertTrue(Double.isFinite(snap.remainingMeters));
+        assertTrue(Double.isNaN(snap.targetX));
+        // Locked screen/tracking loss clears the transient nav & AR state.
+        guide.trackingLost();
+        ArRouteGuide.Snapshot resumed=guide.snapshot(t+20_000_000L);
+        assertEquals(ArRouteGuide.State.WAITING_POSES,resumed.state);
+        assertTrue(resumed.edges.isEmpty());
+    }
+
 }
