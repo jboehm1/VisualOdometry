@@ -105,6 +105,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private final AnchoredOdometry gpxReference=new AnchoredOdometry();
     private volatile boolean resetGpxReference;
     private volatile int gpxDisplayFlags=dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.ALL;
+    /** Optional occlusion only; depth NEVER becomes absolute terrain or GNSS truth. */
+    private volatile boolean gpxDepthEnabled;
+    private volatile boolean gpxDepthSupported;
     private final ArPoseClock gpxPoseClock=new ArPoseClock();
     private final dev.jboehm.vectorvio.gpxar.ArRouteGuide gpxAr=new dev.jboehm.vectorvio.gpxar.ArRouteGuide();
     private dev.jboehm.vectorvio.location.LocationSource gpxLocation;
@@ -182,6 +185,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         mapIo.execute(()->{try{dev.jboehm.vectorvio.gps.GpsRoute route=gpxRouteStore.load();if(route!=null)installGpxArRoute(route);}catch(Exception e){runOnUiThread(()->Toast.makeText(this,"Saved AR GPX unavailable; import again",Toast.LENGTH_LONG).show());}});
         SharedPreferences preferences=getSharedPreferences("spatial_explorer",MODE_PRIVATE);
         gpxDisplayFlags=preferences.getInt("gpx_display_flags",dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.ALL);
+        gpxDepthEnabled=preferences.getBoolean("gpx_depth_occlusion",false);
         estimatedGround=preferences.getBoolean("estimated_ground",false);
         keyframeIntervalSeconds=preferences.getFloat("keyframe_interval",1f);
         keyframeMinDistance=preferences.getFloat("keyframe_distance",.75f);
@@ -413,7 +417,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     private void postGpxUi(Runnable task){runOnUiThread(()->{if(!isFinishing()&&!isDestroyed())task.run();});}
     private void gpxArMenu(){
-        String[] actions={gpxArEnabled?"PAUSE AR GPX":"ENABLE AR GPX", "IMPORT GPX", "LOCATION SOURCE", "REVERSE SELECTED ROUTE", "RESET ALIGNMENT", "REMOVE SELECTED ROUTE", "HELP / ACCURACY", "DISPLAY OPTIONS", "ADD ALTITUDE · EU-DEM (ONLINE)"};
+        String[] actions={gpxArEnabled?"PAUSE AR GPX":"ENABLE AR GPX", "IMPORT GPX", "LOCATION SOURCE", "REVERSE SELECTED ROUTE", "RESET ALIGNMENT", "REMOVE SELECTED ROUTE", "HELP / ACCURACY", "DISPLAY OPTIONS", "ADD ALTITUDE · EU-DEM (ONLINE)", gpxDepthEnabled?"RAW DEPTH OCCLUSION · ON":"RAW DEPTH OCCLUSION · OFF"};
         new AlertDialog.Builder(this).setTitle("GPX AR · experimental").setItems(actions,(d,i)->{
             if(i==0){if(gpxArEnabled)setGpxArEnabled(false);else if(!gpxAr.hasRoute())Toast.makeText(this,"Import a GPX first",Toast.LENGTH_LONG).show();
                 else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},GPX_AR_LOCATION_REQUEST);
@@ -426,6 +430,13 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             if(i==5){setGpxArEnabled(false);mapIo.execute(()->{gpxRouteStore.clear();installGpxArRoute(null);});}
             if(i==7)gpxDisplayMenu();
             if(i==8)gpxEnrichElevation();
+            if(i==9){
+                gpxDepthEnabled=!gpxDepthEnabled;
+                getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("gpx_depth_occlusion",gpxDepthEnabled).apply();
+                Toast.makeText(this,gpxDepthEnabled
+                    ?"Raw Depth requested (optional occlusion, not 3D terrain). Lock/unlock screen to apply. Unavailable devices stay in plane-only mode."
+                    :"Raw Depth off after lock/unlock; plane-ground ribbon remains.",Toast.LENGTH_LONG).show();
+            }
             if(i==6)new AlertDialog.Builder(this).setTitle("GPX in the camera · limits")
                 .setMessage("Import one continuous GPX segment, enable location, START/RESUME and walk with the camera. Alignment needs several fresh positions and a baseline larger than GPS noise; rotating on the spot cannot establish it. Blue = imported GPX candidate; orange = measured local trail. No automatic snapping to the GPX.\n\nBlue uses bounded nearby ARCore anchors, with observed upward planes within 30 m; unknown ground stays hidden. GPX elevation is retained but is not trusted as AR ground height. This is a see-through overlay, without obstacle occlusion. GPS bias and route errors can shift the line; the allowance shown is diagnostic, not a calibrated confidence interval.\n\nAUTO uses Google Fused when available and falls back to native GPS on unavailable/stale Fused. Both can share GNSS. Pause/background, tracking loss and reset require alignment again. No change to odometer distance. Imported route stays on this phone; enable is explicit after app restart. DISPLAY OPTIONS toggles estimated direction, 25 m markers, endpoints and local map POIs. POI distances are straight-line local AR distances; route markers use distance along the GPX. Imported named GPX waypoints are not shown in this iteration.")
                 .setPositiveButton("OK",null).show();
@@ -488,6 +499,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         gpxArEnabled=enabled;gpxAr.setEnabled(enabled);gpxArText="";resetGpxReference=true;
         if(enabled&&odometer.isRecording())journalGpxArRoute();
         if(enabled&&foreground&&!playbackMode)gpxLocation.start(gpxLocationMode);else gpxLocation.stop();
+        // Quick-view mode never forces recording or camera access in the background.
+        // On screen unlock GPS is reacquired; the old ARCore reference is not reused.
     }
     private void importGpxAr(Uri source){
         setGpxArEnabled(false);
@@ -934,13 +947,24 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 Config config=new Config(created);
                 config.setPlaneFindingMode(Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL);
                 config.setLightEstimationMode(Config.LightEstimationMode.DISABLED);
-                config.setDepthMode(Config.DepthMode.DISABLED);
+                gpxDepthSupported=created.isDepthModeSupported(Config.DepthMode.RAW_DEPTH_ONLY);
+                config.setDepthMode(gpxDepthEnabled&&!playbackMode&&gpxDepthSupported?
+                    Config.DepthMode.RAW_DEPTH_ONLY:Config.DepthMode.DISABLED);
                 config.setUpdateMode(Config.UpdateMode.LATEST_CAMERA_IMAGE);
                 created.configure(config);
                 if(playbackMode)created.setPlaybackDatasetUri(Uri.fromFile(playbackFile));
                 arSession=created;
                 gpxPoseClock.configure(this,created.getCameraConfig().getCameraId());
                 textureAssigned=false;
+            }
+            if(arSession!=null&&!playbackMode){
+                // This path also executes on unlock: session was paused in onPause.
+                // A depth toggle never restarts camera/odometer while tracking.
+                gpxDepthSupported=arSession.isDepthModeSupported(Config.DepthMode.RAW_DEPTH_ONLY);
+                Config previous=arSession.getConfig();
+                Config.DepthMode desired=gpxDepthEnabled&&gpxDepthSupported?
+                    Config.DepthMode.RAW_DEPTH_ONLY:Config.DepthMode.DISABLED;
+                if(previous.getDepthMode()!=desired){previous.setDepthMode(desired);arSession.configure(previous);}
             }
             if(playbackMode&&arSession!=null){
                 if(playbackFinished || !recordingStartPending){
@@ -1176,7 +1200,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 message="Tracking paused: "+why.replace('_',' ').toLowerCase(Locale.US);
             }
             if(resetGpxReference){gpxReference.reset();gpxAr.trackingLost();gpxGeneration++;resetGpxReference=false;}
-            if(gpxArEnabled&&!playbackMode&&odometer.isRecording()&&camera.getTrackingState()==TrackingState.TRACKING){
+            // The user can lock the display, walk with no recording/background
+            // location, and unlock for a GPX camera glance. ARCore/GNSS must
+            // reacquire: never restore an obsolete map anchor across the lock.
+            if(gpxArEnabled&&!playbackMode&&camera.getTrackingState()==TrackingState.TRACKING){
                 final long frameNs=frame.getTimestamp(),cameraElapsedNs=gpxPoseClock.elapsedRealtimeNs(frame),receiptNs=SystemClock.elapsedRealtimeNanos();
                 Pose world=camera.getPose(),metric=null;
                 try{
@@ -1188,9 +1215,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 }catch(RuntimeException unavailable){gpxReference.reset();gpxAr.trackingLost();}
                 final long routeRevision=gpxRouteRevision;final int generation=gpxGeneration;final float wx=world.tx(),wy=world.ty(),wz=world.tz();
                 final Pose capturedMetric=metric;
-                recorder.sidecar(recorder.currentFile(),"_gpx_ar_poses.csv","ar_frame_ns,android_camera_elapsed_ns,receipt_elapsed_ns,tracking_segment,world_x,world_y,world_z,metric_x,metric_y,metric_z,route_revision",
-                    ()->String.format(Locale.US,"%d,%d,%d,%d,%.9f,%.9f,%.9f,%s,%s,%s,%d",frameNs,cameraElapsedNs,receiptNs,generation,wx,wy,wz,
-                    capturedMetric==null?"":Float.toString(capturedMetric.tx()),capturedMetric==null?"":Float.toString(capturedMetric.ty()),capturedMetric==null?"":Float.toString(capturedMetric.tz()),routeRevision));
+                if(odometer.isRecording()&&recorder.currentFile()!=null)
+                    recorder.sidecar(recorder.currentFile(),"_gpx_ar_poses.csv","ar_frame_ns,android_camera_elapsed_ns,receipt_elapsed_ns,tracking_segment,world_x,world_y,world_z,metric_x,metric_y,metric_z,route_revision",
+                        ()->String.format(Locale.US,"%d,%d,%d,%d,%.9f,%.9f,%.9f,%s,%s,%s,%d",frameNs,cameraElapsedNs,receiptNs,generation,wx,wy,wz,
+                        capturedMetric==null?"":Float.toString(capturedMetric.tx()),capturedMetric==null?"":Float.toString(capturedMetric.ty()),capturedMetric==null?"":Float.toString(capturedMetric.tz()),routeRevision));
             }else {gpxReference.reset();gpxAr.trackingLost();}
             if(frame.getTimestamp()>0) previousFrameNs=frame.getTimestamp();
             latestPoseResult=poseResult;
@@ -1262,6 +1290,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             mapper.allowEstimatedGround=estimatedGround;
             dev.jboehm.vectorvio.gpxar.ArRouteGuide.Snapshot routeState=gpxAr.snapshot(SystemClock.elapsedRealtimeNanos());
             mapper.gpxRoute=routeState;mapper.gpxWorldFromMetric=gpxReference.worldFromMetric();mapper.gpxDisplayFlags=gpxDisplayFlags;mapper.gpxMode=gpxArEnabled;
+            mapper.gpxDepthOcclusion=gpxArEnabled&&gpxDepthEnabled&&gpxDepthSupported&&!playbackMode;
 
             SceneMapper.Snapshot scene=mapper.update(arSession,frame,latestPoseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,history);
             if(worldOverlay!=null)try{worldOverlay.update(scene);}catch(RuntimeException|OutOfMemoryError e){
