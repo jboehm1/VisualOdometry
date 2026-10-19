@@ -29,7 +29,7 @@ public class GpxArAndroidTest {
             assertTrue(labels.contains("ARCORE REPLAY — evaluate saved video with same odometer"));
             int position=-1;for(int i=0;i<data.getListView().getCount();i++)if(data.getListView().getAdapter().getItem(i).equals("GPX AR — experimental camera guidance"))position=i;
             assertTrue(position>=0);data.getListView().performItemClick(null,position,position);
-            AlertDialog ar=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(9,ar.getListView().getCount());
+            AlertDialog ar=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(10,ar.getListView().getCount());
             assertEquals("ADD ALTITUDE · EU-DEM (ONLINE)",ar.getListView().getAdapter().getItem(8));
             ar.getListView().performItemClick(null,1,1);
             Intent request=Shadows.shadowOf(c.get()).getNextStartedActivity();assertNotNull(request);assertEquals(Intent.ACTION_OPEN_DOCUMENT,request.getAction());
@@ -88,4 +88,37 @@ public class GpxArAndroidTest {
         }finally{next.destroy();}
     }
 
+    @Test public void rawDepthOptionalDefaultOffAndPersistedAcrossActivityRecreation()throws Exception{
+        org.robolectric.RuntimeEnvironment.getApplication().getSharedPreferences("spatial_explorer",0)
+            .edit().putBoolean("gpx_depth_occlusion",false).commit();
+        ActivityController<MainActivity> controller=Robolectric.buildActivity(MainActivity.class).create();
+        try{
+            ArrayList<View> buttons=new ArrayList<>();
+            controller.get().getWindow().getDecorView().findViewsWithText(buttons,"DATA",View.FIND_VIEWS_WITH_TEXT);
+            assertEquals(1,buttons.size());assertTrue(buttons.get(0).performClick());
+            AlertDialog data=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();int index=-1;
+            for(int i=0;i<data.getListView().getCount();i++)
+                if("GPX AR — experimental camera guidance".equals(data.getListView().getAdapter().getItem(i)))index=i;
+            assertTrue(index>=0);data.getListView().performItemClick(null,index,index);
+            AlertDialog menu=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+            assertEquals(10,menu.getListView().getCount());
+            assertEquals("RAW DEPTH OCCLUSION · OFF",menu.getListView().getAdapter().getItem(9));
+            menu.getListView().performItemClick(null,9,9);
+            assertTrue(controller.get().getSharedPreferences("spatial_explorer",0).getBoolean("gpx_depth_occlusion",false));
+            assertNull(Shadows.shadowOf(controller.get()).getNextStartedService());
+        }finally{controller.destroy();}
+        ActivityController<MainActivity> next=Robolectric.buildActivity(MainActivity.class).create();
+        try{
+            ArrayList<View> buttons=new ArrayList<>();
+            next.get().getWindow().getDecorView().findViewsWithText(buttons,"DATA",View.FIND_VIEWS_WITH_TEXT);
+            buttons.get(0).performClick();
+            AlertDialog data=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();int index=-1;
+            for(int i=0;i<data.getListView().getCount();i++)
+                if("GPX AR — experimental camera guidance".equals(data.getListView().getAdapter().getItem(i)))index=i;
+            assertTrue(index>=0);data.getListView().performItemClick(null,index,index);
+            AlertDialog menu=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+            assertEquals("RAW DEPTH OCCLUSION · ON",menu.getListView().getAdapter().getItem(9));
+            assertNull(Shadows.shadowOf(next.get()).getNextStartedService());
+        }finally{next.destroy();}
+    }
 }
