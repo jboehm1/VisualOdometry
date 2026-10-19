@@ -377,7 +377,7 @@
         "Q01"
       ],
       "acceptance": "Factor graph / EKF fixed-lag avec contraintes de pose relative, corrélation temporelle GNSS/FLP et biais commun; tenir métriques p50/p95, fausses confiances et aucune amélioration fictive quand biais commun. Vérifier par vérité indépendante et coût CPU/batterie avant branchement",
-      "evidence": "docs/GPX_AR_MULTI_CIRCLE_FUSION.md (recherche+plan seulement); aucun filtrage nouveau intégré",
+      "evidence": "docs/GPX_AR_MULTI_CIRCLE_FUSION.md (recherche+plan seulement); aucun filtrage nouveau intégré; [tâche seule, pas d'algorithme injecté dans l'app]",
       "owner": "gpx-visual-depth-fusion",
       "optional": true
     },
@@ -385,14 +385,14 @@
       "id": "R05",
       "phase": "Rendu 3D",
       "title": "Occlusion Depth optionnelle sans dégrader les plans ARCore",
-      "status": "CODE_EN_ATTENTE_CI_ET_TERRAIN",
-      "percent": 65,
+      "status": "CI_VERTE_MOTEUR_ANDROID_TERRAIN_NON_TESTE",
+      "percent": 80,
       "depends_on": [
         "R02",
         "Q01"
       ],
       "acceptance": "OFF par défaut, RAW_DEPTH_ONLY sur appareils supportés, acquisition bornée, confiance suffisante pour ne masquer que segments derrière obstacle mesuré; rollback automatique vers terrain par plans, tests source/UI/énergie S21",
-      "evidence": "GpxDepthOcclusion.java + GpxDepthOcclusionTest.java ; aucune métrologie S21",
+      "evidence": "GpxDepthOcclusion.java + GpxDepthOcclusionTest.java ; aucune métrologie S21; Android CI 39323905158 SUCCESS, 175 JUnit/0 échec, lint, debug/release, GPS et simulations; Three Campaigns 39323905280 SUCCESS. Absence de test physique S21.",
       "owner": "gpx-visual-depth-fusion",
       "optional": true
     },
@@ -400,14 +400,14 @@
       "id": "I03",
       "phase": "Usage terrain",
       "title": "Verrouillage écran et reprise GPX ponctuelle sans enregistrement",
-      "status": "CODE_EN_ATTENTE_CI_ET_TERRAIN",
-      "percent": 70,
+      "status": "CI_VERTE_MOTEUR_ANDROID_TERRAIN_NON_TESTE",
+      "percent": 80,
       "depends_on": [
         "I01",
         "F05"
       ],
       "acceptance": "Après verrouillage écran : ni caméra ni GPS background; réouverture GPX stocké et acquisition GPS/VIO fraîche même odomètre PAUSE; vieux ancrage non restauré; comportement process kill = activation manuelle explicitée; test Android et terrain",
-      "evidence": "MainActivity.java GPX independent of odometer.isRecording() + onPause/onResume; test S21/permissions restant",
+      "evidence": "MainActivity.java GPX independent of odometer.isRecording() + onPause/onResume; test S21/permissions restant; Android CI 39323905158 SUCCESS, 175 JUnit/0 échec, lint, debug/release, GPS et simulations; Three Campaigns 39323905280 SUCCESS. Absence de test physique S21.",
       "owner": "gpx-visual-depth-fusion",
       "optional": false
     }
