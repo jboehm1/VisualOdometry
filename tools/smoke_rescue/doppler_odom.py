@@ -301,7 +301,7 @@ def render_map(traj,path:Path,echo_cells=None,cell_size_m=.25):
     for cx,cy in echo_cells:
         xs.append(cx*cell_size_m)
         ys.append(cy*cell_size_m)
-    minx,maxx,miny,maxy=min(xs),max(xs),min(ys)
+    minx,maxx,miny,maxy=min(xs),max(xs),min(ys),max(ys)
     scale=650/max(maxx-minx,maxy-miny,0.5)
     coords=" ".join(f"{(x-minx)*scale+30:.1f},{690-(y-miny)*scale:.1f}" for x,y in pts)
     rects=[]
