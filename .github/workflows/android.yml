@@ -53,7 +53,7 @@ jobs:
         run: |
           python3 -m unittest discover -s tools/tests -v
           python3 -m unittest discover -s tools/gpx_ar/tests -v
-          python3 tools/coordination/android_menu_contract.py --require GPS_ROUTES ARCORE_REPLAY FLP_AB PDR
+          python3 tools/coordination/android_menu_contract.py --require GPS_ROUTES ARCORE_REPLAY FLP_AB PDR COURSES
           python3 tools/pdr/progress.py --check
       - name: Exported ZIP alignment replay smoke (synthetic, exact Java engine)
         run: |
