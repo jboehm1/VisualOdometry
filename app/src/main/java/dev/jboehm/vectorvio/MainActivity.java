@@ -534,6 +534,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             case GPX_AR:gpxArMenu();break;
             case GPS_MANUAL_ALIGN:beginGpxManualMode();break;
             case GPS_ROUTES:startActivity(new Intent(this,GpsRoutesActivity.class));break;
+            case PDR_NO_CAMERA:
+                // Opening the no-camera screen pauses this Activity and releases ARCore.
+                startActivity(new Intent(this,dev.jboehm.vectorvio.pdr.PdrActivity.class));break;
             case RETURN_TRACE:
                 if(!returnTraceRequested&&!odometer.isRecording())
                     Toast.makeText(this,"Start recording to follow one continuous trace",Toast.LENGTH_LONG).show();
@@ -585,7 +588,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             case SIMULATION:startActivity(new Intent(this,SimulationActivity.class));break;
             case HELP:
                 new AlertDialog.Builder(this).setTitle("VECTOR VIO · guide")
-                    .setMessage("Navigation & GPX: imported track, visual direction and manual adjustment.\nLocation: GPS/Fused/IMU.\nCamera: overlays and depth.\nRecording: files, capture and export.\nMaps: points of interest and 3D scenes.\nPerformance: FPS and tests.\n\nManual GPX adjustment is not a new GPS observation. GPS-free visual continuation can drift.")
+                    .setMessage("Navigation & GPX: imported track, visual direction, manual adjustment, and no-camera PDR.\nLocation: GPS/Fused/IMU.\nCamera: overlays and depth.\nRecording: files, capture and export.\nMaps: points of interest and 3D scenes.\nPerformance: FPS and tests.\n\nManual GPX adjustment is not a new GPS observation. GPS-free visual continuation can drift.")
                     .setPositiveButton("OK",null).show();break;
             default:throw new IllegalArgumentException("Unknown menu action "+a);
         }

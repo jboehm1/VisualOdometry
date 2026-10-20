@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- PDR requires step detection only when the user enters the no-camera mode. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <!-- Only used when the user explicitly approves a DEM GPX altitude lookup. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -23,6 +25,8 @@
         <meta-data android:name="com.google.ar.core" android:value="optional" />
         <service android:name=".GpsNavigationService" android:exported="false" android:foregroundServiceType="location" />
         <activity android:name=".GpsRoutesActivity" android:exported="false" />
+        <!-- Optional camera-free PDR screen; sensors stop when backgrounded. -->
+        <activity android:name=".pdr.PdrActivity" android:exported="false" android:screenOrientation="portrait" />
         <!-- Foreground-only, explicitly launched location A/B diagnostic. -->
         <activity android:name=".LocationComparisonActivity" android:exported="false" android:screenOrientation="portrait" />
         <service android:name=".CollectionService" android:exported="false" android:foregroundServiceType="camera|location" />
