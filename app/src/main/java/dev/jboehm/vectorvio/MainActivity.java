@@ -927,7 +927,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 dialog.dismiss();
                 Toast.makeText(this,"Saved. Close and relaunch VECTOR VIO to use the new ARCore capture configuration. Manual shutter/ISO: CAMERA2 LAB.",Toast.LENGTH_LONG).show();
             })
-            .setMessage("Camera capture target is not the VIEW display rate. ARCore controls exposure automatically. Manual shutter/ISO is available in the separate Camera2 Lab. Avoid changing config during a tracking session.")
+            
             .setNegativeButton("CANCEL",null).show();
     }
 
