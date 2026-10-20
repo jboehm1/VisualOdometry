@@ -534,7 +534,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             case GPX_AR:gpxArMenu();break;
             case GPS_MANUAL_ALIGN:beginGpxManualMode();break;
             case GPS_ROUTES:startActivity(new Intent(this,GpsRoutesActivity.class));break;
-            case PDR_NO_CAMERA:
+            case PDR:
                 // Opening the no-camera screen pauses this Activity and releases ARCore.
                 startActivity(new Intent(this,dev.jboehm.vectorvio.pdr.PdrActivity.class));break;
             case RETURN_TRACE:
