@@ -75,7 +75,23 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private long actualExposureNs=8_333_333L;
     private int actualIso=400;
     private int isoCeiling=1600,targetLuma=90;
-    private Button autoButton;
+    private Button autoButton,motionButton;
+    private CameraExposureOptimizer.MotionMode motionMode=CameraExposureOptimizer.MotionMode.WALK;
+    private Sensor gyroSensor;
+    private volatile double gyroSpeedRadS=Double.NaN;
+    private volatile long lastGyroNs=Long.MIN_VALUE;
+    private final SensorEventListener gyroListener=new SensorEventListener(){
+        @Override public void onSensorChanged(SensorEvent e){
+            if(e==null||e.values.length<3)return;
+            double w=Math.sqrt((double)e.values[0]*e.values[0]+
+                (double)e.values[1]*e.values[1]+(double)e.values[2]*e.values[2]);
+            if(!Double.isFinite(w))return;
+            double prev=gyroSpeedRadS;
+            gyroSpeedRadS=Double.isFinite(prev)?prev*.60+w*.40:w;
+            lastGyroNs=e.timestamp;
+        }
+        @Override public void onAccuracyChanged(Sensor sensor,int accuracy){}
+    };
     private TextView evidence,isoCeilingLabel,targetLabel;
     private SeekBar isoCeilingBar,targetBar;
     private SensorManager sensorManager;
@@ -99,12 +115,17 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                         thumbnail.getPixels(pixels,0,96,0,0,96,54);
                         CameraImageQuality.Metrics m=CameraImageQuality.analyze(pixels,96,54);
                         CameraExposureOptimizer.Decision decision=null;
+                        long nowNs=SystemClock.elapsedRealtimeNanos();
+                        boolean gyroFresh=lastGyroNs>0&&nowNs>=lastGyroNs
+                            &&nowNs-lastGyroNs<=500_000_000L;
+                        double w=gyroFresh?gyroSpeedRadS:Double.NaN;
                         if(manualCapable&&autoFast&&shutterRange!=null&&isoRange!=null){
                             CameraExposureOptimizer.Limits bounds=new CameraExposureOptimizer.Limits(
                                 shutterRange.getLower(),Math.min(shutterRange.getUpper(),frameDuration),
                                 isoRange.getLower(),isoRange.getUpper());
-                            decision=optimizer.update(SystemClock.elapsedRealtimeNanos(),m,
-                                actualExposureNs,actualIso,bounds,isoCeiling,targetLuma);
+                            decision=optimizer.updateMotionAware(nowNs,m,
+                                actualExposureNs,actualIso,bounds,isoCeiling,targetLuma,
+                                w,motionMode);
                             if(decision.changed){
                                 desiredExposure=decision.exposureNs;
                                 desiredIso=decision.iso;
@@ -114,7 +135,15 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                         String lux=Float.isFinite(ambientLux)?String.format(Locale.US,"%.0f lux",ambientLux):"lux sensor N/A";
                         String quality=m.lacksTexture()?"LOW TEXTURE":
                             m.dark()?"DARK":"IMAGE LIGHT OK?";
-                        if(decision!=null)quality+=" · "+decision.status;
+                        if(decision!=null){
+                            quality+=" · "+decision.status;
+                            quality+=String.format(Locale.US,
+                                " · gyro %s · shutter cap 1/%.0f s · angular smear %s",
+                                Double.isFinite(w)?String.format(Locale.US,"%.0f deg/s",Math.toDegrees(w)):"N/A",
+                                1e9/decision.shutterCeilingNs,
+                                Double.isFinite(decision.predictedAngularBlurDeg)?
+                                    String.format(Locale.US,"%.2f deg",decision.predictedAngularBlurDeg):"N/A");
+                        }
                         evidence.setText(String.format(Locale.US,
                             "FRAME BRIGHTNESS (ISP 0..255) P10 / MED / P90: %d / %d / %d"+
                             "\\nDark pixels: %.0f%% · clipped: %.0f%% · edges: %.1f%%"+
@@ -140,11 +169,16 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         super.onCreate(state);
         manager=(CameraManager)getSystemService(CAMERA_SERVICE);
         sensorManager=(SensorManager)getSystemService(SENSOR_SERVICE);
-        if(sensorManager!=null)lightSensor=sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+        if(sensorManager!=null){
+            lightSensor=sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+            gyroSensor=sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        }
         android.content.SharedPreferences prefs=getSharedPreferences("camera2_optical_lab",MODE_PRIVATE);
         autoFast=prefs.getBoolean("auto_fast",true);
         isoCeiling=prefs.getInt("iso_ceiling",1600);
         targetLuma=prefs.getInt("target_luma",90);
+        motionMode="BIKE".equals(prefs.getString("motion_mode","WALK"))?
+            CameraExposureOptimizer.MotionMode.BIKE:CameraExposureOptimizer.MotionMode.WALK;
         ScrollView scroller=new ScrollView(this);scroller.setFillViewport(false);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(0xFF101820);
@@ -161,6 +195,16 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         root.addView(isoBar);
         autoButton=new Button(this);
         root.addView(autoButton);
+        motionButton=new Button(this);
+        root.addView(motionButton);
+        motionButton.setOnClickListener(v->{
+            motionMode=motionMode==CameraExposureOptimizer.MotionMode.BIKE?
+                CameraExposureOptimizer.MotionMode.WALK:CameraExposureOptimizer.MotionMode.BIKE;
+            optimizer.reset();
+            getSharedPreferences("camera2_optical_lab",MODE_PRIVATE).edit()
+                .putString("motion_mode",motionMode.name()).apply();
+            configureAdaptiveControls();
+        });
         autoButton.setOnClickListener(v->{
             if(!manualCapable)return;
             autoFast=!autoFast;
@@ -255,6 +299,11 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         autoButton.setText(!manualCapable?"SYSTEM AUTO EXPOSURE (hardware fallback)":
             autoFast?"AUTO FAST SHUTTER · ON":"AUTO FAST SHUTTER · OFF (MANUAL)");
         autoButton.setEnabled(manualCapable);
+        if(motionButton!=null){
+            motionButton.setEnabled(manualCapable&&autoFast);
+            motionButton.setText("Motion / blur profile: "+motionMode.name()+
+                (gyroSensor==null?" (gyro unavailable)":" (gyro active)"));
+        }
         if(shutterBar!=null)shutterBar.setEnabled(manualCapable&&!autoFast);
         if(isoBar!=null)isoBar.setEnabled(manualCapable&&!autoFast);
         if(isoCeilingBar!=null)isoCeilingBar.setEnabled(manualCapable&&autoFast);
@@ -268,13 +317,20 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         if(lightSensor!=null)try{
             sensorManager.registerListener(lightListener,lightSensor,SensorManager.SENSOR_DELAY_NORMAL);
         }catch(RuntimeException ignored){}
+        gyroSpeedRadS=Double.NaN;lastGyroNs=Long.MIN_VALUE;
+        if(gyroSensor!=null)try{
+            sensorManager.registerListener(gyroListener,gyroSensor,SensorManager.SENSOR_DELAY_GAME);
+        }catch(RuntimeException ignored){}
         ui.removeCallbacks(observePreview);ui.postDelayed(observePreview,700);
         if(preview!=null&&preview.isAvailable())openIfReady();
     }
     @Override public void onPause(){
         foreground=false;
         ui.removeCallbacks(observePreview);
-        if(sensorManager!=null)sensorManager.unregisterListener(lightListener);
+        if(sensorManager!=null){
+            sensorManager.unregisterListener(lightListener);
+            sensorManager.unregisterListener(gyroListener);
+        }
         synchronized(this){captureGeneration++;opening=false;if(capture!=null){capture.close();capture=null;}
             if(device!=null){device.close();device=null;}
             if(output!=null){output.release();output=null;}}
