@@ -1,6 +1,9 @@
 package dev.jboehm.vectorvio;
 
 import android.Manifest;
+import android.content.Intent;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -69,6 +72,13 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private SeekBar shutterBar,isoBar;
     private int isoProgress=40;
     private int actualWidth=1280,actualHeight=720;
+    private static final int EXPORT_OPTICAL_CSV=220;
+    private static final int MAX_SAMPLES=7200; // <~1h at 2Hz, bounded memory
+    private final StringBuilder opticalCsv=new StringBuilder(
+        "time_elapsed_ns,profile,auto,ambient_lux,p10,p50,p90,dark_fraction,clipped_fraction,"+
+        "edge_fraction,gyro_rad_s,actual_exposure_ns,actual_iso,shutter_cap_ns,"+
+        "selected_exposure_ns,selected_iso,iso_ceiling,quality_status\n");
+    private int opticalRows;
     private final CameraExposureOptimizer optimizer=new CameraExposureOptimizer();
     private final Handler ui=new Handler(Looper.getMainLooper());
     private boolean autoFast=true,manualCapable,opening;
@@ -131,6 +141,20 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                                 desiredIso=decision.iso;
                                 submitRequest();
                             }
+                        }
+                        if(opticalRows<MAX_SAMPLES){
+                            opticalCsv.append(String.format(Locale.US,
+                                "%d,%s,%b,%s,%d,%d,%d,%.5f,%.5f,%.5f,%s,%d,%d,%d,%d,%d,%d,%s\n",
+                                nowNs,motionMode,autoFast,
+                                Float.isFinite(ambientLux)?Float.toString(ambientLux):"",
+                                m.p10,m.p50,m.p90,m.darkFraction,m.clippedFraction,m.edgeFraction,
+                                Double.isFinite(w)?Double.toString(w):"",
+                                actualExposureNs,actualIso,
+                                decision==null?0L:decision.shutterCeilingNs,
+                                decision==null?desiredExposure:decision.exposureNs,
+                                decision==null?desiredIso:decision.iso,
+                                isoCeiling,decision==null?"MANUAL_OR_SYSTEM_AE":decision.status.replace(',',' ')));
+                            opticalRows++;
                         }
                         String lux=Float.isFinite(ambientLux)?String.format(Locale.US,"%.0f lux",ambientLux):"lux sensor N/A";
                         String quality=m.lacksTexture()?"LOW TEXTURE":
@@ -232,6 +256,22 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         root.addView(targetBar);
         evidence=text(this,"Live scene illumination analysis starts with preview",12);
         root.addView(evidence);
+        Button exportOptical=new Button(this);
+        exportOptical.setText("EXPORT CAMERA2 QUALITY TRACE (CSV)");
+        root.addView(exportOptical);
+        exportOptical.setOnClickListener(v->{
+            if(opticalRows==0){
+                android.widget.Toast.makeText(this,"No optical samples yet",android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("text/csv");
+            intent.putExtra(Intent.EXTRA_TITLE,"vector-camera2-fast-exposure-"+
+                System.currentTimeMillis()+".csv");
+            try{startActivityForResult(intent,EXPORT_OPTICAL_CSV);}
+            catch(Exception e){fail("Export document picker unavailable");}
+        });
         diagnostics=text(this,"Checking Camera2 manual sensor capability…",12);
         root.addView(diagnostics);
         TextView done=text(this,"← BACK TO ARCORE",15);root.addView(done);done.setOnClickListener(v->finish());
@@ -500,6 +540,17 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 submitRequest();
             }else fail("Camera2 AE failed: "+exception.getClass().getSimpleName());
         }
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data){
+        super.onActivityResult(request,result,data);
+        if(request!=EXPORT_OPTICAL_CSV||result!=RESULT_OK||data==null||data.getData()==null)return;
+        try(OutputStream stream=getContentResolver().openOutputStream(data.getData())){
+            if(stream==null)throw new java.io.IOException("No output stream");
+            stream.write(opticalCsv.toString().getBytes(StandardCharsets.UTF_8));
+            android.widget.Toast.makeText(this,
+                "Exported "+opticalRows+" camera-only samples (no images / GPS)",
+                android.widget.Toast.LENGTH_LONG).show();
+        }catch(Exception e){fail("Optical CSV export failed: "+e.getClass().getSimpleName());}
     }
     private void fail(String message){runOnUiThread(()->{if(diagnostics!=null)diagnostics.setText(message);});}
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
