@@ -24,7 +24,7 @@ public final class CameraImageQualityTest {
     }
     @Test public void smoothedFeaturesIgnoreBrightFeaturelessSky(){
         int[] a=frame(220);
-        for(int y=27;y<54;y++)for(int x=0;x<96;x++){
+        for(int y=35;y<54;y++)for(int x=0;x<96;x++){
             int g=((x/6)%2==0)?32:92;
             a[y*96+x]=0xff000000|(g<<16)|(g<<8)|g;
         }
