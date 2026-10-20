@@ -229,7 +229,7 @@ public final class PdrActivity extends Activity {
         String[] options={"IMPORT CHECKSUM-VERIFIED PDR_AI_MLP_V1 MODEL",
             motionAiEnabled?"DISABLE AI MOTION DIAGNOSTIC":"ENABLE AI MOTION DIAGNOSTIC"};
         new AlertDialog.Builder(this).setTitle("Neural PDR • motion candidates")
-            .setMessage("A REAL trained 24→32→4 displacement model may be imported. Require SHA256 and verified data provenance. Outputs remain DEVICE XY research predictions, NEVER geographic/world poses. RoNIN/TLIO weights are NOT plug-and-play.")
+            
             .setItems(options,(d,which)->{
                 if(which==0){
                     Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT);
