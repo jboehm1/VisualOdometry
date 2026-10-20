@@ -31,5 +31,36 @@ final class GpxExtendedGuide {
         }
         return out;
     }
+    /** Visible-only distant dashes. The complete route remains in RouteIndex;
+     * a bounded view budget protects the phone without losing geographic data.
+     * No ARCore Anchor is ever constructed from these lines. */
+    static final int MAX_WORLD_DASHES=1400;
+    static List<float[]> dashesInView(List<double[]> edges,double cx,double cy,double cz,
+                                      float stableY,List<GroundTrail.Floor> floors,float[] vp){
+        ArrayList<float[]> out=new ArrayList<>();
+        if(!Float.isFinite(stableY)||vp==null||vp.length!=16)return out;
+        for(double[] edge:edges){
+            if(edge==null||edge.length!=4||out.size()>=MAX_WORLD_DASHES)break;
+            boolean finite=true;for(double v:edge)finite&=Double.isFinite(v);
+            if(!finite)continue;
+            double dx=edge[2]-edge[0],dz=edge[3]-edge[1],len=Math.hypot(dx,dz);
+            if(len<.001||len>100)continue;
+            float[] a={(float)edge[0],stableY+.10f,(float)edge[1]};
+            float[] b={(float)edge[2],stableY+.10f,(float)edge[3]};
+            if(Projection.line(vp,a,b)==null)continue;
+            if(Float.isFinite(GroundTrail.floorY(edge[0],cy,edge[1],floors))&&
+               Float.isFinite(GroundTrail.floorY(edge[2],cy,edge[3],floors)))continue;
+            double distance=Math.hypot((edge[0]+edge[2])*.5-cx,(edge[1]+edge[3])*.5-cz);
+            double step=distance<120?4.5:distance<1000?12:distance<6000?24:48;
+            int parts=Math.max(1,(int)Math.ceil(len/step));
+            for(int i=0;i<parts&&out.size()<MAX_WORLD_DASHES;i++){
+                double t=(double)i/parts,u=Math.min(1,(i+.62)/parts);
+                out.add(new float[]{
+                    (float)(edge[0]+dx*t),stableY+.10f,(float)(edge[1]+dz*t),
+                    (float)(edge[0]+dx*u),stableY+.10f,(float)(edge[1]+dz*u)});
+            }
+        }
+        return out;
+    }
     private GpxExtendedGuide(){}
 }
