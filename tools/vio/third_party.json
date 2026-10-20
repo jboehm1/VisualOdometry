@@ -25,12 +25,12 @@
     {
       "name": "Basalt upstream",
       "spdx": "BSD-3-Clause",
-      "upstream": "https://gitlab.com/VladyslavUsenko/basalt",
-      "revision": "UNPINNED",
+      "upstream": "https://github.com/VladyslavUsenko/basalt",
+      "revision": "0f3b2b52c807f70ff4e2973ce253c73329eea7bc",
       "distribution": "research_only",
       "review_state": "unreviewed",
       "notice_file": "",
-      "notes": "No code from this native candidate is included in the app. Audit submodules/licenses independently."
+      "notes": "Pinned GitHub mirror upstream source only, not yet downloaded or built in our VIO product. CMake vcpkg dependencies Pangolin, realsense2, rosbag and others require license/transitive audit."
     },
     {
       "name": "Kimera-VIO upstream",
