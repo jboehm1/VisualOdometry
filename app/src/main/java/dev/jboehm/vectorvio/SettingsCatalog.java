@@ -21,7 +21,7 @@ final class SettingsCatalog {
     enum Action {
         GPX_AR, GPS_MANUAL_ALIGN, GPS_ROUTES, PDR, COURSES, RETURN_TRACE,
         GPS_TOGGLE, GPS_COMPARISON, IMU_TOGGLE,
-        LAYERS, UNKNOWN_GROUND, OVERLAY_RENDER,
+        LAYERS, UNKNOWN_GROUND, BIKE_VIEW_HINTS, OVERLAY_RENDER,
         VIDEO_TRAINING, COLLECT_ONLY, ARCORE_REPLAY, EXPORT, CAPTURE_INFO,
         MAP_VIEW, MAP_SETTINGS, MAP_SAVED, MAP_PLACE_POI,
         POWER, SIMULATION, HELP
@@ -40,12 +40,13 @@ final class SettingsCatalog {
         new Item(Section.NAVIGATION,Action.COURSES,"COURSES — plan manuel hors ligne","Shopping route planner · manual aisles and product places, no visual recognition"),
         new Item(Section.NAVIGATION,Action.RETURN_TRACE,"Return on local trace","Follow the recorded trail back to its start"),
 
-        new Item(Section.LOCATION,Action.GPS_TOGGLE,"Phone GPS","Location updates while this screen is active"),
+        new Item(Section.LOCATION,Action.GPS_TOGGLE,"GPS speed badge · show / hide","Fresh native GPS vs VIO speed, horizontal ±m and speed ± when reported; foreground only"),
         new Item(Section.LOCATION,Action.GPS_COMPARISON,"GPS ↔ FUSED — Android location A/B (experimental)","Compare native GPS with Google Fused; correlated sources"),
         new Item(Section.LOCATION,Action.IMU_TOGGLE,"IMU telemetry overlay","Show/hide raw accelerometer and gyroscope"),
 
         new Item(Section.DISPLAY,Action.LAYERS,"Scene layers","Cycle planes, feature points and trail"),
         new Item(Section.DISPLAY,Action.UNKNOWN_GROUND,"Estimated ground","Optional approximation where no ARCore plane is observed"),
+        new Item(Section.DISPLAY,Action.BIKE_VIEW_HINTS,"Bike / downward camera hints","Opt-out view quality warnings · no fake odometry correction"),
         new Item(Section.DISPLAY,Action.OVERLAY_RENDER,"Overlay renderer","Automatic GPU/Canvas and GPU recovery"),
 
         new Item(Section.CAPTURE,Action.VIDEO_TRAINING,"Training video","Opt-in camera/IMU dataset recording"),

@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-19 (audit PRs after #11 merge)",
+  "updated_at": "2026-10-20 (post #3/#5/#24-29 integration, UI v0.11 PR in progress)",
   "source_of_truth": "feature/slam-explorer:docs/ROADMAP_CENTRAL.md",
   "branch_notes": {
     "default_github_branch": "master — archive 2019, non utilisée pour intégration Android",
-    "android_integration": "feature/slam-explorer (FLP #11 now integrated; PDR #5 and B1–B8 #3 not integrated)",
-    "work_branches": "PR #3 B1–B8 draft conflict; PR #5 PDR draft conflict; PR #17 smoke draft active; PR #11 already merged"
+    "android_integration": "feature/slam-explorer @ 7c804eca6a242114b9be2467ae75dc8e5a2f60dd: GPX #24-27 + PDR #5/#28 + B1-B8 #3/#29 merged",
+    "work_branches": "Active PR #17 smoke R&D and #21/#22 low-light docs. UI v0.11 isolated in feature/release-v011-ui-gps-bike. Keep unrelated branches intact."
   },
   "statuses": [
     "NON_FAIT",
@@ -327,5 +327,24 @@
       }
     ],
     "pr19": "Temporary coordination PR, close by merge after CI; not an independent Android feature."
+  },
+  "release_v011": {
+    "stage": "EN_COURS",
+    "work_branch": "feature/release-v011-ui-gps-bike",
+    "baseline": "7c804eca6a242114b9be2467ae75dc8e5a2f60dd",
+    "code_scope": [
+      "Always-visible version",
+      "Clickable six-category settings (no setMessage+setItems collision)",
+      "GPX shortcut",
+      "Native GNSS speed + horizontal and speed uncertainty + stale/no-access",
+      "Optional downward-view warning"
+    ],
+    "gates_open": [
+      "Android CI at exact SHA",
+      "Galaxy S21 bike stationary-vs-dynamic view test",
+      "Independent trajectory and GPS overlay truth",
+      "No learned floor segmentation or ARCore feature filtering exists"
+    ],
+    "documentation": "docs/BIKE_GPS_UI_V011.md"
   }
 }
