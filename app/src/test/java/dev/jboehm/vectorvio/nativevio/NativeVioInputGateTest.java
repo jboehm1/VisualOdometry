@@ -4,8 +4,12 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public final class NativeVioInputGateTest {
+    private static double[] identityExtrinsics() {
+        return new double[] {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+    }
     private static NativeVioInputGate.Calibration calibration(boolean verified) {
-        return new NativeVioInputGate.Calibration("rear0", "calib-v1", 1280, 720, 2_000_000L, verified);
+        return new NativeVioInputGate.Calibration("rear0", "calib-v1",
+            1280, 720, 2_000_000L, verified, 920, 920, 640, 360, identityExtrinsics());
     }
     private static NativeVioInputGate.Frame frame(long t) {
         return new NativeVioInputGate.Frame("rear0","calib-v1",1280,720,
@@ -14,6 +18,20 @@ public final class NativeVioInputGateTest {
     private static NativeVioInputGate.ImuBracket imu(long center) {
         return new NativeVioInputGate.ImuBracket(center-5_000_000L,
             center+5_000_000L,center-10_000_000L,center+10_000_000L);
+    }
+    @Test public void invalidCalibrationHasNoFalseVerifiedEscape() {
+        double[] wrong=identityExtrinsics();
+        wrong[10]=2; // nonrigid scale
+        try {
+            new NativeVioInputGate.Calibration("rear0","fake",1280,720,0,
+                true,920,920,640,360,wrong);
+            fail("Expected invalid extrinsics rejection");
+        } catch (IllegalArgumentException expected) {}
+        try {
+            new NativeVioInputGate.Calibration("rear0","fake",1280,720,
+                Long.MIN_VALUE,true,920,920,640,360,identityExtrinsics());
+            fail("Expected invalid offset rejection");
+        } catch (IllegalArgumentException expected) {}
     }
     @Test public void acceptsVerifiedPairedCaptureAndBracketingGyroAccel() {
         NativeVioInputGate gate=new NativeVioInputGate(calibration(true));
