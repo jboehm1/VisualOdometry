@@ -37,6 +37,62 @@ public final class RouteIndex {
         }
     }
     private double[] coordinate(double e,double n){return frame.toGeographic(e,n);}
+
+    /**
+     * Global camera-preview LOD. All imported edges stay in this index, regardless
+     * of the display budget. Samples are distributed ACROSS the full geographic
+     * route rather than taking the first N edges or only the nearest 90 m.
+     * Far preview segments are deliberately dashed and approximate, never floor
+     * observations. No sampled edge is bridged across discarded geometry.
+     */
+    public List<double[]> world(double lat,double lon,double horizonMeters,int maxEdges){
+        if(!Double.isFinite(lat)||!Double.isFinite(lon)||Math.abs(lat)>85||
+           Math.abs(lon)>180||!Double.isFinite(horizonMeters)||horizonMeters<=90||maxEdges<=0)
+            return Collections.emptyList();
+        double[] q=frame.toLocal(lat,lon);
+        // Four distance bands retain distant sections even on dense, looping tracks.
+        double[] bands={300,1500,6000,horizonMeters};
+        int[] counts=new int[4];
+        for(int i=0;i<east.length-1;i++){
+            int band=worldBand(i,q[0],q[1],bands);
+            if(band>=0)counts[band]++;
+        }
+        int nonEmpty=0;for(int count:counts)if(count>0)nonEmpty++;
+        if(nonEmpty==0)return Collections.emptyList();
+        int[] quota=new int[4];
+        int remaining=maxEdges;
+        for(int k=0;k<4;k++)if(counts[k]>0){
+            quota[k]=Math.min(counts[k],Math.max(1,maxEdges/nonEmpty));
+            remaining-=quota[k];
+        }
+        // Use unused bands' capacity, favoring closer detail without starving far.
+        for(int k=0;k<4&&remaining>0;k++){
+            int add=Math.min(remaining,counts[k]-quota[k]);
+            quota[k]+=add;remaining-=add;
+        }
+        int[] visited=new int[4];
+        ArrayList<double[]> out=new ArrayList<>(Math.min(maxEdges,4096));
+        for(int i=0;i<east.length-1;i++){
+            int band=worldBand(i,q[0],q[1],bands);
+            if(band<0)continue;
+            int n=visited[band]++;
+            // Evenly distribute the selected edges throughout every GPX band.
+            if(((long)(n+1)*quota[band])/counts[band] ==
+               ((long)n*quota[band])/counts[band])continue;
+            double[] a=coordinate(east[i],north[i]),b=coordinate(east[i+1],north[i+1]);
+            if(a!=null&&b!=null)out.add(new double[]{a[0],a[1],b[0],b[1]});
+        }
+        return out;
+    }
+    private int worldBand(int i,double x,double z,double[] bands){
+        double mx=(east[i]+east[i+1])*.5-x,mz=(north[i]+north[i+1])*.5-z;
+        double distance=Math.hypot(mx,mz);
+        if(distance<=90||distance>bands[3])return -1;
+        if(distance<=bands[0])return 0;
+        if(distance<=bands[1])return 1;
+        return distance<=bands[2]?2:3;
+    }
+
     /** Returns {lat,lon,distanceMeters} to the closest segment of the WHOLE GPX.
      * Never modifies sensor positions, navigation state or camera poses. */
     public double[] closest(double lat,double lon){
