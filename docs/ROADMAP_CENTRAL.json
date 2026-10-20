@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-20 (post #3/#5/#24-29 integration, UI v0.11 PR in progress)",
+  "updated_at": "2026-10-20 (PR #30 merged and software CI green; terrain pending)",
   "source_of_truth": "feature/slam-explorer:docs/ROADMAP_CENTRAL.md",
   "branch_notes": {
     "default_github_branch": "master — archive 2019, non utilisée pour intégration Android",
-    "android_integration": "feature/slam-explorer @ 7c804eca6a242114b9be2467ae75dc8e5a2f60dd: GPX #24-27 + PDR #5/#28 + B1-B8 #3/#29 merged",
-    "work_branches": "Active PR #17 smoke R&D and #21/#22 low-light docs. UI v0.11 isolated in feature/release-v011-ui-gps-bike. Keep unrelated branches intact."
+    "android_integration": "feature/slam-explorer @ 789e358cb988beb27d1a530b7ee2598e91681321: GPX #24-27 + PDR #5/#28 + B1-B8 #3/#29 + UI v0.11 #30 merged",
+    "work_branches": "Open #17 smoke R&D, #21/#22 docs. #30 merged from feature/release-v011-ui-gps-bike. Upgrade signing bug #31. Keep all unrelated branches."
   },
   "statuses": [
     "NON_FAIT",
@@ -329,7 +329,7 @@
     "pr19": "Temporary coordination PR, close by merge after CI; not an independent Android feature."
   },
   "release_v011": {
-    "stage": "EN_COURS",
+    "stage": "LOGICIEL_VALIDE",
     "work_branch": "feature/release-v011-ui-gps-bike",
     "baseline": "7c804eca6a242114b9be2467ae75dc8e5a2f60dd",
     "code_scope": [
@@ -340,11 +340,20 @@
       "Optional downward-view warning"
     ],
     "gates_open": [
-      "Android CI at exact SHA",
       "Galaxy S21 bike stationary-vs-dynamic view test",
       "Independent trajectory and GPS overlay truth",
-      "No learned floor segmentation or ARCore feature filtering exists"
+      "No learned floor segmentation or ARCore feature filtering exists",
+      "Issue #31 stable debug signing: previous v0.10 cannot update in place to v0.11"
     ],
-    "documentation": "docs/BIKE_GPS_UI_V011.md"
+    "documentation": "docs/BIKE_GPS_UI_V011.md",
+    "merged_sha": "789e358cb988beb27d1a530b7ee2598e91681321",
+    "validated_source_sha": "d6ebf8432f51103726bc1d945e0c7100fca4dfcb",
+    "exact_tree_sha": "d2f9ff1e03ff8ac47db2e0015ac830bdc69b9272",
+    "ci": {
+      "android_run_id": 39450580710,
+      "three_campaigns_run_id": 39450580721,
+      "android": "SUCCESS",
+      "three_campaigns": "SUCCESS"
+    }
   }
 }
