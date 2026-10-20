@@ -36,6 +36,8 @@ public final class SettingsActivityTest {
         }finally{c.pause().stop().destroy();}
     }
     @Test public void togglesPersistWithoutClosingSettingsAndSurviveReopen(){
+        org.robolectric.RuntimeEnvironment.getApplication().getSharedPreferences("spatial_explorer",Activity.MODE_PRIVATE)
+            .edit().putBoolean("bike_view_hints",true).commit();
         ActivityController<SettingsActivity> c=open();
         try{
             SettingsActivity a=c.get();
