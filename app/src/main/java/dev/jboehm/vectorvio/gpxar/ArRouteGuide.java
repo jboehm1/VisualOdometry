@@ -12,6 +12,8 @@ public final class ArRouteGuide {
     public static final long STALE_NS=5_000_000_000L;
     /** Bounded preview around the phone, both ahead and behind the current position. */
     public static final double WORLD_PREVIEW_RADIUS_METERS=90;
+    public static final double WORLD_HORIZON_METERS=50000;
+    public static final int WORLD_LOD_BUDGET=1600;
     /** Tracking-only hold after location goes stale; bounded, never absolute truth. */
     // No GNSS time cut-off: measured ARCore tracking continuity is the gate.
     // Uncertainty displayed after a loss is diagnostic, not a covariance bound.
@@ -32,6 +34,8 @@ public final class ArRouteGuide {
         public final boolean absoluteBiasObservable=false,verticalDatumKnown=false;
         /** AR x/z edge endpoints, clipped near the camera. No terrain heights invented. */
         public final List<double[]> edges;
+        /** Distant global GPX samples (all directions), NOT measured floor. */
+        public List<double[]> worldEdges=Collections.emptyList();
         public final GpsNavigator.Status navigationStatus;
         public final double remainingMeters,offRouteMeters,targetX,targetZ,latitude,longitude;
         /** Approximate nearest route, even beyond the local 90 m 3D overlay. */
@@ -70,6 +74,8 @@ public final class ArRouteGuide {
     private double x,z,manualShiftX,manualShiftZ;
     private double cachedNearLat=Double.NaN,cachedNearLon=Double.NaN;
     private List<double[]> cachedNear;
+    private List<double[]> cachedWorld;
+    private double cachedWorldLat=Double.NaN,cachedWorldLon=Double.NaN;
     public synchronized void setRoute(GpsRoute route){
         RouteIndex next=route==null?null:new RouteIndex(route);
         this.route=route;index=next;resetTracking();
@@ -92,6 +98,7 @@ public final class ArRouteGuide {
         lastPoseNs=lastFixNs=lastSeenFixNs=0;source=null;
         manualShiftX=manualShiftZ=0;
         cachedNear=null;cachedNearLat=cachedNearLon=Double.NaN;
+        cachedWorld=null;cachedWorldLat=cachedWorldLon=Double.NaN;
         state=!enabled?State.OFF:route==null?State.NO_ROUTE:State.WAITING_POSES;
     }
     /** Call on AR discontinuity, pause/reset and tracking loss. Keeps the imported route. */
@@ -165,6 +172,7 @@ public final class ArRouteGuide {
             else if(nowNs-lastFixNs>STALE_NS)shown=State.VIO_HOLD;
         }
         ArrayList<double[]> edges=new ArrayList<>();
+        ArrayList<double[]> distant=new ArrayList<>();
         if(navigator!=null)navigator.tick(nowNs);
         double[] target=null;
         if((shown==State.CANDIDATE||shown==State.VIO_HOLD)&&fit!=null){
@@ -184,10 +192,24 @@ public final class ArRouteGuide {
                 double[] a=fit.unproject(edge[0],edge[1]),b=fit.unproject(edge[2],edge[3]);
                 if(a!=null&&b!=null)edges.add(new double[]{a[0]+manualShiftX,-a[1]+manualShiftZ,b[0]+manualShiftX,-b[1]+manualShiftZ});
                 }
+                // A global index survives beyond 90 m; display LOD is cached
+                // independently of route matching, navigation and metric odometry.
+                if(cachedWorld==null||
+                    distanceMeters(geo[0],geo[1],cachedWorldLat,cachedWorldLon)>25){
+                    cachedWorld=index.world(geo[0],geo[1],WORLD_HORIZON_METERS,WORLD_LOD_BUDGET);
+                    cachedWorldLat=geo[0];cachedWorldLon=geo[1];
+                }
+                for(double[] edge:cachedWorld){
+                    double[] a=fit.unproject(edge[0],edge[1]),b=fit.unproject(edge[2],edge[3]);
+                    if(a!=null&&b!=null)distant.add(new double[]{
+                        a[0]+manualShiftX,-a[1]+manualShiftZ,
+                        b[0]+manualShiftX,-b[1]+manualShiftZ});
+                }
             }
         }
         double hold=shown==State.VIO_HOLD?Math.max(0,(nowNs-lastFixNs)*1e-9):0;
         Snapshot snapshot=new Snapshot(shown,route==null?"":route.name,segment,fit,edges,navigator,target==null?null:new double[]{target[0]+manualShiftX,target[1]-manualShiftZ},x,z,hold,visualShifted());snapshot.alignmentRevision=alignmentRevision;
+        snapshot.worldEdges=Collections.unmodifiableList(distant);
         if(fit!=null&&(shown==State.CANDIDATE||shown==State.VIO_HOLD)){
             double[] geo=fit.project(x-manualShiftX,-z+manualShiftZ);
             double[] closest=geo==null?null:index.closest(geo[0],geo[1]);
