@@ -33,7 +33,11 @@ public final class NativeVioInputGate {
         public final boolean verified;
         public final double fx, fy, cx, cy;
         /** Row-major rigid T_imu_from_camera (maps camera coordinates into IMU). */
-        public final double[] tImuFromCamera;
+        private final double[] tImuFromCamera;
+
+        public double[] tImuFromCameraRowMajor() {
+            return tImuFromCamera.clone();
+        }
 
         public Calibration(String cameraId, String version, int width, int height,
                            long cameraToImuOffsetNs, boolean verified,
