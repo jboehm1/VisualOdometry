@@ -73,13 +73,20 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private int isoProgress=40;
     private int actualWidth=1280,actualHeight=720;
     private static final int EXPORT_OPTICAL_CSV=220;
-    private static final int MAX_SAMPLES=7200; // <~1h at 2Hz, bounded memory
+    private static final int MAX_SAMPLES=20000; // <=~40 min bike at 8 Hz; bounded memory
     private final StringBuilder opticalCsv=new StringBuilder(
         "time_elapsed_ns,profile,auto,ambient_lux,p10,p50,p90,dark_fraction,clipped_fraction,"+
         "edge_fraction,coherent_edge_fraction,feature_median,gyro_rad_s,actual_exposure_ns,actual_iso,shutter_cap_ns,"+
-        "selected_exposure_ns,selected_iso,iso_ceiling,quality_status\n");
+        "selected_exposure_ns,selected_iso,iso_ceiling,quality_status,"+
+        "exposure_method,region_gradient_score,gradient_slope_ev,gradient_step_ev,"+
+        "optic_flow_px_s_full,optic_flow_inliers,optic_flow_matches\n");
     private int opticalRows;
     private final CameraExposureOptimizer optimizer=new CameraExposureOptimizer();
+    private final RegionGradientExposureController gradientController=new RegionGradientExposureController();
+    private boolean useRegionGradient=true;
+    private int[] lastCameraThumbnail;
+    private long lastCameraThumbnailNs;
+    private Button gradientButton;
     private final Handler ui=new Handler(Looper.getMainLooper());
     private boolean autoFast=true,manualCapable,opening;
     private long actualExposureNs=8_333_333L;
@@ -119,42 +126,74 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             if(capture!=null && preview!=null && preview.isAvailable()){
                 Bitmap thumbnail=null;
                 try{
-                    thumbnail=preview.getBitmap(96,54);
+                    thumbnail=preview.getBitmap(160,90);
                     if(thumbnail!=null){
-                        int[] pixels=new int[96*54];
-                        thumbnail.getPixels(pixels,0,96,0,0,96,54);
-                        CameraImageQuality.Metrics m=CameraImageQuality.analyze(pixels,96,54);
+                        int[] pixels=new int[160*90];
+                        thumbnail.getPixels(pixels,0,160,0,0,160,90);
+                        CameraImageQuality.Metrics m=CameraImageQuality.analyze(pixels,160,90);
                         CameraExposureOptimizer.Decision decision=null;
                         long nowNs=SystemClock.elapsedRealtimeNanos();
                         boolean gyroFresh=lastGyroNs>0&&nowNs>=lastGyroNs
                             &&nowNs-lastGyroNs<=500_000_000L;
                         double w=gyroFresh?gyroSpeedRadS:Double.NaN;
+                        CameraPreviewFlow.Result flow=CameraPreviewFlow.estimate(
+                            lastCameraThumbnail,pixels,160,90,
+                            lastCameraThumbnailNs>0&&nowNs>lastCameraThumbnailNs
+                                &&nowNs-lastCameraThumbnailNs<1_200_000_000L?
+                                    nowNs-lastCameraThumbnailNs:-1L,
+                            actualWidth/160.0);
+                        lastCameraThumbnail=pixels;
+                        lastCameraThumbnailNs=nowNs;
+                        RegionWeightedGradient.Result gradient=useRegionGradient?
+                            RegionWeightedGradient.evaluate(pixels,160,90):null;
+                        RegionGradientExposureController.Decision regionDecision=null;
                         if(manualCapable&&autoFast&&shutterRange!=null&&isoRange!=null){
                             CameraExposureOptimizer.Limits bounds=new CameraExposureOptimizer.Limits(
                                 shutterRange.getLower(),Math.min(shutterRange.getUpper(),frameDuration),
                                 isoRange.getLower(),isoRange.getUpper());
-                            decision=optimizer.updateMotionAware(nowNs,m,
-                                actualExposureNs,actualIso,bounds,isoCeiling,targetLuma,
-                                w,motionMode);
-                            if(decision.changed){
-                                desiredExposure=decision.exposureNs;
-                                desiredIso=decision.iso;
-                                submitRequest();
+                            if(useRegionGradient){
+                                regionDecision=gradientController.update(nowNs,gradient,m,
+                                    actualExposureNs,actualIso,bounds,isoCeiling,w,motionMode,flow,
+                                    targetLuma);
+                                if(regionDecision.changed){
+                                    desiredExposure=regionDecision.exposureNs;
+                                    desiredIso=regionDecision.iso;
+                                    submitRequest();
+                                }
+                            }else{
+                                decision=optimizer.updateMotionAware(nowNs,m,
+                                    actualExposureNs,actualIso,bounds,isoCeiling,targetLuma,
+                                    w,motionMode);
+                                if(decision.changed){
+                                    desiredExposure=decision.exposureNs;
+                                    desiredIso=decision.iso;
+                                    submitRequest();
+                                }
                             }
                         }
                         if(opticalRows<MAX_SAMPLES){
                             opticalCsv.append(String.format(Locale.US,
-                                "%d,%s,%b,%s,%d,%d,%d,%.5f,%.5f,%.5f,%.5f,%d,%s,%d,%d,%d,%d,%d,%d,%s\n",
+                                "%d,%s,%b,%s,%d,%d,%d,%.5f,%.5f,%.5f,%.5f,%d,%s,%d,%d,%d,%d,%d,%d,%s,%s,%s,%s,%s,%s,%d,%d\n",
                                 nowNs,motionMode,autoFast,
                                 Float.isFinite(ambientLux)?Float.toString(ambientLux):"",
                                 m.p10,m.p50,m.p90,m.darkFraction,m.clippedFraction,m.edgeFraction,
                                 m.coherentEdgeFraction,m.featureMedian,
                                 Double.isFinite(w)?Double.toString(w):"",
                                 actualExposureNs,actualIso,
-                                decision==null?0L:decision.shutterCeilingNs,
-                                decision==null?desiredExposure:decision.exposureNs,
-                                decision==null?desiredIso:decision.iso,
-                                isoCeiling,decision==null?"MANUAL_OR_SYSTEM_AE":decision.status.replace(',',' ')));
+                                regionDecision!=null?regionDecision.shutterCapNs:
+                                    decision==null?0L:decision.shutterCeilingNs,
+                                regionDecision!=null?regionDecision.exposureNs:
+                                    decision==null?desiredExposure:decision.exposureNs,
+                                regionDecision!=null?regionDecision.iso:
+                                    decision==null?desiredIso:decision.iso,
+                                isoCeiling,regionDecision!=null?regionDecision.status.replace(',',' '):
+                                    decision==null?"MANUAL_OR_SYSTEM_AE":decision.status.replace(',',' '),
+                                autoFast?(useRegionGradient?"REGION_GRADIENT":"P50_BASELINE"):"MANUAL",
+                                gradient==null?"":Double.toString(gradient.quality),
+                                gradient==null?"":Double.toString(gradient.derivativePerEv),
+                                regionDecision==null?"":Double.toString(regionDecision.stepEv),
+                                flow.reliable?Double.toString(flow.fullFramePixelsPerSecond):"",
+                                flow.inliers,flow.candidates));
                             opticalRows++;
                         }
                         String lux=Float.isFinite(ambientLux)?String.format(Locale.US,"%.0f lux",ambientLux):"lux sensor N/A";
@@ -163,6 +202,18 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                         quality+=String.format(Locale.US,
                             " · textured P50 %d · coherent gradients %.1f%%",
                             m.featureMedian,100*m.coherentEdgeFraction);
+                        if(regionDecision!=null){
+                            quality+=String.format(Locale.US,
+                                " · %s · Q %.1f · dQ/dEV %+.1f · step %+.2fEV",
+                                regionDecision.status,regionDecision.gradientScore,
+                                regionDecision.gradientSlope,regionDecision.stepEv);
+                            quality+=String.format(Locale.US," · blur cap 1/%.0fs",
+                                1e9/regionDecision.shutterCapNs);
+                        }
+                        if(flow.reliable){
+                            quality+=String.format(Locale.US," · optical flow %.0f px/s (%d matches)",
+                                flow.fullFramePixelsPerSecond,flow.inliers);
+                        }else quality+=" · optical flow unavailable/ambiguous";
                         if(decision!=null){
                             quality+=" · "+decision.status;
                             quality+=String.format(Locale.US,
@@ -184,7 +235,11 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                     if(evidence!=null)evidence.setText("Preview brightness not available: "+e.getClass().getSimpleName());
                 }finally{if(thumbnail!=null)thumbnail.recycle();}
             }
-            if(foreground)ui.postDelayed(this,430);
+            // At bike speed a 430ms interval often exceeds ±14px patch search.
+            // Sample more frequently in BIKE mode, but hardware requests still
+            // obey independent 650ms photometric settling limits.
+            if(foreground)ui.postDelayed(this,
+                motionMode==CameraExposureOptimizer.MotionMode.BIKE?120:250);
         }
     };
 
@@ -205,6 +260,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         autoFast=prefs.getBoolean("auto_fast",true);
         isoCeiling=prefs.getInt("iso_ceiling",1600);
         targetLuma=prefs.getInt("target_luma",90);
+        useRegionGradient=prefs.getBoolean("region_gradient",true);
         motionMode="BIKE".equals(prefs.getString("motion_mode","WALK"))?
             CameraExposureOptimizer.MotionMode.BIKE:CameraExposureOptimizer.MotionMode.WALK;
         ScrollView scroller=new ScrollView(this);scroller.setFillViewport(false);
@@ -223,12 +279,22 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         root.addView(isoBar);
         autoButton=new Button(this);
         root.addView(autoButton);
+        gradientButton=new Button(this);
+        root.addView(gradientButton);
+        gradientButton.setOnClickListener(v->{
+            useRegionGradient=!useRegionGradient;
+            optimizer.reset();gradientController.reset();
+            lastCameraThumbnail=null;lastCameraThumbnailNs=0;
+            getSharedPreferences("camera2_optical_lab",MODE_PRIVATE).edit()
+                .putBoolean("region_gradient",useRegionGradient).apply();
+            configureAdaptiveControls();
+        });
         motionButton=new Button(this);
         root.addView(motionButton);
         motionButton.setOnClickListener(v->{
             motionMode=motionMode==CameraExposureOptimizer.MotionMode.BIKE?
                 CameraExposureOptimizer.MotionMode.WALK:CameraExposureOptimizer.MotionMode.BIKE;
-            optimizer.reset();
+            optimizer.reset();gradientController.reset();
             getSharedPreferences("camera2_optical_lab",MODE_PRIVATE).edit()
                 .putString("motion_mode",motionMode.name()).apply();
             configureAdaptiveControls();
@@ -236,7 +302,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         autoButton.setOnClickListener(v->{
             if(!manualCapable)return;
             autoFast=!autoFast;
-            optimizer.reset();
+            optimizer.reset();gradientController.reset();
             getSharedPreferences("camera2_optical_lab",MODE_PRIVATE).edit()
                 .putBoolean("auto_fast",autoFast).apply();
             configureAdaptiveControls();
@@ -343,6 +409,12 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         autoButton.setText(!manualCapable?"SYSTEM AUTO EXPOSURE (hardware fallback)":
             autoFast?"AUTO FAST SHUTTER · ON":"AUTO FAST SHUTTER · OFF (MANUAL)");
         autoButton.setEnabled(manualCapable);
+        if(gradientButton!=null){
+            gradientButton.setText(useRegionGradient?
+                "EXPOSURE: REGION GRADIENT (EXPERIMENTAL)":
+                "EXPOSURE: P50/GYRO BASELINE");
+            gradientButton.setEnabled(manualCapable&&autoFast);
+        }
         if(motionButton!=null){
             motionButton.setEnabled(manualCapable&&autoFast);
             motionButton.setText("Motion / blur profile: "+motionMode.name()+
@@ -356,7 +428,8 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         if(targetLabel!=null)targetLabel.setText("Brightness goal (preview median): "+targetLuma+" / 255");
     }
     @Override public void onResume(){
-        super.onResume();foreground=true;optimizer.reset();
+        super.onResume();foreground=true;optimizer.reset();gradientController.reset();
+        lastCameraThumbnail=null;lastCameraThumbnailNs=0;
         worker=new HandlerThread("manual-camera2");worker.start();handler=new Handler(worker.getLooper());
         if(lightSensor!=null)try{
             sensorManager.registerListener(lightListener,lightSensor,SensorManager.SENSOR_DELAY_NORMAL);
@@ -371,6 +444,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     @Override public void onPause(){
         foreground=false;
         ui.removeCallbacks(observePreview);
+        lastCameraThumbnail=null;lastCameraThumbnailNs=0;
         if(sensorManager!=null){
             sensorManager.unregisterListener(lightListener);
             sensorManager.unregisterListener(gyroListener);
