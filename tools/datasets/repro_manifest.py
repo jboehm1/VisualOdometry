@@ -79,9 +79,9 @@ def lock_input(path: Path, max_bytes: int = MAX_BYTES) -> dict:
 
 
 def lock_suite(path: Path, max_bytes: int = MAX_BYTES) -> dict:
-    suite_path = path.resolve(strict=True)
-    if suite_path.is_symlink():
+    if path.is_symlink():
         raise ValueError("Symlink suite not allowed")
+    suite_path = path.resolve(strict=True)
     suite = load_suite(suite_path)
     source_id = code_identity()
     # Include this lock tool and relevant stand-alone converters/contracts,
