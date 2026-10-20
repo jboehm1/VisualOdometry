@@ -32,6 +32,8 @@ public final class ArRouteGuide {
         public final List<double[]> edges;
         public final GpsNavigator.Status navigationStatus;
         public final double remainingMeters,offRouteMeters,targetX,targetZ,latitude,longitude;
+        /** Approximate world-route recovery target. Never a GPS/AR confidence interval. */
+        public double nearestX=Double.NaN,nearestZ=Double.NaN,nearestMeters=Double.NaN;
         Snapshot(State state,String name,int segment,GeoAlignment.Result fit,List<double[]> edges,GpsNavigator navigator,double[] target,double x,double z,double holdSeconds,boolean manualAdjusted){
             this.state=state;routeName=name;this.segment=segment;this.edges=Collections.unmodifiableList(edges);
             this.holdSeconds=holdSeconds;this.manualAdjusted=manualAdjusted;
@@ -166,13 +168,23 @@ public final class ArRouteGuide {
                 if(shown==State.CANDIDATE)target=fit.unproject(next.lat,next.lon);
             }
             double[] geo=fit.project(x-manualShiftX,-z+manualShiftZ);
-            if(geo!=null)for(double[] edge:index.near(geo[0],geo[1],30,512)){
+            if(geo!=null)for(double[] edge:index.near(geo[0],geo[1],80,512)){
                 double[] a=fit.unproject(edge[0],edge[1]),b=fit.unproject(edge[2],edge[3]);
                 if(a!=null&&b!=null)edges.add(new double[]{a[0]+manualShiftX,-a[1]+manualShiftZ,b[0]+manualShiftX,-b[1]+manualShiftZ});
             }
         }
         double hold=shown==State.VIO_HOLD?Math.max(0,(nowNs-lastFixNs)*1e-9):0;
         Snapshot snapshot=new Snapshot(shown,route==null?"":route.name,segment,fit,edges,navigator,target==null?null:new double[]{target[0]+manualShiftX,target[1]-manualShiftZ},x,z,hold,visualShifted());snapshot.alignmentRevision=alignmentRevision;
+        if(fit!=null&&(shown==State.CANDIDATE||shown==State.VIO_HOLD)){
+            double[] geographic=fit.project(x-manualShiftX,-z+manualShiftZ);
+            double[] near=geographic==null?null:index.closest(geographic[0],geographic[1]);
+            double[] local=near==null?null:fit.unproject(near[0],near[1]);
+            if(local!=null){
+                snapshot.nearestX=local[0]+manualShiftX;
+                snapshot.nearestZ=-local[1]+manualShiftZ;
+                snapshot.nearestMeters=Math.hypot(snapshot.nearestX-x,snapshot.nearestZ-z);
+            }
+        }
         if(shown==State.CANDIDATE&&fit!=null&&target!=null){
             List<Marker> markers=new ArrayList<>();
             double progress=navigator.progress;
