@@ -35,6 +35,67 @@ public final class CameraExposureOptimizerTest {
         c.update(1_000_000_000L,m(0,15,0),1_000_000,100,limits(),800,90);
         assertFalse(c.update(1_100_000_000L,m(0,15,0),1_000_000,100,limits(),800,90).changed);
     }
+    @Test public void bicycleGyroReducesAllowedShutterEvenIfDark(){
+        CameraExposureOptimizer.Limits hw=limits();
+        long slow=CameraExposureOptimizer.motionShutterCapNs(
+            0,CameraExposureOptimizer.MotionMode.WALK,hw);
+        long fast=CameraExposureOptimizer.motionShutterCapNs(
+            2.0,CameraExposureOptimizer.MotionMode.BIKE,hw);
+        assertEquals(25_000_000L,slow);
+        assertTrue(fast<2_000_000L);
+        assertTrue(fast<hw.maxExposureNs);
+        CameraExposureOptimizer c=new CameraExposureOptimizer();
+        CameraExposureOptimizer.Decision d=c.updateMotionAware(
+            1_000_000_000L,m(0,4,0),20_000_000L,500,hw,3200,90,
+            2.0,CameraExposureOptimizer.MotionMode.BIKE);
+        assertTrue(d.exposureNs<=fast);
+        assertTrue(d.iso<=3200);
+        assertTrue(d.motionConstrained);
+        assertTrue(d.insufficientLight);
+        assertTrue(d.predictedAngularBlurDeg<=.181);
+    }
+    @Test public void noGyroscopeHasConservativeModeLimit(){
+        long cap=CameraExposureOptimizer.motionShutterCapNs(
+            Double.NaN,CameraExposureOptimizer.MotionMode.BIKE,limits());
+        assertEquals(10_000_000L,cap);
+        assertEquals(100_000L,CameraExposureOptimizer.motionShutterCapNs(
+            1000,CameraExposureOptimizer.MotionMode.BIKE,limits()));
+    }
+    @Test public void goodLightAvoidsISOOverflowAndKeepsExposureTiny(){
+        CameraExposureOptimizer c=new CameraExposureOptimizer();
+        CameraExposureOptimizer.Decision d=c.updateMotionAware(
+            1_000_000_000L,m(75,93,0),200_000,250,limits(),1000,90,
+            4,CameraExposureOptimizer.MotionMode.BIKE);
+        assertTrue(d.exposureNs<=1_000_000);
+        assertTrue(d.iso<=1000);
+        assertFalse(d.insufficientLight);
+    }
+    @Test public void bigMotionChangeTriggersEmergencyShutterCut(){
+        CameraExposureOptimizer c=new CameraExposureOptimizer();
+        c.updateMotionAware(1_000_000_000L,m(70,80,0),
+            20_000_000,1200,limits(),1600,90,0,CameraExposureOptimizer.MotionMode.WALK);
+        CameraExposureOptimizer.Decision urgent=c.updateMotionAware(
+            1_100_000_000L,m(10,50,0),20_000_000,1200,limits(),
+            1600,90,4,CameraExposureOptimizer.MotionMode.BIKE);
+        assertTrue(urgent.changed);
+        assertTrue(urgent.exposureNs<=1_000_000L);
+    }
+    @Test public void shadowFeaturesMatterMoreThanBrightSky(){
+        CameraExposureOptimizer bright=new CameraExposureOptimizer();
+        CameraExposureOptimizer shade=new CameraExposureOptimizer();
+        CameraImageQuality.Metrics skyOnly=new CameraImageQuality.Metrics(
+            25,160,240,.1,0,.12,.0,160,1000);
+        CameraImageQuality.Metrics visiblePath=new CameraImageQuality.Metrics(
+            25,160,240,.1,0,.12,.2,30,1000);
+        CameraExposureOptimizer.Decision a=bright.updateMotionAware(
+            1_000_000_000L,skyOnly,4_000_000L,1000,limits(),1600,90,
+            0,CameraExposureOptimizer.MotionMode.WALK);
+        CameraExposureOptimizer.Decision b=shade.updateMotionAware(
+            1_000_000_000L,visiblePath,4_000_000L,1000,limits(),1600,90,
+            0,CameraExposureOptimizer.MotionMode.WALK);
+        assertTrue("textured shadows should receive more signal than featureless sky",
+            (double)b.exposureNs*b.iso>(double)a.exposureNs*a.iso);
+    }
     @Test public void clampHardStopsEvenIfSceneBlack(){
         CameraExposureOptimizer c=new CameraExposureOptimizer();
         long exposure=33_000_000L;int iso=1600;
@@ -43,7 +104,8 @@ public final class CameraExposureOptimizerTest {
                 m(0,0,0),exposure,iso,limits(),1600,90);
             exposure=d.exposureNs;iso=d.iso;
         }
-        assertEquals(33_000_000L,exposure);
+        // Motion-aware WALK profile explicitly caps long exposures at 1/40 s.
+        assertEquals(25_000_000L,exposure);
         assertEquals(1600,iso);
     }
 }
