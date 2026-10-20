@@ -153,7 +153,8 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                                 isoRange.getLower(),isoRange.getUpper());
                             if(useRegionGradient){
                                 regionDecision=gradientController.update(nowNs,gradient,m,
-                                    actualExposureNs,actualIso,bounds,isoCeiling,w,motionMode,flow);
+                                    actualExposureNs,actualIso,bounds,isoCeiling,w,motionMode,flow,
+                                    targetLuma);
                                 if(regionDecision.changed){
                                     desiredExposure=regionDecision.exposureNs;
                                     desiredIso=regionDecision.iso;
