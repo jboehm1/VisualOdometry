@@ -39,8 +39,12 @@ final class GpxExtendedGuide {
                                       float stableY,List<GroundTrail.Floor> floors,float[] vp){
         ArrayList<float[]> out=new ArrayList<>();
         if(!Float.isFinite(stableY)||vp==null||vp.length!=16)return out;
+        // Deterministic reservoir: an early, long, dense portion must not
+        // exhaust the budget before the other side of a GPX loop is visited.
+        java.util.Random select=new java.util.Random(0x51A7L);
+        int seen=0;
         for(double[] edge:edges){
-            if(edge==null||edge.length!=4||out.size()>=MAX_WORLD_DASHES)break;
+            if(edge==null||edge.length!=4)continue;
             boolean finite=true;for(double v:edge)finite&=Double.isFinite(v);
             if(!finite)continue;
             double dx=edge[2]-edge[0],dz=edge[3]-edge[1],len=Math.hypot(dx,dz);
@@ -53,11 +57,17 @@ final class GpxExtendedGuide {
             double distance=Math.hypot((edge[0]+edge[2])*.5-cx,(edge[1]+edge[3])*.5-cz);
             double step=distance<120?4.5:distance<1000?12:distance<6000?24:48;
             int parts=Math.max(1,(int)Math.ceil(len/step));
-            for(int i=0;i<parts&&out.size()<MAX_WORLD_DASHES;i++){
+            for(int i=0;i<parts;i++){
                 double t=(double)i/parts,u=Math.min(1,(i+.62)/parts);
-                out.add(new float[]{
+                float[] dash=new float[]{
                     (float)(edge[0]+dx*t),stableY+.10f,(float)(edge[1]+dz*t),
-                    (float)(edge[0]+dx*u),stableY+.10f,(float)(edge[1]+dz*u)});
+                    (float)(edge[0]+dx*u),stableY+.10f,(float)(edge[1]+dz*u)};
+                seen++;
+                if(out.size()<MAX_WORLD_DASHES)out.add(dash);
+                else {
+                    int at=select.nextInt(seen);
+                    if(at<MAX_WORLD_DASHES)out.set(at,dash);
+                }
             }
         }
         return out;
