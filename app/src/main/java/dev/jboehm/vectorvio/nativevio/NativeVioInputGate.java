@@ -31,18 +31,54 @@ public final class NativeVioInputGate {
         public final int width, height;
         public final long cameraToImuOffsetNs;
         public final boolean verified;
+        public final double fx, fy, cx, cy;
+        /** Row-major rigid T_imu_from_camera (maps camera coordinates into IMU). */
+        public final double[] tImuFromCamera;
+
         public Calibration(String cameraId, String version, int width, int height,
-                           long cameraToImuOffsetNs, boolean verified) {
+                           long cameraToImuOffsetNs, boolean verified,
+                           double fx, double fy, double cx, double cy,
+                           double[] tImuFromCamera) {
             this.cameraId = Objects.requireNonNull(cameraId, "cameraId");
             this.version = Objects.requireNonNull(version, "version");
             if (cameraId.isEmpty() || version.isEmpty() || width <= 0 || height <= 0
-                    || Math.abs(cameraToImuOffsetNs) > 500_000_000L) {
-                throw new IllegalArgumentException("Invalid calibration identity or offset");
+                    || cameraToImuOffsetNs < -500_000_000L
+                    || cameraToImuOffsetNs > 500_000_000L
+                    || !Double.isFinite(fx) || !Double.isFinite(fy)
+                    || !Double.isFinite(cx) || !Double.isFinite(cy)
+                    || fx <= 0 || fy <= 0 || cx < 0 || cx >= width
+                    || cy < 0 || cy >= height || !validRigid(tImuFromCamera)) {
+                throw new IllegalArgumentException("Invalid intrinsics, rigid extrinsics or clock offset");
             }
             this.width = width;
             this.height = height;
             this.cameraToImuOffsetNs = cameraToImuOffsetNs;
+            this.fx = fx;
+            this.fy = fy;
+            this.cx = cx;
+            this.cy = cy;
+            this.tImuFromCamera = tImuFromCamera.clone();
             this.verified = verified;
+        }
+
+        private static boolean validRigid(double[] t) {
+            if (t == null || t.length != 16) return false;
+            for (double v : t) if (!Double.isFinite(v)) return false;
+            if (Math.abs(t[12]) > 1e-5 || Math.abs(t[13]) > 1e-5
+                    || Math.abs(t[14]) > 1e-5 || Math.abs(t[15] - 1) > 1e-5)
+                return false;
+            // Rows of R must be approximately orthonormal, det(R) ~ +1.
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    double dot = 0;
+                    for (int k = 0; k < 3; k++) dot += t[4*i+k] * t[4*j+k];
+                    if (Math.abs(dot - (i == j ? 1 : 0)) > 0.01) return false;
+                }
+            }
+            double det=t[0]*(t[5]*t[10]-t[6]*t[9])
+                      -t[1]*(t[4]*t[10]-t[6]*t[8])
+                      +t[2]*(t[4]*t[9]-t[5]*t[8]);
+            return Math.abs(det - 1) < 0.01;
         }
     }
 
