@@ -31,7 +31,7 @@ public class GpsCoreTest {
         }
     }
     @Test public void gpxBudgetIsEnforced()throws Exception{
-        StringBuilder s=new StringBuilder("<gpx><rte>");for(int i=0;i<=GpsRoute.MAX_POINTS;i++)s.append("<rtept lat='1' lon='2'/>");s.append("</rte></gpx>");try{xml(s.toString());fail();}catch(Exception expected){assertTrue(expected.getMessage().contains("50000"));}
+        StringBuilder s=new StringBuilder("<gpx><rte>");for(int i=0;i<=GpsRoute.MAX_POINTS;i++)s.append("<rtept lat='1' lon='2'/>");s.append("</rte></gpx>");try{xml(s.toString());fail();}catch(Exception expected){assertTrue(expected.getMessage().contains(String.valueOf(GpsRoute.MAX_POINTS)));}
     }
     @Test public void jitterIsMatchedWhileRawOffRouteAndAccuracyRemainVisible(){
         GpsNavigator n=new GpsNavigator(line());Random random=new Random(46);
