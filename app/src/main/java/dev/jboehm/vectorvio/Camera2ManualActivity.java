@@ -12,6 +12,7 @@ import android.hardware.SensorManager;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.widget.Button;
+import android.widget.ScrollView;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -144,12 +145,14 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         autoFast=prefs.getBoolean("auto_fast",true);
         isoCeiling=prefs.getInt("iso_ceiling",1600);
         targetLuma=prefs.getInt("target_luma",90);
+        ScrollView scroller=new ScrollView(this);scroller.setFillViewport(false);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(0xFF101820);
         root.addView(text(this,"CAMERA2 · MANUAL SENSOR LAB (NOT ARCore)",17));
         root.addView(text(this,"Shutter/ISO are controlled in this separate camera preview. ARCore / 3D GPX tracking is paused. No video, PDR pose or route data are modified.",12));
         preview=new TextureView(this);preview.setSurfaceTextureListener(this);
-        root.addView(preview,new LinearLayout.LayoutParams(-1,0,1f));
+        // Keep preview visible even as diagnostics/ISO controls grow on small screens.
+        root.addView(preview,new LinearLayout.LayoutParams(-1,Math.round(250*getResources().getDisplayMetrics().density)));
         shutterLabel=text(this,"Shutter",14);root.addView(shutterLabel);
         shutterBar=new SeekBar(this);shutterBar.setMax(exposureChoicesNs.length-1);shutterBar.setProgress(2);
         root.addView(shutterBar);
@@ -165,7 +168,12 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             getSharedPreferences("camera2_optical_lab",MODE_PRIVATE).edit()
                 .putBoolean("auto_fast",autoFast).apply();
             configureAdaptiveControls();
-            if(!autoFast)submitRequest();
+            if(!autoFast){
+                desiredExposure=exposureChoicesNs[shutterBar.getProgress()];
+                if(isoRange!=null)desiredIso=isoRange.getLower()+(int)Math.round(
+                    (isoRange.getUpper()-isoRange.getLower())*(isoBar.getProgress()/100.0));
+                submitRequest();
+            }
         });
         isoCeilingLabel=text(this,"Max acceptable ISO",13);
         root.addView(isoCeilingLabel);
@@ -234,7 +242,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             @Override public void onStartTrackingTouch(SeekBar b){}
             @Override public void onStopTrackingTouch(SeekBar b){}
         });
-        setContentView(root);
+        scroller.addView(root);setContentView(scroller);
         configureAdaptiveControls();
         refreshLabels();
     }
