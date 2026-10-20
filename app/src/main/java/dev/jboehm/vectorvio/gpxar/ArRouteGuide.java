@@ -10,6 +10,8 @@ import java.util.*;
 /** Pure-Java experimental placement. Never writes poses, distance, GPX or raw fixes. */
 public final class ArRouteGuide {
     public static final long STALE_NS=5_000_000_000L;
+    /** Bounded preview around the phone, both ahead and behind the current position. */
+    public static final double WORLD_PREVIEW_RADIUS_METERS=90;
     /** Tracking-only hold after location goes stale; bounded, never absolute truth. */
     // No GNSS time cut-off: measured ARCore tracking continuity is the gate.
     // Uncertainty displayed after a loss is diagnostic, not a covariance bound.
@@ -166,7 +168,7 @@ public final class ArRouteGuide {
                 if(shown==State.CANDIDATE)target=fit.unproject(next.lat,next.lon);
             }
             double[] geo=fit.project(x-manualShiftX,-z+manualShiftZ);
-            if(geo!=null)for(double[] edge:index.near(geo[0],geo[1],30,512)){
+            if(geo!=null)for(double[] edge:index.near(geo[0],geo[1],WORLD_PREVIEW_RADIUS_METERS,950)){
                 double[] a=fit.unproject(edge[0],edge[1]),b=fit.unproject(edge[2],edge[3]);
                 if(a!=null&&b!=null)edges.add(new double[]{a[0]+manualShiftX,-a[1]+manualShiftZ,b[0]+manualShiftX,-b[1]+manualShiftZ});
             }

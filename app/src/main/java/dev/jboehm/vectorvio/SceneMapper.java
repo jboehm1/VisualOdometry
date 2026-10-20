@@ -23,7 +23,8 @@ final class SceneMapper {
         final List<MapArchive.Poi> pois;
         final int horizontal,vertical,points,anchors,segment;
         final float confidence;
-        float heading,pitch,targetMeters=-1,gpxDirectionRadians=Float.NaN;
+        float heading,pitch,targetMeters=-1,gpxDirectionRadians=Float.NaN,gpxDistanceMeters=Float.NaN;
+        boolean gpxPreviewEstimated;
         float cameraX,cameraZ;
         boolean groundEstimated,groundMissing,cameraPoseValid;
         int groundPoints;
@@ -40,6 +41,9 @@ final class SceneMapper {
     int gpxDisplayFlags=dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.ALL;
     boolean gpxMode;
     boolean gpxDepthOcclusion;
+    boolean gpxExtendedPreview=true;
+    private float previewReferenceY=Float.NaN;
+    private boolean previewReferenceObserved;
     Pose gpxWorldFromMetric;
     private final GpxDepthOcclusion depthOcclusion=new GpxDepthOcclusion();
     private final GpxRibbonAnchors gpxAnchors=new GpxRibbonAnchors();
@@ -49,7 +53,7 @@ final class SceneMapper {
     private final ArrayList<Anchor> trail=new ArrayList<>();
     private final LinkedHashMap<Long,MapPoint> mapPoints=new LinkedHashMap<>();
     private final float[] view=new float[16],projection=new float[16],vp=new float[16];
-    void clear() { for(Anchor a:trail) a.detach(); trail.clear();mapPoints.clear();gpxAnchors.clear();depthOcclusion.reset();gpxAnchorCount=0; }
+    void clear() { for(Anchor a:trail) a.detach(); trail.clear();mapPoints.clear();gpxAnchors.clear();depthOcclusion.reset();gpxAnchorCount=0;previewReferenceY=Float.NaN;previewReferenceObserved=false; }
     Snapshot update(Session session,Frame frame,Odometer.Result result,int width,int height,int segment,List<MapArchive.Poi> pois,float pointConfidence,List<Odometer.Point> history) {
         Camera camera=frame.getCamera();
         if(camera.getTrackingState()!=TrackingState.TRACKING) {
@@ -127,6 +131,17 @@ final class SceneMapper {
             worldEdges.add(new double[]{a[0],a[2],b[0],b[2]});
         }
         List<float[]> projected=GpxGroundProjector.project(worldEdges,camera.getPose().ty(),floors);
+        // Two visually DISTINCT layers: blue measured-planar part and violet
+        // approximate continuation. The latter NEVER enters anchor geometry.
+        float observed=GroundTrail.floorY(camera.getPose().tx(),camera.getPose().ty(),
+            camera.getPose().tz(),floors);
+        if(Float.isFinite(observed)&&(!previewReferenceObserved||!Float.isFinite(previewReferenceY))){
+            previewReferenceY=observed;previewReferenceObserved=true;
+        }else if(!Float.isFinite(previewReferenceY))previewReferenceY=camera.getPose().ty()-1.5f;
+        List<float[]> preview=gpxExtendedPreview && gpxRoute!=null && gpxWorldFromMetric!=null
+            ?GpxExtendedGuide.dashes(worldEdges,camera.getPose().tx(),camera.getPose().ty(),
+                camera.getPose().tz(),previewReferenceY,floors)
+            :java.util.Collections.emptyList();
         List<float[]> anchored=gpxAnchors.update(session,gpxWorldFromMetric,projected,gpxRoute==null?0:gpxRoute.segment,
             gpxRoute==null?0:gpxRoute.alignmentRevision,android.os.SystemClock.elapsedRealtimeNanos(),camera.getPose().tx(),camera.getPose().tz());
         gpxAnchorCount=gpxAnchors.size();
@@ -138,8 +153,13 @@ final class SceneMapper {
         if(!gpxDepthOcclusion)depthOcclusion.reset();
         for(float[] edge:visible){
             float[] xy=worldRendering?EMPTY:Projection.line(vp,new float[]{edge[0],edge[1],edge[2]},new float[]{edge[3],edge[4],edge[5]});
-            if(xy!=null)shapes.add(new Shape(xy,5,"",worldRendering?edge:null));
+            if(xy!=null||worldRendering)shapes.add(new Shape(xy==null?EMPTY:xy,5,"",edge));
             gpxGroundEdges++;
+        }
+        for(float[] edge:preview){
+            float[] xy=Projection.line(vp,new float[]{edge[0],edge[1],edge[2]},
+                new float[]{edge[3],edge[4],edge[5]});
+            if(xy!=null)shapes.add(new Shape(xy,7,""));
         }
         if(gpxGroundEdges>0&&gpxRoute!=null&&gpxWorldFromMetric!=null){
             for(dev.jboehm.vectorvio.gpxar.ArRouteGuide.Marker marker:gpxRoute.markers){
@@ -162,6 +182,7 @@ final class SceneMapper {
         }
         Snapshot snapshot=new Snapshot(shapes,h,v,points,history.size(),points==0?0:confidence/points,
             new ArrayList<>(mapPoints.values()),surfaces,path,currentPois,segment);
+        snapshot.gpxPreviewEstimated=!preview.isEmpty();
         snapshot.groundEstimated=groundEstimated;
         snapshot.groundMissing=groundMissing;snapshot.groundPoints=groundPoints;
         snapshot.cameraPoseValid=true;
@@ -169,6 +190,7 @@ final class SceneMapper {
         if((gpxDisplayFlags&dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.DIRECTION)!=0&&gpxRoute!=null&&gpxWorldFromMetric!=null&&Double.isFinite(gpxRoute.targetX)&&Double.isFinite(gpxRoute.targetZ)){
             float[] target=gpxWorldFromMetric.transformPoint(new float[]{(float)gpxRoute.targetX,0,(float)gpxRoute.targetZ});
             double dx=target[0]-snapshot.cameraX,dz=target[2]-snapshot.cameraZ;
+            snapshot.gpxDistanceMeters=(float)Math.hypot(dx,dz);
             float[] direction=camera.getDisplayOrientedPose().getZAxis();
             if(Math.hypot(dx,dz)>.5&&Math.hypot(direction[0],direction[2])>.2){
                 double angle=Math.atan2(dx,-dz)-Math.atan2(-direction[0],direction[2]);
