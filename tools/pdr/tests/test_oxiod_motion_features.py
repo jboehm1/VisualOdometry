@@ -1,5 +1,5 @@
 """Synthetic OxIOD layout and quaternion tests. Not proof of real dataset accuracy."""
-import csv,importlib.util,tempfile
+import csv,importlib.util,sys,tempfile
 from pathlib import Path
 import unittest
 try:import numpy as np
@@ -8,6 +8,7 @@ except ImportError:np=None
 class OxiodMotionConverter(unittest.TestCase):
     def load(self):
         p=Path(__file__).resolve().parents[1]/"oxiod_motion_features.py"
+        if str(p.parent) not in sys.path:sys.path.insert(0,str(p.parent))
         spec=importlib.util.spec_from_file_location("oxiod_motion_converter",p)
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         return module
