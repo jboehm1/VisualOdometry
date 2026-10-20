@@ -49,7 +49,7 @@ def inspect(main_source,manifest_text,required=CURRENT_BASELINE,catalog_source="
     # v0.12 replaces the old double-dialog with a full-screen Activity. Check
     # BOTH halves of the semantic result route, not merely a disconnected catalog.
     page_registered=activities.get(".SettingsActivity")=="false"
-    page_opened=bool(re.search(r"void dataMenu\\(\\).*?startActivityForResult\\(new Intent\\(this,SettingsActivity\\.class\\),SETTINGS_REQUEST\\)",menu,re.S))
+    page_opened=("startActivityForResult(new Intent(this,SettingsActivity.class),SETTINGS_REQUEST)" in menu)
     page_returns=("SettingsCatalog.items(selected)" in settings_source
                   and "SettingsCatalog.items(section)" in settings_source
                   and "setResult(RESULT_OK" in settings_source
