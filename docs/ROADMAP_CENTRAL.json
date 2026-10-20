@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-20 (v0.12 settings UI in isolated PR)",
+  "updated_at": "2026-10-20 (GPX full-world user clarification, v0.13 90m not sufficient)",
   "source_of_truth": "feature/slam-explorer:docs/ROADMAP_CENTRAL.md",
   "branch_notes": {
     "default_github_branch": "master — archive 2019, non utilisée pour intégration Android",
@@ -374,5 +374,19 @@
       "On-device font/density/accessibility manual tests not complete"
     ],
     "documentation": "docs/SETTINGS_SCREEN_V012.md"
+  },
+  "gpx_full_world_requirement": {
+    "status": "OPEN",
+    "user_goal": "Entire imported GPX globally represented in aligned world; AR renders all potentially visible segments using frustum and LOD; full-route geographic 2D map",
+    "current_v013": {
+      "pr": 34,
+      "branch": "feature/v013-gpx-world-horizon",
+      "sha": "dc6b01de0a41a35975cee53a0740586a8f0b1f42",
+      "android_ci": "SUCCESS 39461744029",
+      "three_campaigns": "SUCCESS 39461744428",
+      "limitations": "AR horizon 90m/950 edges; no S21 measured test; not full-route AR"
+    },
+    "testing": "GPX 2-30km, 50k+ points, AR frustum and 180deg rotation, observed/dashed ground separation, GNSS outages, on-bike S21, performance",
+    "documentation": "docs/coordination/GPX_FULL_WORLD_USER_REQUIREMENT_20261020.md"
   }
 }
