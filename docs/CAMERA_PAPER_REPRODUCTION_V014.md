@@ -100,3 +100,13 @@ and author implementation or supplementary code, verify all equations,
 weight choices, transfer function and VO blur feedback, cite table/section
 numbers, translate tests to paper parameter parity. Until then do not label
 implementation as "exactly the paper".
+
+## Bicycle acquisition cadence (implementation adjustment)
+
+The Camera2 preview diagnostic now samples the 160×90 image at approximately
+**120ms in BIKE**, **250ms in WALK** instead of 430ms; the 650ms camera
+photometric adjustment dead-time is independent and remains unchanged.
+This mitigates the ±14 thumbnail-pixel search range limitation at bicycle
+speeds, but does not eliminate high-speed flow aliasing or CPU/power costs.
+The user-export CSV in-memory cap is 20,000 observations, not an
+indefinite automatic recording. Phone thermal/FPS profiling is pending.
