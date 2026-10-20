@@ -32,3 +32,11 @@ References: https://developer.android.com/reference/android/hardware/camera2/Cam
 ## Paired ARCore tracking/brightness diagnostic added
 
 When the normal **ARCore VIO recording** is active, approximately once per second the existing 1-Hz camera metadata pass *attempts* `Frame.acquireCameraImage()` (no camera parameter changes), samples its Y plane at 96×54, immediately closes the image, and adds `_arcore_luma.csv` with actual `tracking_state`, `failure_reason`, P10/P50/P90, dark/clipped fractions, image edge proxy, exposure and ISO. If CPU image is temporarily unavailable or unsupported this telemetry is skipped without affecting SLAM. This explicitly enables real-light calibration **against whether ARCore was tracking** rather than guessing a single universal minimum from ambient lux. Preview RGB luma and YUV plane luma are different image spaces and should be analysed separately. The app does NOT apply manual shutter to ARCore.
+
+## Offline analysis after a phone field recording
+
+```bash
+python3 tools/camera/evaluate_illumination.py --csv path/to/session_arcore_luma.csv --out report_luma.json
+```
+
+Uses the *recorded* ARCore tracking state and failure reason to compare P50 image brightness / texture / exposure among tracked frames and dropped frames. It **does not guess a universal minimum scene lux**, does not ascribe causal illumination to every lost track and reports no deployment threshold without independent datasets. Unit fixtures in `tools/tests/test_camera_illumination.py` run under the existing GitHub Android workflow Python test step. This is how we can calibrate a sensible image brightness target later rather than inventing one now.
