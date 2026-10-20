@@ -2,7 +2,7 @@ package dev.jboehm.vectorvio.gps;
 import java.util.*;
 /** One continuous GPX segment. Disconnected segments are never stitched. */
 public final class GpsRoute {
-    public static final int MAX_POINTS=50000;
+    public static final int MAX_POINTS=120000;
     public static final class Point {
         public final double lat,lon,ele;
         public Point(double lat,double lon,double ele){if(!Geo.valid(lat,lon)||(!Double.isNaN(ele)&&!Double.isFinite(ele)))throw new IllegalArgumentException("Invalid coordinate");this.lat=lat;this.lon=lon;this.ele=ele;}
@@ -15,7 +15,7 @@ public final class GpsRoute {
     private final double[] angles;
     public final double length;
     public GpsRoute(String name,List<Point> points){
-        if(points.size()<2||points.size()>MAX_POINTS)throw new IllegalArgumentException("Route needs 2–50000 points");
+        if(points.size()<2||points.size()>MAX_POINTS)throw new IllegalArgumentException("Route needs 2–120000 points");
         this.name=cleanName(name);this.points=Collections.unmodifiableList(new ArrayList<>(points));
         int n=points.size();along=new double[n];units=new double[n][];normals=new double[n-1][];angles=new double[n-1];
         for(int i=0;i<n;i++){Point p=points.get(i);units[i]=Geo.unit(p.lat,p.lon);if(i>0){
