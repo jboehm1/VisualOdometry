@@ -60,6 +60,11 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private boolean playbackMode=false,playbackFinished=false;
     private long playbackFrames=0,playbackTrackedFrames=0;
     private final Odometer odometer = new Odometer();
+    /** B2 experimental geographic diagnostic, never GPX/odometer authority. */
+    private final dev.jboehm.vectorvio.geo.GeoFusionTracker geoFusion=
+        new dev.jboehm.vectorvio.geo.GeoFusionTracker();
+    private volatile String geoDiagnostics="GEO WAIT";
+    private long lastTrackingQualityMs;
     private final AnchoredOdometry anchoredOdometry=new AnchoredOdometry();
     private final TraceGuide traceGuide=new TraceGuide();
     private volatile boolean returnTraceRequested;
@@ -175,6 +180,27 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         training=new TrainingCapture(this,recorder);
         gps=new GpsMonitor(this,(location,status)->{
             if(odometer.isRecording())recorder.sidecar(recorder.currentFile(),"_gps.csv","wall_time_ms,elapsed_realtime_ns,provider,latitude_deg,longitude_deg,altitude_m,horizontal_accuracy_m,speed_mps,speed_accuracy_mps,bearing_deg",String.format(Locale.US,"%d,%d,%s,%.9f,%.9f,%s,%.3f,%s,%s,%s",location.getTime(),location.getElapsedRealtimeNanos(),location.getProvider(),location.getLatitude(),location.getLongitude(),location.hasAltitude()?Double.toString(location.getAltitude()):"",location.getAccuracy(),location.hasSpeed()?Float.toString(location.getSpeed()):"",location.hasSpeedAccuracy()?Float.toString(location.getSpeedAccuracyMetersPerSecond()):"",location.hasBearing()?Float.toString(location.getBearing()):""));
+            if(odometer.isRecording()){
+                dev.jboehm.vectorvio.geo.GeoFusionTracker.Report report=geoFusion.onFix(
+                    location.getElapsedRealtimeNanos(),location.getLatitude(),
+                    location.getLongitude(),location.getAccuracy());
+                switch(report.status){
+                    case CANDIDATE:geoDiagnostics=String.format(Locale.US,
+                        "GEO CANDIDATE · fit %.1f m (UNVERIFIED)",report.rmsMeters);break;
+                    case CLOCK_MISMATCH:geoDiagnostics="GEO CLOCK UNKNOWN";break;
+                    case NEED_BASELINE:geoDiagnostics="GEO NEED MOTION";break;
+                    case INCONSISTENT:geoDiagnostics="GEO INCONSISTENT";break;
+                    default:geoDiagnostics="GEO WAIT";break;
+                }
+                File log=recorder.currentFile();
+                if(log!=null)recorder.sidecar(log,"_geo_alignment.csv",
+                    "gps_time_ns,segment,status,paired_fixes,baseline_m,fit_rms_m,projected_lat_deg,projected_lon_deg",
+                    String.format(Locale.US,"%d,%d,%s,%d,%.3f,%.3f,%s,%s",
+                        location.getElapsedRealtimeNanos(),report.segment,report.status,report.matchedFixes,
+                        report.baselineMeters,report.rmsMeters,
+                        report.hasCoordinate()?Double.toString(report.latitude):"",
+                        report.hasCoordinate()?Double.toString(report.longitude):""));
+            }
             refreshHud();
         });
         gpxRouteStore=new dev.jboehm.vectorvio.gpxar.GpxArRouteStore(getFilesDir());
@@ -535,8 +561,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             case GPS_MANUAL_ALIGN:beginGpxManualMode();break;
             case GPS_ROUTES:startActivity(new Intent(this,GpsRoutesActivity.class));break;
             case PDR:
-                // Opening the no-camera screen pauses this Activity and releases ARCore.
+                // No camera in PDR foreground mode.
                 startActivity(new Intent(this,dev.jboehm.vectorvio.pdr.PdrActivity.class));break;
+            case COURSES:
+                startActivity(new Intent(this,StorePlannerActivity.class));break;
             case RETURN_TRACE:
                 if(!returnTraceRequested&&!odometer.isRecording())
                     Toast.makeText(this,"Start recording to follow one continuous trace",Toast.LENGTH_LONG).show();
@@ -588,7 +616,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             case SIMULATION:startActivity(new Intent(this,SimulationActivity.class));break;
             case HELP:
                 new AlertDialog.Builder(this).setTitle("VECTOR VIO · guide")
-                    .setMessage("Navigation & GPX: imported track, visual direction, manual adjustment, and no-camera PDR.\nLocation: GPS/Fused/IMU.\nCamera: overlays and depth.\nRecording: files, capture and export.\nMaps: points of interest and 3D scenes.\nPerformance: FPS and tests.\n\nManual GPX adjustment is not a new GPS observation. GPS-free visual continuation can drift.")
+                    .setMessage("Navigation & GPX: imported tracks, PDR without camera, and manual store planning.\nLocation: GPS/Fused/IMU.\nCamera: overlays and depth.\nRecording: files, capture and export.\nMaps: points of interest and 3D scenes.\nPerformance: FPS and tests.\n\nManual GPX adjustment is not a new GPS observation. GPS-free visual continuation can drift.")
                     .setPositiveButton("OK",null).show();break;
             default:throw new IllegalArgumentException("Unknown menu action "+a);
         }
@@ -1381,6 +1409,18 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                                 if(traceGuide.active()){traceGuide.clear();returnTraceRequested=false;guideText="RETURN STOPPED — reference lost";}
                             }
                             poseResult=odometer.onMeasuredPose(metric.tx(),metric.ty(),metric.tz(),xyz,frame.getTimestamp());
+                            if(poseResult==Odometer.Result.ACCEPTED ||
+                               poseResult==Odometer.Result.REFERENCE ||
+                               poseResult==Odometer.Result.NO_CHANGE){
+                                // ARCore timestamp may differ from Android elapsedRealtime:
+                                // use verified conversion; never pair wrong timebases.
+                                long syncedNs=gpxPoseClock.elapsedRealtimeNs(frame);
+                                if(syncedNs>0)geoFusion.onPose(odometer.currentSegment(),
+                                    syncedNs,SystemClock.elapsedRealtimeNanos(),metric.tx(),metric.tz());
+                            }else if(poseResult==Odometer.Result.GAP ||
+                                     poseResult==Odometer.Result.REJECTED){
+                                geoFusion.reset();geoDiagnostics="GEO TRACK GAP";
+                            }
                             if(poseResult==Odometer.Result.REJECTED||poseResult==Odometer.Result.GAP)anchoredOdometry.reset();
                             updateTraceGuide(metric);
                             final Pose a=anchoredOdometry.anchorPose,m=metric;
@@ -1406,10 +1446,23 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 }
             } else {
                 stopTraceGuide();anchoredOdometry.reset();
+                geoFusion.reset();geoDiagnostics="GEO TRACK LOST";
                 odometer.lostTracking();
                 String why=camera.getTrackingFailureReason().toString();
                 trackingLabel="SEARCHING";
                 message="Tracking paused: "+why.replace('_',' ').toLowerCase(Locale.US);
+            }
+            // 1 Hz diagnostic of tracking health, never a confidence proof.
+            if(odometer.isRecording()&&recorder.currentFile()!=null&&frame.getTimestamp()>0&&
+                SystemClock.elapsedRealtime()-lastTrackingQualityMs>=1000L){
+                lastTrackingQualityMs=SystemClock.elapsedRealtime();
+                recorder.sidecar(recorder.currentFile(),"_tracking_quality.csv",
+                    "wall_time_ms,frame_time_ns,tracking_state,tracking_reason,pose_hz,segment,recording,gps_accuracy_m",
+                    String.format(Locale.US,"%d,%d,%s,%s,%.2f,%d,1,",
+                        System.currentTimeMillis(),frame.getTimestamp(),
+                        camera.getTrackingState(),camera.getTrackingFailureReason(),
+                        camera.getTrackingState()==TrackingState.TRACKING?cameraHz:0f,
+                        odometer.currentSegment()));
             }
             if(resetGpxReference){gpxReference.reset();gpxAr.trackingLost();gpxGeneration++;resetGpxReference=false;}
             // The user can lock the display, walk with no recording/background
