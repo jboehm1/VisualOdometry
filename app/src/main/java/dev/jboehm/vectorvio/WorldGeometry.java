@@ -17,8 +17,8 @@ final class WorldGeometry {
     private void cap(float x,float y,float z,float width){
         for(int i=0;i<12;i++){
             double a=2*Math.PI*i/12,b=2*Math.PI*(i+1)/12;
-            route.add(x,y,z);route.add(x+(float)Math.cos(a)*width,y,z+(float)Math.sin(a)*HALF_WIDTH);
-            route.add(x+(float)Math.cos(b)*width,y,z+(float)Math.sin(b)*HALF_WIDTH);
+            route.add(x,y,z);route.add(x+(float)Math.cos(a)*width,y,z+(float)Math.sin(a)*width);
+            route.add(x+(float)Math.cos(b)*width,y,z+(float)Math.sin(b)*width);
         }
     }
     /** Finalize just two rounded ends per continuous chain, not a disk per sample. */

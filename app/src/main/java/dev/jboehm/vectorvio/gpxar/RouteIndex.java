@@ -38,24 +38,43 @@ public final class RouteIndex {
     }
     private double[] coordinate(double e,double n){return frame.toGeographic(e,n);}
     /** lat/lon endpoints of nearby clipped edges. Caps work for extremely dense or overlapping GPX. */
+    private static final class Candidate {
+        final int index;final double distance;final double[] coords;
+        Candidate(int index,double distance,double[] coords){this.index=index;this.distance=distance;this.coords=coords;}
+    }
+    /** Prefer NEAREST local segments, but emit retained lines in GPX order. */
     public List<double[]> near(double lat,double lon,double radius,int limit){
-        if(!Double.isFinite(lat)||!Double.isFinite(lon)||!Double.isFinite(radius)||radius<=0||limit<=0)return Collections.emptyList();
-        double[] center=frame.toLocal(lat,lon);double x=center[0],z=center[1];List<double[]> out=new ArrayList<>();
-        for(int c=0;c<boxes.length&&out.size()<limit;c++){
-            double[] b=boxes[c];if(b[0]>x+radius||b[2]<x-radius||b[1]>z+radius||b[3]<z-radius)continue;
-            for(int i=c*CHUNK;i<Math.min(east.length-1,(c+1)*CHUNK)&&out.size()<limit;i++){
+        if(!Double.isFinite(lat)||!Double.isFinite(lon)||!Double.isFinite(radius)||radius<=0||limit<=0)
+            return Collections.emptyList();
+        double[] center=frame.toLocal(lat,lon), xz=center;
+        double x=xz[0],z=xz[1];
+        PriorityQueue<Candidate> top=new PriorityQueue<>((a,b)->{
+            int rank=Double.compare(b.distance,a.distance);
+            return rank!=0?rank:Integer.compare(b.index,a.index);
+        });
+        for(int c=0;c<boxes.length;c++){
+            double[] b=boxes[c];
+            if(b[0]>x+radius||b[2]<x-radius||b[1]>z+radius||b[3]<z-radius)continue;
+            for(int i=c*CHUNK;i<Math.min(east.length-1,(c+1)*CHUNK);i++){
                 double ax=east[i]-x,az=north[i]-z,dx=east[i+1]-east[i],dz=north[i+1]-north[i];
                 double length2=dx*dx+dz*dz;if(length2<1e-12)continue;
                 double t=Math.max(0,Math.min(1,-(ax*dx+az*dz)/length2));
-                if(Math.hypot(ax+t*dx,az+t*dz)>radius)continue;
+                double distance=Math.hypot(ax+t*dx,az+t*dz);
+                if(distance>radius)continue;
                 double dot=ax*dx+az*dz,disc=dot*dot-length2*(ax*ax+az*az-radius*radius);
                 if(disc<0)continue;
                 double lo=Math.max(0,(-dot-Math.sqrt(disc))/length2),hi=Math.min(1,(-dot+Math.sqrt(disc))/length2);
                 if(hi<=lo)continue;
+                if(top.size()==limit && distance>=top.peek().distance)continue;
                 double[] a=coordinate(x+ax+lo*dx,z+az+lo*dz),e=coordinate(x+ax+hi*dx,z+az+hi*dz);
-                out.add(new double[]{a[0],a[1],e[0],e[1]});
+                top.offer(new Candidate(i,distance,new double[]{a[0],a[1],e[0],e[1]}));
+                if(top.size()>limit)top.poll();
             }
         }
-        return out;
+        ArrayList<Candidate> keep=new ArrayList<>(top);
+        keep.sort(Comparator.comparingInt(p->p.index));
+        ArrayList<double[]> result=new ArrayList<>(keep.size());
+        for(Candidate c:keep)result.add(c.coords);
+        return result;
     }
 }
