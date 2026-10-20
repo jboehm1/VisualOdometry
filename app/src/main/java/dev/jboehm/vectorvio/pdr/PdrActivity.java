@@ -32,6 +32,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import dev.jboehm.vectorvio.pdr.ai.TinyCarryModel;
 import dev.jboehm.vectorvio.pdr.ai.TinyCarryDiagnostic;
+import dev.jboehm.vectorvio.pdr.ai.PortableInertialModel;
+import dev.jboehm.vectorvio.pdr.ai.NeuralDiagnosticRunner;
+import dev.jboehm.vectorvio.pdr.ai.NeuralMotionEstimate;
 
 /**
  * Fully on-device, foreground-only walking/running PDR screen.
@@ -39,7 +42,7 @@ import dev.jboehm.vectorvio.pdr.ai.TinyCarryDiagnostic;
  * Backgrounding terminates the measurement segment instead of inventing movement.
  */
 public final class PdrActivity extends Activity {
-    private static final int ACTIVITY_REQUEST=711,LOCATION_REQUEST=712,EXPORT_REQUEST=713;
+    private static final int ACTIVITY_REQUEST=711,LOCATION_REQUEST=712,EXPORT_REQUEST=713,MOTION_MODEL_IMPORT=714;
     private final PdrEngine engine=new PdrEngine();
     private final Handler ui=new Handler(Looper.getMainLooper());
     private PdrSensorBridge bridge;
@@ -50,6 +53,10 @@ public final class PdrActivity extends Activity {
     private Button gaitButton,headingButton,calibrationButton,aiButton;
     private TinyCarryDiagnostic tinyAi;
     private boolean tinyAiEnabled;
+    private NeuralDiagnosticRunner motionAi=new NeuralDiagnosticRunner(null);
+    private boolean motionAiEnabled;
+    private Button motionAiButton;
+    private String motionAiModelName="NONE";
     private LocationManager gps;
     private boolean gpsOn,exportReady,autoStopped;
     private boolean activityPermissionRequested;
@@ -120,6 +127,15 @@ public final class PdrActivity extends Activity {
         bridge=new PdrSensorBridge(this,engine,new PdrSensorBridge.Callback(){
             @Override public void sample(String type,long t,double x,double y,double z,int accuracy){
                 log(type,t,x,y,z,accuracy);
+                if(motionAiEnabled && engine.isRecording()) {
+                    if("RAW_GYRO".equals(type))motionAi.gyro(t,(float)x,(float)y,(float)z);
+                    else if("RAW_ACCEL".equals(type)) {
+                        NeuralMotionEstimate estimate=motionAi.acceleration(t,(float)x,(float)y,(float)z);
+                        // Pure diagnostic; PdrEngine remains the distance/pose authority.
+                        if(estimate!=null)log("AI_DEVICE_DELTA_ONLY",t,
+                            estimate.deviceXMetres,estimate.deviceYMetres,estimate.modelScaleX,0);
+                    }
+                }
                 if(tinyAiEnabled && tinyAi!=null && engine.isRecording()){
                     if("RAW_GYRO".equals(type))tinyAi.gyro(t,(float)x,(float)y,(float)z);
                     else if("RAW_ACCEL".equals(type))
@@ -166,6 +182,9 @@ public final class PdrActivity extends Activity {
         LinearLayout aiRow=new LinearLayout(this);
         aiButton=button("AI CARRY DIAGNOSTIC OFF",aiRow);
         layout.addView(aiRow);
+        LinearLayout motionRow=new LinearLayout(this);
+        motionAiButton=button("IMPORT AI MOTION CHECKPOINT",motionRow);
+        layout.addView(motionRow);
         LinearLayout calibrateRow=new LinearLayout(this);
         calibrationButton=button("CALIBRATE LAST SESSION",calibrateRow);
         layout.addView(calibrateRow);
@@ -193,9 +212,61 @@ public final class PdrActivity extends Activity {
             tinyAiEnabled=!tinyAiEnabled;
             tinyAi.reset();render();
         });
+        motionAiButton.setOnClickListener(v->motionAiMenu());
         calibrationButton.setOnClickListener(v->calibrateLastSession());
         back.setOnClickListener(v->finish());
         render();
+    }
+    /**
+     * Import only an explicitly checksum-pinned, correctly framed local model.
+     * No network, no hidden checkpoint or silently activated movement fusion.
+     * RoNIN/TLIO pretrained weights do NOT match this binary schema.
+     */
+    private void motionAiMenu(){
+        if(engine.isRecording()){
+            Toast.makeText(this,"STOP before changing neural models",Toast.LENGTH_LONG).show();return;
+        }
+        String[] options={"IMPORT CHECKSUM-VERIFIED PDR_AI_MLP_V1 MODEL",
+            motionAiEnabled?"DISABLE AI MOTION DIAGNOSTIC":"ENABLE AI MOTION DIAGNOSTIC"};
+        new AlertDialog.Builder(this).setTitle("Neural PDR • motion candidates")
+            .setMessage("A REAL trained 24→32→4 displacement model may be imported. Require SHA256 and verified data provenance. Outputs remain DEVICE XY research predictions, NEVER geographic/world poses. RoNIN/TLIO weights are NOT plug-and-play.")
+            .setItems(options,(d,which)->{
+                if(which==0){
+                    Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    picker.addCategory(Intent.CATEGORY_OPENABLE);
+                    picker.setType("application/octet-stream");
+                    try{startActivityForResult(picker,MOTION_MODEL_IMPORT);}
+                    catch(Exception e){Toast.makeText(this,"Cannot select model: "+e.getMessage(),Toast.LENGTH_LONG).show();}
+                }else{
+                    motionAiEnabled=motionAi.hasModel()&&!motionAiEnabled;
+                    motionAi.reset();render();
+                }
+            }).setNegativeButton("CANCEL",null).show();
+    }
+    private void readPinnedMotionModel(Uri source,String expectedSha){
+        if(expectedSha==null||!expectedSha.trim().matches("[a-fA-F0-9]{64}")){
+            Toast.makeText(this,"Require an externally verified 64-character SHA-256",Toast.LENGTH_LONG).show();return;
+        }
+        if(engine.isRecording()){Toast.makeText(this,"Stop PDR first",Toast.LENGTH_LONG).show();return;}
+        try(InputStream in=getContentResolver().openInputStream(source)){
+            if(in==null)throw new java.io.IOException("cannot open model");
+            java.io.ByteArrayOutputStream output=new java.io.ByteArrayOutputStream(10000);
+            byte[] buffer=new byte[4096];int n;
+            while((n=in.read(buffer))!=-1){
+                output.write(buffer,0,n);
+                if(output.size()>100_000)throw new java.io.IOException("Model exceeds 100 kB");
+            }
+            PortableInertialModel model=PortableInertialModel.load(output.toByteArray(),
+                expectedSha.toLowerCase(Locale.ROOT));
+            motionAi=new NeuralDiagnosticRunner(model);
+            motionAiEnabled=true;motionAiModelName=model.modelId;
+            note="Verified neural CHECKPOINT • DIAGNOSTIC ONLY";
+            render();
+        }catch(Exception e){
+            motionAiEnabled=false;
+            note="AI model rejected: "+e.getMessage();
+            Toast.makeText(this,note,Toast.LENGTH_LONG).show();render();
+        }
     }
     private int dp(float n){return Math.round(n*getResources().getDisplayMetrics().density);}
     private TextView text(String s,int sp,int color){
@@ -299,6 +370,7 @@ public final class PdrActivity extends Activity {
         long startNs=SystemClock.elapsedRealtimeNanos();
         engine.start(startNs);
         if(tinyAi!=null)tinyAi.reset();
+        motionAi.reset();
         log("START",startNs,0,0,0,0);
         log("STEP_LENGTH",startNs,
             engine.snapshot(SystemClock.elapsedRealtimeNanos()).stepLengthM,0,0,0);
@@ -412,6 +484,21 @@ public final class PdrActivity extends Activity {
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
+        if(request==MOTION_MODEL_IMPORT){
+            if(result==RESULT_OK&&data!=null&&data.getData()!=null){
+                Uri source=data.getData();
+                EditText checksum=new EditText(this);
+                checksum.setSingleLine(true);
+                checksum.setHint("64-character SHA256 from training report");
+                new AlertDialog.Builder(this).setTitle("Verify trained AI model")
+                    .setMessage("Supply an independent SHA256. Network output is diagnostic only; no fabricated distance/trajectory.")
+                    .setView(checksum).setNegativeButton("CANCEL",null)
+                    .setPositiveButton("VERIFY + LOAD",(d,i)->
+                        readPinnedMotionModel(source,checksum.getText().toString().trim()))
+                    .show();
+            }
+            return;
+        }
         if(request!=EXPORT_REQUEST||result!=RESULT_OK||data==null||data.getData()==null)return;
         try{
             writer.export(this,data.getData(),
@@ -454,6 +541,9 @@ public final class PdrActivity extends Activity {
                                      completedSnapshot.steps>=5);
         gaitButton.setText(runningMode?"PROFILE: RUN":"PROFILE: WALK");
         headingButton.setText(phoneTopForward?"PHONE FORWARD":"DISTANCE ONLY");
+        motionAiButton.setText(motionAi.hasModel()?(
+            motionAiEnabled?"AI MOTION ON · "+motionAiModelName:"AI MOTION OFF · "+motionAiModelName)
+            :"IMPORT AI MOTION CHECKPOINT");
         aiButton.setEnabled(tinyAi!=null);
         aiButton.setText(tinyAi==null?"AI CARRY MODEL UNAVAILABLE":
             (tinyAiEnabled?"AI CARRY DIAGNOSTIC ON":"AI CARRY DIAGNOSTIC OFF"));
@@ -473,6 +563,13 @@ public final class PdrActivity extends Activity {
             s.cadenceStepsPerMin,s.estimatedSpeedMps,
             Double.isFinite(s.elevationM)?String.format(Locale.US,"%.1f m (uncalibrated)",s.elevationM):"unknown",
             gpsOn?"requested":"off",phoneTopForward?"opted in":"disabled"));
+        if(motionAiEnabled) {
+            NeuralMotionEstimate c=motionAi.lastCandidate();
+            sensors.append(String.format(Locale.US,
+                "\\nMOTION AI %s • %d estimates (%d rejected), device XY only: %s",
+                motionAiModelName,motionAi.candidateCount(),motionAi.rejectedPredictions(),
+                c==null?"waiting for 64 IMU samples":String.format(Locale.US,"%.2f / %.2f m",c.deviceXMetres,c.deviceYMetres)));
+        }
         trail.setPath(engine.path());
     }
     @Override protected void onPause(){
