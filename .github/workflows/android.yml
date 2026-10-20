@@ -53,6 +53,8 @@ jobs:
         run: |
           python3 -m unittest discover -s tools/tests -v
           python3 -m unittest discover -s tools/gpx_ar/tests -v
+          python3 tools/coordination/android_menu_contract.py --require GPS_ROUTES ARCORE_REPLAY FLP_AB PDR
+          python3 tools/pdr/progress.py --check
       - name: Exported ZIP alignment replay smoke (synthetic, exact Java engine)
         run: |
           mkdir -p app/build/reports/gpx-ar
@@ -67,6 +69,13 @@ jobs:
           python3 tools/gpx_ar/replay.py app/build/reports/gpx-ar/synthetic-input.zip --out app/build/reports/gpx-ar/replay --input-origin synthetic_fixture
       - name: Unit tests and installable APK
         run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
+      - name: Pure Java camera-free PDR replay and quality invariants
+        run: |
+          mkdir -p app/build/reports/pdr
+          bash tools/pdr/run.sh > app/build/reports/pdr/synthetic.json
+          python3 tools/pdr/check_fixture.py app/build/reports/pdr/synthetic.json
+          bash tools/pdr/run.sh tools/pdr/fixtures/gnss-stride.csv > app/build/reports/pdr/gnss-stride.json
+          python3 tools/pdr/check_quality_fixture.py app/build/reports/pdr/gnss-stride.json
       - name: GPS matching regression with noisy parallel paths and dense routes
         run: |
           mkdir -p app/build/reports/gps
@@ -86,6 +95,7 @@ jobs:
             app/build/reports/replay-*/
             app/build/reports/gps/
             app/build/reports/gpx-ar/
+            app/build/reports/pdr/
           retention-days: 14
           if-no-files-found: ignore
       - name: Upload APK (debug-signed, for sideloading only)

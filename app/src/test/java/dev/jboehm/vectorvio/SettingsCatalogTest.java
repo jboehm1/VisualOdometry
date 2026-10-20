@@ -28,6 +28,8 @@ public class SettingsCatalogTest {
         assertEquals(SettingsCatalog.Action.GPX_AR,navigation.get(0).action);
         assertEquals(SettingsCatalog.Action.GPS_MANUAL_ALIGN,navigation.get(1).action);
         assertTrue(navigation.stream().anyMatch(x->x.action==SettingsCatalog.Action.RETURN_TRACE));
+        assertTrue(navigation.stream().anyMatch(x->x.action==SettingsCatalog.Action.PDR));
+        assertEquals(SettingsCatalog.Section.NAVIGATION,SettingsCatalog.byId(SettingsCatalog.Action.PDR).section);
         assertTrue(SettingsCatalog.items(SettingsCatalog.Section.LOCATION).stream()
             .anyMatch(x->x.action==SettingsCatalog.Action.GPS_COMPARISON));
         assertTrue(SettingsCatalog.items(SettingsCatalog.Section.CAPTURE).stream()
