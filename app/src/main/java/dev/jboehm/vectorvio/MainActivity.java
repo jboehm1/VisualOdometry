@@ -65,6 +65,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         new dev.jboehm.vectorvio.geo.GeoFusionTracker();
     private volatile String geoDiagnostics="GEO WAIT";
     private long lastTrackingQualityMs;
+    /** v0.14 exposure telemetry only; ARCore still owns its AE/shutter settings. */
+    private long lastCameraExposureDiagnosticMs;
+    private volatile String cameraQualityLabel="";
     private final AnchoredOdometry anchoredOdometry=new AnchoredOdometry();
     private final TraceGuide traceGuide=new TraceGuide();
     private volatile boolean returnTraceRequested;
@@ -1435,6 +1438,33 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             phaseStartNs=SystemClock.elapsedRealtimeNanos();
             try{training.frame(s,frame);}catch(Exception e){training.status="VIDEO METADATA ERROR";}
             metadataMs=(SystemClock.elapsedRealtimeNanos()-phaseStartNs)/1_000_000L;
+            // Read camera's ACTUAL shutter/ISO at 1 Hz. Non-shared ARCore API:
+            // information only; we never force exposure or reconfigure AE mid-session.
+            long qualityMs=SystemClock.elapsedRealtime();
+            if(qualityMs-lastCameraExposureDiagnosticMs>=1000L && !playbackMode){
+                lastCameraExposureDiagnosticMs=qualityMs;
+                long exposureNs=0;int iso=0;
+                try{
+                    com.google.ar.core.ImageMetadata metadata=frame.getImageMetadata();
+                    exposureNs=metadata.getLong(com.google.ar.core.ImageMetadata.SENSOR_EXPOSURE_TIME);
+                    iso=metadata.getInt(com.google.ar.core.ImageMetadata.SENSOR_SENSITIVITY);
+                }catch(Exception unavailable){ /* Camera results are optional by device/frame. */ }
+                float[] sensor=imu.snapshot();
+                double angularSpeed=Math.sqrt((double)sensor[3]*sensor[3]+
+                    (double)sensor[4]*sensor[4]+(double)sensor[5]*sensor[5]);
+                CameraCaptureQuality.Assessment quality=CameraCaptureQuality.classify(
+                    exposureNs,iso,angularSpeed,
+                    frame.getCamera().getTrackingState()==TrackingState.TRACKING);
+                cameraQualityLabel=quality.state==CameraCaptureQuality.State.NORMAL ||
+                    quality.state==CameraCaptureQuality.State.UNKNOWN ||
+                    quality.state==CameraCaptureQuality.State.TRACKING_LOST?"":" · "+quality.label();
+                if(odometer.isRecording()&&recorder.currentFile()!=null)
+                    recorder.sidecar(recorder.currentFile(),"_camera_quality.csv",
+                        "frame_time_ns,exposure_ms,iso,gyro_rad_s,angular_blur_deg,quality_heuristic",
+                        String.format(Locale.US,"%d,%.4f,%d,%.6f,%.5f,%s",
+                            frame.getTimestamp(),quality.exposureMs,iso,angularSpeed,
+                            quality.angularBlurDeg,quality.state));
+            }
             if(clearMap){gpxAr.trackingLost();gpxReference.reset();gpxGeneration++;traceGuide.clear();returnTraceRequested=false;guideText="";anchoredOdometry.reset();odometer.lostTracking();mapper.clear();if(worldOverlay!=null)worldOverlay.clear();clearMap=false;}
             Odometer.Result poseResult=Odometer.Result.INACTIVE;
 
@@ -1570,7 +1600,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 lastHudUpdateMs=now;
                 if(recorder.problem()!=null) message="CSV ERROR: check Android logcat";
                 Odometer.Snapshot snap=odometer.snapshot(now);
-                String currentTracking=trackingLabel,currentMessage=message;
+                String currentTracking=trackingLabel+cameraQualityLabel,currentMessage=message;
                 int marks=markerCount;
                 runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(gpxArEnabled?gpxArText:guideText);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);hud.updateGps(gps.reading(SystemClock.elapsedRealtimeNanos()));});
             }
