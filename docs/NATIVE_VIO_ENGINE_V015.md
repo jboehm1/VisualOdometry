@@ -1,3 +1,10 @@
+## Additional completed contract work (same isolated branch)
+
+- Native `VioEngine.hpp` C++17 **interface** (not an engine): copied grayscale image buffer, raw per-sensor IMU samples, calibration struct, versioned source/segment/scale/quality pose contract with optional covariance. Its `test_vio_contract.cpp` proves memory ownership / conservative null pose on a dummy engine. CI `.github/workflows/native-vio-contracts.yml` builds/runs this smoke and independently checks commercial license inventory; a successful run does **not** imply EuRoC/TUM-VI accuracy.
+- Java gate now additionally requires finite pinhole intrinsics and rigid 4×4 `T_imu_from_camera`, with defensive cloning of its matrix. The flag `verified` remains a human/automated calibration provenance assertion and must never be enabled by assumption.
+- `tools/vio/compare_measured_runs.py` + tests creates a **gated comparison of externally measured** ATE/RPE/coverage/p95 latency/CPU/power, with incomparable datasets/hardware kept separate, post-hoc GT-assisted scale/clock fits rejected, and Pareto rather than one invented scalar ‘best’ score. Does not compute or invent these measurements. See benchmark protocol in handover.
+- Basalt upstream source SHA pinned in the **prospective** inventory (`0f3b2b52c807f70ff4e2973ce253c73329eea7bc`), but native engine is **not downloaded, built, or integrated**; its transitive dependencies remain unaudited.
+
 # VECTOR VIO — Native VIO + Camera2 · engineering plan (v0.15)
 
 **2026-10-21 — experimental R&D, not a shippable native estimator.**
