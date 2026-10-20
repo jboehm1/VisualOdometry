@@ -1,3 +1,7 @@
+## Commercial performance benchmarking (not marketing approval)
+
+A paid app should optimize **usable navigation per joule**, not just a raw VIO ATE. Maintain the mandatory A/B ledger in `tools/vio/compare_measured_runs.py`. It accepts independent, prealigned metric-scale measurements only and separates datasets/hardware and capture protocol. Measure scene coverage, re-localization latency, dropout, ATE/RPE, GPX cross-track position error, 95th-percentile latency, energy (J/min from physical power instrumentation or attributed device sensor), CPU/RAM and battery/thermal. Report raw metrics; any Pareto frontier is conditional on the tested modes. Data access rights and SDK licenses remain preconditions for release. Never use best-case-only segments to market a paid accuracy claim.
+
 # Commercial release gates — VECTOR VIO (draft, 2026-10-21)
 
 **Status: PRODUCT PLANNING / EXPERIMENTAL. No commercial-release approval.**
