@@ -27,6 +27,7 @@ final class SettingsPresentation {
             case LAYERS:return "Couches de la scène";
             case UNKNOWN_GROUND:return "Estimer les zones de sol inconnues";
             case BIKE_VIEW_HINTS:return "Alertes caméra inclinée / vélo";
+            case GPX_ESTIMATED_ROUTE:return "GPX visible sans sol détecté";
             case OVERLAY_RENDER:return "Moteur d'affichage";
             case VIDEO_TRAINING:return "Enregistrer les données caméra + IMU";
             case COLLECT_ONLY:return "Collecte sans affichage";
@@ -57,6 +58,7 @@ final class SettingsPresentation {
             case LAYERS:return "Choisir les plans détectés, points de scène et trace locale. Change seulement les éléments dessinés.";
             case UNKNOWN_GROUND:return "Si aucun sol n'est détecté, dessiner une surface approximative sous la caméra. Ne corrige pas l'odométrie.";
             case BIKE_VIEW_HINTS:return "Afficher une alerte quand la caméra voit surtout vers le bas. Ne masque pas les pièces mobiles du vélo.";
+            case GPX_ESTIMATED_ROUTE:return "Afficher le GPX passé et futur sur un plan horizontal virtuel en pointillés clairs (80 m). Le terrain n’est PAS mesuré ; désactivable.";
             case OVERLAY_RENDER:return "Choisir le rendu graphique automatique ou de secours. N'affecte pas l'estimation des poses.";
             case VIDEO_TRAINING:return "Enregistrer explicitement une séquence ARCore pour améliorer les tests. Consomme de l'espace et de la batterie.";
             case COLLECT_ONLY:return "Collecter les mesures avec moins d'affichage. Le service et les autorisations sont gérés séparément.";
@@ -77,13 +79,14 @@ final class SettingsPresentation {
         return a==SettingsCatalog.Action.GPS_TOGGLE ||
                a==SettingsCatalog.Action.IMU_TOGGLE ||
                a==SettingsCatalog.Action.UNKNOWN_GROUND ||
-               a==SettingsCatalog.Action.BIKE_VIEW_HINTS;
+               a==SettingsCatalog.Action.BIKE_VIEW_HINTS ||
+               a==SettingsCatalog.Action.GPX_ESTIMATED_ROUTE;
     }
     static String note(SettingsCatalog.Section section){
         switch(section){
             case NAVIGATION:return "GPX : une ligne sur caméra n'est fiable qu'après calage. Retour et PDR restent expérimentaux.";
             case LOCATION:return "Vitesse VIO = déplacement caméra/IMU. Vitesse GPS = localisation Android. Elles sont indépendantes.";
-            case DISPLAY:return "Un sol détecté aide à afficher le GPX ; il ne filtre pas les points suivis par ARCore.";
+            case DISPLAY:return "GPX bleu plein = sol observé. GPX pointillé = plan virtuel, pas du terrain mesuré. ARCore suit ses propres points.";
             case CAPTURE:return "Attention : vos exports peuvent contenir des coordonnées GPS et des images privées.";
             case MAPS:return "Une carte sauvegardée ne restitue pas à elle seule le suivi interne d'ARCore.";
             case ADVANCED:return "Les tests synthétiques et la CI ne prouvent pas la précision en conditions réelles.";

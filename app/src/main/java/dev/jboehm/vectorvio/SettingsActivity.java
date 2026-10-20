@@ -203,6 +203,7 @@ public final class SettingsActivity extends Activity {
             case IMU_TOGGLE:return prefs.getBoolean("imu_overlay_enabled",false);
             case UNKNOWN_GROUND:return prefs.getBoolean("estimated_ground",false);
             case BIKE_VIEW_HINTS:return prefs.getBoolean("bike_view_hints",true);
+            case GPX_ESTIMATED_ROUTE:return prefs.getBoolean("gpx_estimated_route",true);
             default:throw new IllegalArgumentException("Not toggle "+a);
         }
     }
@@ -213,6 +214,7 @@ public final class SettingsActivity extends Activity {
             case IMU_TOGGLE:key="imu_overlay_enabled";break;
             case UNKNOWN_GROUND:key="estimated_ground";break;
             case BIKE_VIEW_HINTS:key="bike_view_hints";break;
+            case GPX_ESTIMATED_ROUTE:key="gpx_estimated_route";break;
             default:throw new IllegalArgumentException("Not toggle "+a);
         }
         if(a==SettingsCatalog.Action.GPS_TOGGLE && checked &&

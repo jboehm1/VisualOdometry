@@ -112,6 +112,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile int gpxDisplayFlags=dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.ALL;
     /** Optional occlusion only; depth NEVER becomes absolute terrain or GNSS truth. */
     private volatile boolean gpxDepthEnabled;
+    /** Visual option only: distant dashed route is not observed ground. */
+    private volatile boolean gpxEstimatedRouteEnabled=true;
     private volatile boolean gpxDepthSupported;
     private final ArPoseClock gpxPoseClock=new ArPoseClock();
     private final dev.jboehm.vectorvio.gpxar.ArRouteGuide gpxAr=new dev.jboehm.vectorvio.gpxar.ArRouteGuide();
@@ -235,6 +237,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         gps.enabled=preferences.getBoolean("gps_speed_enabled",true);
         gpxDisplayFlags=preferences.getInt("gpx_display_flags",dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.ALL);
         gpxDepthEnabled=preferences.getBoolean("gpx_depth_occlusion",false);
+        gpxEstimatedRouteEnabled=preferences.getBoolean("gpx_estimated_route",true);
         estimatedGround=preferences.getBoolean("estimated_ground",false);
         keyframeIntervalSeconds=preferences.getFloat("keyframe_interval",1f);
         keyframeMinDistance=preferences.getFloat("keyframe_distance",.75f);
@@ -563,6 +566,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             case RETURN_TRACE:return returnTraceRequested?"ON":"OFF";
             case GPS_TOGGLE:return gps.enabled?"ON":"OFF";
             case BIKE_VIEW_HINTS:return getSharedPreferences("spatial_explorer",MODE_PRIVATE).getBoolean("bike_view_hints",true)?"ON":"OFF";
+            case GPX_ESTIMATED_ROUTE:return gpxEstimatedRouteEnabled?"ON · APPROXIMATE":"OFF · MEASURED ONLY";
             case UNKNOWN_GROUND:return estimatedGround?"ON":"OFF";
             case VIDEO_TRAINING:return trainingEnabled?"ARMED":"OFF";
             case POWER:return frameScheduler.mode().id.toUpperCase(Locale.US);
@@ -606,6 +610,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 boolean bikeHints=!getSharedPreferences("spatial_explorer",MODE_PRIVATE).getBoolean("bike_view_hints",true);
                 getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("bike_view_hints",bikeHints).apply();
                 hud.setBikeHints(bikeHints);break;
+            case GPX_ESTIMATED_ROUTE:
+                gpxEstimatedRouteEnabled=!gpxEstimatedRouteEnabled;
+                getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("gpx_estimated_route",gpxEstimatedRouteEnabled).apply();
+                break;
             case UNKNOWN_GROUND:
                 estimatedGround=!estimatedGround;
                 getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit()
@@ -654,7 +662,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     private void postGpxUi(Runnable task){runOnUiThread(()->{if(!isFinishing()&&!isDestroyed())task.run();});}
     private void gpxArMenu(){
-        String[] actions={gpxArEnabled?"PAUSE AR GPX":"ENABLE AR GPX", "IMPORT GPX", "LOCATION SOURCE", "REVERSE SELECTED ROUTE", "RESET ALIGNMENT", "REMOVE SELECTED ROUTE", "HELP / ACCURACY", "DISPLAY OPTIONS", "ADD ALTITUDE · EU-DEM (ONLINE)", gpxDepthEnabled?"RAW DEPTH OCCLUSION · ON":"RAW DEPTH OCCLUSION · OFF", "MANUAL GPX SLIDE · match the path", gpxLocationMuted?"GPS AID · MUTED (TEST)":"GPS AID · ON"};
+        String[] actions={gpxArEnabled?"PAUSE AR GPX":"ENABLE AR GPX", "IMPORT GPX", "LOCATION SOURCE", "REVERSE SELECTED ROUTE", "RESET ALIGNMENT", "REMOVE SELECTED ROUTE", "HELP / ACCURACY", "DISPLAY OPTIONS", "ADD ALTITUDE · EU-DEM (ONLINE)", gpxDepthEnabled?"RAW DEPTH OCCLUSION · ON":"RAW DEPTH OCCLUSION · OFF", "MANUAL GPX SLIDE · match the path", gpxLocationMuted?"GPS AID · MUTED (TEST)":"GPS AID · ON",gpxEstimatedRouteEnabled?"GPX WITHOUT DETECTED FLOOR · ON (DASHED)":"GPX WITHOUT DETECTED FLOOR · OFF"};
         new AlertDialog.Builder(this).setTitle("GPX AR · import / follow / options").setItems(actions,(d,i)->{
             if(i==0){if(gpxArEnabled)setGpxArEnabled(false);else if(!gpxAr.hasRoute())Toast.makeText(this,"Import a GPX first",Toast.LENGTH_LONG).show();
                 else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},GPX_AR_LOCATION_REQUEST);
@@ -668,6 +676,13 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             if(i==7)gpxDisplayMenu();
             if(i==8)gpxEnrichElevation();
             if(i==10)beginGpxManualMode();
+            if(i==12){
+                gpxEstimatedRouteEnabled=!gpxEstimatedRouteEnabled;
+                getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("gpx_estimated_route",gpxEstimatedRouteEnabled).apply();
+                Toast.makeText(this,gpxEstimatedRouteEnabled?
+                    "Dashed line = virtual FLAT ground, NOT measured terrain. Disable in GPX or Camera settings.":
+                    "Only measured ARCore floor pieces shown",Toast.LENGTH_LONG).show();
+            }
             if(i==11){
                 if(!gpxArEnabled){Toast.makeText(this,"Enable GPX AR first",Toast.LENGTH_LONG).show();return;}
                 gpxLocationMuted=!gpxLocationMuted;
@@ -685,7 +700,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     :"Raw Depth off after lock/unlock; plane-ground ribbon remains.",Toast.LENGTH_LONG).show();
             }
             if(i==6)new AlertDialog.Builder(this).setTitle("GPX in the camera · limits")
-                .setMessage("Import one continuous GPX segment, enable location, START/RESUME and walk with the camera. Alignment needs several fresh positions and a baseline larger than GPS noise; rotating on the spot cannot establish it. Blue = imported GPX candidate; orange = measured local trail. No automatic snapping to the GPX.\n\nBlue uses bounded nearby ARCore anchors, with observed upward planes within 30 m; unknown ground stays hidden. GPX elevation is retained but is not trusted as AR ground height. This is a see-through overlay, without obstacle occlusion. GPS bias and route errors can shift the line; the allowance shown is diagnostic, not a calibrated confidence interval.\n\nAUTO uses Google Fused when available and falls back to native GPS on unavailable/stale Fused. Both can share GNSS. Pause/background, tracking loss and reset require alignment again. No change to odometer distance. Imported route stays on this phone; enable is explicit after app restart. DISPLAY OPTIONS toggles estimated direction, 25 m markers, endpoints and local map POIs. POI distances are straight-line local AR distances; route markers use distance along the GPX. Imported named GPX waypoints are not shown in this iteration.")
+                .setMessage("Import one continuous GPX segment, enable location, START/RESUME and walk with the camera. Alignment needs several fresh positions and a baseline larger than GPS noise; rotating on the spot cannot establish it. Blue = imported GPX candidate; orange = measured local trail. No automatic snapping to the GPX.\n\nSolid blue follows detected upward ARCore floors with bounded local anchors. Pale dashed blue shows the route on a VIRTUAL HORIZONTAL PLANE where no real floor is seen (up to 80 m), not an elevation map or verified ground; disable in GPX/Camera settings. Looking away from the line shows an approximate direction back to the nearest GPX. GNSS bias, terrain relief and GPS/AR alignment errors may displace either line. Imported GPX elevation is not trusted as exact AR ground height. This is a see-through overlay, without obstacle occlusion. GPS bias and route errors can shift the line; the allowance shown is diagnostic, not a calibrated confidence interval.\n\nAUTO uses Google Fused when available and falls back to native GPS on unavailable/stale Fused. Both can share GNSS. Pause/background, tracking loss and reset require alignment again. No change to odometer distance. Imported route stays on this phone; enable is explicit after app restart. DISPLAY OPTIONS toggles estimated direction, 25 m markers, endpoints and local map POIs. POI distances are straight-line local AR distances; route markers use distance along the GPX. Imported named GPX waypoints are not shown in this iteration.")
                 .setPositiveButton("OK",null).show();
         }).show();
     }
@@ -1192,6 +1207,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(gps.enabled&&!wantGps)gps.disable();
         else gps.enabled=wantGps;
         estimatedGround=currentSettings.getBoolean("estimated_ground",false);
+        gpxEstimatedRouteEnabled=currentSettings.getBoolean("gpx_estimated_route",true);
         hud.setBikeHints(currentSettings.getBoolean("bike_view_hints",true));
         hud.setLayers(currentSettings.getInt("overlay_layers",0));
         hud.setSensors(currentSettings.getBoolean("imu_overlay_enabled",false));
@@ -1599,6 +1615,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             mapper.allowEstimatedGround=estimatedGround;
             dev.jboehm.vectorvio.gpxar.ArRouteGuide.Snapshot routeState=gpxAr.snapshot(SystemClock.elapsedRealtimeNanos());
             mapper.gpxRoute=routeState;mapper.gpxWorldFromMetric=gpxReference.worldFromMetric();mapper.gpxDisplayFlags=gpxDisplayFlags;mapper.gpxMode=gpxArEnabled;
+            mapper.gpxEstimatedGround=gpxEstimatedRouteEnabled;
             mapper.gpxDepthOcclusion=gpxArEnabled&&gpxDepthEnabled&&gpxDepthSupported&&!playbackMode;
 
             SceneMapper.Snapshot scene=mapper.update(arSession,frame,latestPoseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,history);

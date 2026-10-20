@@ -41,7 +41,7 @@ public class GpxArAndroidTest {
         ActivityController<MainActivity> c=Robolectric.buildActivity(MainActivity.class).create();
         try{
             AlertDialog gpx=openGpx(c);
-            assertEquals(12,gpx.getListView().getCount());
+            assertEquals(13,gpx.getListView().getCount());
             assertTrue(gpx.getListView().getAdapter().getItem(8).toString().startsWith("ADD ALTITUDE"));
             assertTrue(gpx.getListView().getAdapter().getItem(10).toString().contains("MANUAL GPX"));
             gpx.getListView().performItemClick(null,1,1);
