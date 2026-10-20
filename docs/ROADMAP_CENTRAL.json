@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-20 (PR #30 merged and software CI green; terrain pending)",
+  "updated_at": "2026-10-20 (v0.12 settings UI in isolated PR)",
   "source_of_truth": "feature/slam-explorer:docs/ROADMAP_CENTRAL.md",
   "branch_notes": {
     "default_github_branch": "master — archive 2019, non utilisée pour intégration Android",
@@ -355,5 +355,24 @@
       "android": "SUCCESS",
       "three_campaigns": "SUCCESS"
     }
+  },
+  "settings_v012": {
+    "branch": "feature/v012-settings-screen",
+    "base_sha": "0eeeeb22a18b88cc6fb842ecea2556fb28754c74",
+    "status": "EN_COURS",
+    "scope": [
+      "full-screen native SettingsActivity",
+      "6 section tabs and search",
+      "readable copy and contextual explanations",
+      "instant persistent GPS/IMU/ground/bike switches",
+      "typed action handoff to MainActivity",
+      "Robolectric UI contracts"
+    ],
+    "risks": [
+      "Opening settings pauses live ARCore and recording",
+      "Non-toggle actions return to main then open existing control dialogs",
+      "On-device font/density/accessibility manual tests not complete"
+    ],
+    "documentation": "docs/SETTINGS_SCREEN_V012.md"
   }
 }

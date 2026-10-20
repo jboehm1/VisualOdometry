@@ -62,6 +62,7 @@ public final class HudView extends View {
     public void setLayers(int value){layers=Math.max(0,Math.min(3,value));invalidate();}
     public int layers(){return layers;}
     public void toggleSensors(){sensors=!sensors;invalidate();}
+    public void setSensors(boolean visible){sensors=visible;invalidate();}
     public void toggleMap(){expandedMap=!expandedMap;invalidate();}
     public void updateScene(SceneMapper.Snapshot value,float[] sensorValues,float hz) {
         scene=value;imu=sensorValues;cameraHz=hz;
