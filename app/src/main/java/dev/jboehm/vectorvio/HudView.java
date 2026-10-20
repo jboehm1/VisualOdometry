@@ -170,8 +170,15 @@ public final class HudView extends View {
             int color=shape.kind==1?0xFFB5A0FF:CYAN;
             if(shape.kind==2){disc(c,xy[0]*w,xy[1]*h,d(1.2f),0x70F8D58A,false);continue;}
             if(shape.kind==5){
-                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0x5059B8FF,8);
-                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xCC59B8FF,3);continue;
+                float dist=shape.world!=null&&shape.world.length==6?
+                    (float)Math.hypot((shape.world[0]+shape.world[3])*.5f-scene.cameraX,
+                        (shape.world[2]+shape.world[5])*.5f-scene.cameraZ):10f;
+                float stroke=GpxStrokePolicy.dpWidth(dist);
+                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0x554BA9FF,stroke+3.2f);
+                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xFF70BFFF,stroke);continue;
+            }
+            if(shape.kind==7){
+                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xDDCA9EFF,2.2f);continue;
             }
             if(shape.kind==3){
                 line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0x50FF922B,8);
@@ -199,8 +206,14 @@ public final class HudView extends View {
             float x=w*.5f,y=d(190);c.save();c.rotate((float)Math.toDegrees(scene.gpxDirectionRadians),x,y);
             Path arrow=new Path();arrow.moveTo(x,y-d(13));arrow.lineTo(x-d(8),y+d(8));arrow.lineTo(x,y+d(4));arrow.lineTo(x+d(8),y+d(8));arrow.close();
             resetPaint();p.setColor(0xCC59B8FF);c.drawPath(arrow,p);c.restore();
-            label(c,"GPX · EST.",x-d(22),y+d(25),8,0xCC59B8FF,false);
+            String cue=Float.isFinite(scene.gpxDistanceMeters)
+                ?String.format(Locale.US,"GPX • %.0f m • CALAGE APPROX.",scene.gpxDistanceMeters)
+                :"GPX • CALAGE APPROX.";
+            box(c,x-d(91),y+d(11),x+d(91),y+d(37),9,0xDB091F32,0xAA588DB5);
+            label(c,cue,x-d(86),y+d(28),10,0xFF95D0FF,true);
         }
+        if(scene.gpxPreviewEstimated)
+            label(c,"GPX violet pointillé = sol NON observé",d(15),d(158),9,AMBER,true);
         c.restore();
     }
 
