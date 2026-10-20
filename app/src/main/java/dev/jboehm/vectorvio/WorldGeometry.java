@@ -8,7 +8,12 @@ final class WorldGeometry {
         void vertex(float[] xyz,int i){add(xyz[i],xyz[i+1],xyz[i+2]);}
     }
     final Batch floor=new Batch(),wall=new Batch(),points=new Batch(),route=new Batch();
-    private static final float HALF_WIDTH=.04f;
+    private final float halfWidth;
+    WorldGeometry(){this(.04f);}
+    WorldGeometry(float halfWidth){
+        if(!Float.isFinite(halfWidth)||halfWidth<=0)throw new IllegalArgumentException("halfWidth");
+        this.halfWidth=halfWidth;
+    }
     private boolean chain;
     private int previousBase;
     private float endX,endY,endZ,lastNx,lastNz,startX,startY,startZ;
@@ -16,8 +21,8 @@ final class WorldGeometry {
     private void cap(float x,float y,float z){
         for(int i=0;i<12;i++){
             double a=2*Math.PI*i/12,b=2*Math.PI*(i+1)/12;
-            route.add(x,y,z);route.add(x+(float)Math.cos(a)*HALF_WIDTH,y,z+(float)Math.sin(a)*HALF_WIDTH);
-            route.add(x+(float)Math.cos(b)*HALF_WIDTH,y,z+(float)Math.sin(b)*HALF_WIDTH);
+            route.add(x,y,z);route.add(x+(float)Math.cos(a)*halfWidth,y,z+(float)Math.sin(a)*halfWidth);
+            route.add(x+(float)Math.cos(b)*halfWidth,y,z+(float)Math.sin(b)*halfWidth);
         }
     }
     /** Finalize just two rounded ends per continuous chain, not a disk per sample. */
@@ -32,15 +37,15 @@ final class WorldGeometry {
         else if(kind==2&&xyz.length==3)points.vertex(xyz,0);
         else if(kind==3&&xyz.length==6){
             float dx=xyz[3]-xyz[0],dz=xyz[5]-xyz[2];double length=Math.hypot(dx,dz);if(length<1e-6)return;
-            float nx=(float)(-dz/length*HALF_WIDTH),nz=(float)(dx/length*HALF_WIDTH);
+            float nx=(float)(-dz/length*halfWidth),nz=(float)(dx/length*halfWidth);
             float startNx=nx,startNz=nz;
             boolean joins=chain&&Math.abs(endX-xyz[0])<1e-5f&&Math.abs(endY-xyz[1])<1e-5f&&Math.abs(endZ-xyz[2])<1e-5f;
-            float dot=(lastNx*nx+lastNz*nz)/(HALF_WIDTH*HALF_WIDTH);
+            float dot=(lastNx*nx+lastNz*nz)/(halfWidth*halfWidth);
             if(joins&&dot>-.5f){
                 float bx=lastNx+nx,bz=lastNz+nz;
                 double denominator=(double)bx*nx+(double)bz*nz;
                 if(denominator>1e-9){
-                    float scale=(float)(HALF_WIDTH*HALF_WIDTH/denominator);
+                    float scale=(float)(halfWidth*halfWidth/denominator);
                     startNx=bx*scale;startNz=bz*scale;
                     previousEnd(xyz[0],xyz[1],xyz[2],startNx,startNz);
                 }

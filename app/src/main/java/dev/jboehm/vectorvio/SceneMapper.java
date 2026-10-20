@@ -24,6 +24,8 @@ final class SceneMapper {
         final int horizontal,vertical,points,anchors,segment;
         final float confidence;
         float heading,pitch,targetMeters=-1,gpxDirectionRadians=Float.NaN;
+        float gpxReturnBearing=Float.NaN,gpxReturnMeters=Float.NaN;
+        int gpxObservedPieces,gpxEstimatedPieces;
         float cameraX,cameraZ;
         boolean groundEstimated,groundMissing,cameraPoseValid;
         int groundPoints;
@@ -43,13 +45,15 @@ final class SceneMapper {
     Pose gpxWorldFromMetric;
     private final GpxDepthOcclusion depthOcclusion=new GpxDepthOcclusion();
     private final GpxRibbonAnchors gpxAnchors=new GpxRibbonAnchors();
+    private final GpxWorldRibbon gpxRibbon=new GpxWorldRibbon();
+    boolean gpxEstimatedGround=true;
     volatile int gpxGroundEdges,gpxAnchorCount;
     boolean worldRendering;
     boolean allowEstimatedGround;
     private final ArrayList<Anchor> trail=new ArrayList<>();
     private final LinkedHashMap<Long,MapPoint> mapPoints=new LinkedHashMap<>();
     private final float[] view=new float[16],projection=new float[16],vp=new float[16];
-    void clear() { for(Anchor a:trail) a.detach(); trail.clear();mapPoints.clear();gpxAnchors.clear();depthOcclusion.reset();gpxAnchorCount=0; }
+    void clear() { for(Anchor a:trail) a.detach(); trail.clear();mapPoints.clear();gpxAnchors.clear();gpxRibbon.reset();depthOcclusion.reset();gpxAnchorCount=0; }
     Snapshot update(Session session,Frame frame,Odometer.Result result,int width,int height,int segment,List<MapArchive.Poi> pois,float pointConfidence,List<Odometer.Point> history) {
         Camera camera=frame.getCamera();
         if(camera.getTrackingState()!=TrackingState.TRACKING) {
@@ -126,8 +130,9 @@ final class SceneMapper {
             float[] a=gpxWorldFromMetric.transformPoint(new float[]{(float)edge[0],0,(float)edge[1]}),b=gpxWorldFromMetric.transformPoint(new float[]{(float)edge[2],0,(float)edge[3]});
             worldEdges.add(new double[]{a[0],a[2],b[0],b[2]});
         }
-        List<float[]> projected=GpxGroundProjector.project(worldEdges,camera.getPose().ty(),floors);
-        List<float[]> anchored=gpxAnchors.update(session,gpxWorldFromMetric,projected,gpxRoute==null?0:gpxRoute.segment,
+        GpxWorldRibbon.Result ribbons=gpxRibbon.project(worldEdges,camera.getPose().tx(),camera.getPose().ty(),
+            camera.getPose().tz(),floors,gpxRoute==null?0:gpxRoute.segment,gpxMode&&gpxEstimatedGround);
+        List<float[]> anchored=gpxAnchors.update(session,gpxWorldFromMetric,ribbons.observed,gpxRoute==null?0:gpxRoute.segment,
             gpxRoute==null?0:gpxRoute.alignmentRevision,android.os.SystemClock.elapsedRealtimeNanos(),camera.getPose().tx(),camera.getPose().tz());
         gpxAnchorCount=gpxAnchors.size();
         // Depth never decides terrain height: it may only hide a segment
@@ -141,7 +146,13 @@ final class SceneMapper {
             if(xy!=null)shapes.add(new Shape(xy,5,"",worldRendering?edge:null));
             gpxGroundEdges++;
         }
-        if(gpxGroundEdges>0&&gpxRoute!=null&&gpxWorldFromMetric!=null){
+        // Kind 7 is always a transparent, dashed, hypothetical flat plane.
+        // It is NOT measured terrain, is never used for ARCore/GNSS alignment.
+        for(float[] edge:ribbons.estimated){
+            float[] xy=worldRendering?EMPTY:Projection.line(vp,new float[]{edge[0],edge[1],edge[2]},new float[]{edge[3],edge[4],edge[5]});
+            if(xy!=null)shapes.add(new Shape(xy,7,"APPROX FLOOR",worldRendering?edge:null));
+        }
+        if((gpxGroundEdges>0||!ribbons.estimated.isEmpty())&&gpxRoute!=null&&gpxWorldFromMetric!=null){
             for(dev.jboehm.vectorvio.gpxar.ArRouteGuide.Marker marker:gpxRoute.markers){
                 int flag=marker.endpoint?dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.ENDPOINTS:dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.DISTANCES;
                 if((gpxDisplayFlags&flag)==0)continue;
@@ -166,6 +177,16 @@ final class SceneMapper {
         snapshot.groundMissing=groundMissing;snapshot.groundPoints=groundPoints;
         snapshot.cameraPoseValid=true;
         snapshot.cameraX=camera.getPose().tx();snapshot.cameraZ=camera.getPose().tz();
+        snapshot.gpxObservedPieces=gpxGroundEdges;
+        snapshot.gpxEstimatedPieces=ribbons.estimated.size();
+        if(gpxRoute!=null&&Double.isFinite(gpxRoute.nearestX)&&Double.isFinite(gpxRoute.nearestZ)&&gpxWorldFromMetric!=null){
+            float[] closest=gpxWorldFromMetric.transformPoint(new float[]{(float)gpxRoute.nearestX,0,(float)gpxRoute.nearestZ});
+            float dx=closest[0]-snapshot.cameraX,dz=closest[2]-snapshot.cameraZ;
+            float[] right=camera.getDisplayOrientedPose().getXAxis(),back=camera.getDisplayOrientedPose().getZAxis();
+            snapshot.gpxReturnMeters=(float)Math.hypot(dx,dz);
+            if(snapshot.gpxReturnMeters>.5f)
+                snapshot.gpxReturnBearing=(float)Math.atan2(dx*right[0]+dz*right[2],-(dx*back[0]+dz*back[2]));
+        }
         if((gpxDisplayFlags&dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.DIRECTION)!=0&&gpxRoute!=null&&gpxWorldFromMetric!=null&&Double.isFinite(gpxRoute.targetX)&&Double.isFinite(gpxRoute.targetZ)){
             float[] target=gpxWorldFromMetric.transformPoint(new float[]{(float)gpxRoute.targetX,0,(float)gpxRoute.targetZ});
             double dx=target[0]-snapshot.cameraX,dz=target[2]-snapshot.cameraZ;

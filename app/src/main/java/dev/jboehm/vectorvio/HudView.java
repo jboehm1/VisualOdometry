@@ -156,22 +156,42 @@ public final class HudView extends View {
         else if(sensors)drawSensors(c,d(12),h-d(334),w-d(24),d(168));
         else drawMiniMap(c,w-d(118),h-d(280),d(106),d(112),s);
         drawDataPanel(c,w,h,s);
+        drawGpxRecovery(c,w);
     }
 
+    private void drawGpxRecovery(Canvas c,int width){
+        if(scene==null||!Float.isFinite(scene.gpxReturnMeters))return;
+        if(scene.gpxReturnMeters<4&&scene.gpxObservedPieces>0)return;
+        String direction;
+        if(!Float.isFinite(scene.gpxReturnBearing))direction="GPX · TOURNEZ POUR CHERCHER";
+        else if(scene.gpxReturnBearing>0.4)direction="GPX  →  "+Math.round(scene.gpxReturnMeters)+" m";
+        else if(scene.gpxReturnBearing<-.4)direction="GPX  ←  "+Math.round(scene.gpxReturnMeters)+" m";
+        else if(Math.cos(scene.gpxReturnBearing)<0)direction="GPX  ↶  "+Math.round(scene.gpxReturnMeters)+" m";
+        else direction="GPX  ↑  "+Math.round(scene.gpxReturnMeters)+" m";
+        float top=d(206);
+        box(c,d(12),top,width-d(12),top+d(34),10,0xD2082332,0x9068B5EF);
+        label(c,direction,d(26),top+d(23),14,CYAN,true);
+    }
     private void drawScene(Canvas c,int w,int h) {
         if(scene==null)return;
         c.save();c.clipRect(0,d(138),w,h-d(166));
         for(SceneMapper.Shape shape:scene.shapes) {
-            if(worldGpu&&(shape.kind<4||shape.kind==5))continue;
+            if(worldGpu&&(shape.kind<4||shape.kind==5||shape.kind==7))continue;
             if(shape.kind<2 && (layers==2 || layers==3))continue;
             if(shape.kind==2 && (layers==1 || layers==3))continue;
             float[] xy=shape.xy;
-            if(xy==null||xy.length%2!=0||((shape.kind==2||shape.kind==4||shape.kind==6)&&xy.length<2)||((shape.kind==3||shape.kind==5)&&xy.length<4)||(shape.kind<2&&xy.length<6))continue;
+            if(xy==null||xy.length%2!=0||((shape.kind==2||shape.kind==4||shape.kind==6)&&xy.length<2)||((shape.kind==3||shape.kind==5||shape.kind==7)&&xy.length<4)||(shape.kind<2&&xy.length<6))continue;
             int color=shape.kind==1?0xFFB5A0FF:CYAN;
             if(shape.kind==2){disc(c,xy[0]*w,xy[1]*h,d(1.2f),0x70F8D58A,false);continue;}
-            if(shape.kind==5){
-                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0x5059B8FF,8);
-                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xCC59B8FF,3);continue;
+            if(shape.kind==5||shape.kind==7){
+                float range=12f;
+                if(scene!=null&&shape.world!=null&&shape.world.length>=6)
+                    range=(float)Math.hypot((shape.world[0]+shape.world[3])*.5-scene.cameraX,
+                                            (shape.world[2]+shape.world[5])*.5-scene.cameraZ);
+                float width=shape.kind==5?Math.max(1.6f,6f/(1f+range/14f)):
+                    Math.max(1.2f,3.6f/(1f+range/16f));
+                int tint=shape.kind==5?0xEB59B8FF:0xA095C4FF;
+                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,tint,width);continue;
             }
             if(shape.kind==3){
                 line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0x50FF922B,8);
