@@ -18,7 +18,14 @@ public final class GpsNavigator {
     public GpsNavigator(GpsRoute route){this.route=route;}
     public void joinNearest(){join=true;initialized=false;reacquire=false;accepted=null;lastReceived=0;matcher.clear();outside=inside=arrivals=0;off=false;status=Status.SEARCHING;}
     public void selectProgress(double s){if(!Double.isFinite(s))throw new IllegalArgumentException("Invalid route progress");progress=Math.max(0,Math.min(route.length,s));join=false;initialized=true;reacquire=false;accepted=null;lastReceived=0;matcher.seed(progress);outside=inside=arrivals=0;off=false;status=Status.SEARCHING;}
-    public boolean update(Fix f,long now){
+    public boolean update(Fix f,long now){return updateInternal(f,now,Double.NaN);}
+    /** Only pair VIO travel with precisely preceding accepted GPS fix. */
+    public boolean updateWithVio(Fix f,long now,double vioTravelMeters,long precedingFixNs){
+        boolean paired=accepted!=null&&accepted.ns==precedingFixNs&&precedingFixNs>0
+            &&Double.isFinite(vioTravelMeters)&&vioTravelMeters>=0&&vioTravelMeters<=100;
+        return updateInternal(f,now,paired?vioTravelMeters:Double.NaN);
+    }
+    private boolean updateInternal(Fix f,long now,double vioTravelMeters){
         if(f==null||!Geo.valid(f.lat,f.lon)||!Double.isFinite(f.accuracy)||f.accuracy<=0||f.ns<=0||f.ns>now||now-f.ns>5_000_000_000L){status=Status.STALE;return false;}
         if(f.ns<=lastReceived)return false;lastReceived=f.ns;
         if(f.accuracy>30){status=Status.POOR_ACCURACY;outside=inside=arrivals=0;matcher.clear();return false;}
@@ -51,7 +58,10 @@ public final class GpsNavigator {
         }
         double radius=accepted==null?100:Math.max(60,Math.min(1200,travel+4*f.accuracy+30));
         double low=join?0:Math.max(0,progress-radius),high=join?route.length:Math.min(route.length,progress+radius);
-        double observed=Double.isFinite(f.speed)&&f.speed>=0&&f.speed<80?f.speed*Math.min(15,dt):travel;
+        // Candidate VIO step length affects the transition score, never GPS truth.
+        double observed=Double.isFinite(vioTravelMeters)&&vioTravelMeters<=25*Math.max(.001,dt)+5
+            ?vioTravelMeters
+            :(Double.isFinite(f.speed)&&f.speed>=0&&f.speed<80?f.speed*Math.min(15,dt):travel);
         GpsRoute.Match m=matcher.update(route,f.lat,f.lon,f.accuracy,low,high,progress,observed,Math.max(.001,dt),Double.isFinite(f.bearing)&&f.speed>=1?f.bearing:Double.NaN);
         offDistance=m.distance;accepted=f;
         if(m.ambiguous){status=Status.AMBIGUOUS;arrivals=0;return true;}

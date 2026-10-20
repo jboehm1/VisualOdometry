@@ -25,6 +25,8 @@
         <meta-data android:name="com.google.ar.core" android:value="optional" />
         <service android:name=".GpsNavigationService" android:exported="false" android:foregroundServiceType="location" />
         <activity android:name=".GpsRoutesActivity" android:exported="false" />
+        <!-- Offline manual store plan, no camera or background location. -->
+        <activity android:name=".StorePlannerActivity" android:exported="false" android:screenOrientation="portrait" />
         <!-- Optional camera-free PDR screen; sensors stop when backgrounded. -->
         <activity android:name=".pdr.PdrActivity" android:exported="false" android:screenOrientation="portrait" />
         <!-- Foreground-only, explicitly launched location A/B diagnostic. -->

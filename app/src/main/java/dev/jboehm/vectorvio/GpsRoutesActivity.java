@@ -139,6 +139,13 @@ public final class GpsRoutesActivity extends Activity {
         String detail=s.fix==null?"":Double.isFinite(s.fix.accuracy)?String.format(Locale.FRANCE,"GPS ±%.0f m",s.fix.accuracy):"Précision GPS inconnue";
         if(s.route!=null){detail+=String.format(Locale.FRANCE," · reste %.0f m",Math.max(0,s.route.length-s.progress));if(Double.isFinite(s.off))detail+=String.format(Locale.FRANCE," · écart %.0f m",s.off);}
         if(Double.isFinite(s.bearing)&&(s.status==GpsNavigator.Status.FOLLOWING||s.status==GpsNavigator.Status.OFF_ROUTE||s.status==GpsNavigator.Status.TO_START))detail+=String.format(Locale.FRANCE,"\nCible %.0f° nord vrai",s.bearing);
+        if(s.route!=null&&s.status==GpsNavigator.Status.FOLLOWING&&s.fix!=null){
+            dev.jboehm.vectorvio.gps.IntersectionAdvisor.Hint hint=
+                dev.jboehm.vectorvio.gps.IntersectionAdvisor.upcoming(s.route,s.progress,s.fix.accuracy);
+            if(hint!=null)detail+=String.format(Locale.FRANCE,
+                "\nGPX : virage %.0f° dans %.0f m — vérifiez le terrain (non détecté par caméra)",
+                Math.abs(hint.turnDegrees),hint.metersAhead);
+        }
         return label+"\n"+detail+(s.recording?"\n● Enregistrement · "+s.recorded+" points":"")+(s.message.isEmpty()?"":"\n"+s.message);
     }
     private void help(){new AlertDialog.Builder(this).setTitle("Suivi GPS hors ligne").setMessage("Importer une trace GPX ou une route (lignes droites entre ses points, pas de calcul routier). Les segments discontinus restent séparés. Départ guide vers le premier point ; Reprendre utilise la progression sauvegardée. Rejoindre estime la position sur la trace, un appui long permet de la confirmer. Pincer pour zoomer, glisser pour déplacer, double appui pour ajuster.\n\nBleu : position GPS et cercle de précision annoncé. Jaune : estimation sur la trace lorsqu'elle est non ambiguë. Vert : départ ; rose : arrivée. Repères kilométriques le long du parcours. Le cap cible est relatif au nord vrai, pas à l'orientation du téléphone. Pas de fond de carte ni de réseau de chemins voisins ; la trace ne prouve pas que vous êtes sur le bon chemin parallèle.\n\nLe service GPS continue écran éteint avec notification ARRÊTER ; aucune caméra ni ARCore nécessaire. Il peut accompagner WALK. Précision insuffisante, interruption ou ambiguïté suspendent le guidage. Vibration d'écart optionnelle. Après fermeture forcée, redémarrer explicitement ; récupérer une promenade interrompue via Récupérer trace.\n\nLes positions restent sur ce téléphone, sans upload. L'export partage uniquement le GPX choisi. Arrivée et correspondance restent des estimations GPS.").setPositiveButton("OK",null).show();}
