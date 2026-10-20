@@ -1,3 +1,7 @@
+## Datasets / matrices déterministes : état documenté 21/10/2026
+
+**Livré sur branche PR #43** : `tools/datasets/repro_manifest.py` (hash SHA256 des datasets locaux y compris arborescences et du code source, validation de l'état exact, symlink interdit, sorties historiques immuables), suite `deterministic-pdr-smoke.json` Java/Python et `.github/workflows/datasets-determinism.yml`. **C'est une garantie de reproductibilité d'entrée**, pas une preuve de dérive métrique ou d'ancrage GPX. Réutilise le moteur unique `tools/testenv` / `tools/campaigns/unified.py`; les runners ADVIO et Mobile-GVIO réels restent distincts. **Non faits** : acquisition S21 GPS+RTK indépendante, qualification PDR OxIOD/RoNIN complète, Basalt/JNI Android, A/B métrique et énergétique sur le même appareil. Voir [matrice](DATASET_REPRODUCIBILITY_V016.md), [handover](HANDOVER_WORK_AUTONOMOUS_V016.md) et [checkpoint Work](work/ACTIVE_SPRINT.md).
+
 ## Work continuation and comparative navigation goal
 
 A full [autonomous Work handover](HANDOVER_WORK_AUTONOMOUS_V016.md) records the GPX anchor fail-closed design, PDR camera-free validation, fair ARCore/Camera2 native-VIO comparisons, energy/cost Pareto metrics, and persistent iteration/checkpoint instructions. Extreme conditions require **visible uncertainty and safe degradation**, not unverified perfect anchoring. Read it and current Git/CI before each new agent cycle; never interpret the document as proof that Work runs indefinitely or without external permissions.
