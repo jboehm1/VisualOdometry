@@ -1,3 +1,7 @@
+## Datasets reproductibles et poursuite autonome (v0.16)
+
+Les **suites existantes** `testenv.py` et les runners `benchmark.py` sont conservés. Nouvelle preuve par hash `tools/datasets/repro_manifest.py` (lock/verify, fichiers/sources, détection de mutations, provenance inconnue déclarée), et smoke CI des moteurs Java PDR + baseline Python sur IMU **synthétique**, sans prétendre à une précision terrain. Matrice complète des vrais datasets disponibles/limites/licences et protocole GPX-PDR-ARCore-vs-natif : [DATASET_REPRODUCIBILITY_V016.md](docs/DATASET_REPRODUCIBILITY_V016.md). Boucle Work et checkpoint : [handover autonome](docs/HANDOVER_WORK_AUTONOMOUS_V016.md) · [ACTIVE_SPRINT.md](docs/work/ACTIVE_SPRINT.md).
+
 See the complete **autonomous Work-mode engineering handover**: [GPX + PDR + ARCore/native-VIO A/B](docs/HANDOVER_WORK_AUTONOMOUS_V016.md). This document defines iterative Git/CI checkpoints, ground-truth protocols, commercial constraints and continuation rules. It is a plan, not a claim of complete robustness.
 
 ## Native VIO v0.15 R&D / possible commercial product
