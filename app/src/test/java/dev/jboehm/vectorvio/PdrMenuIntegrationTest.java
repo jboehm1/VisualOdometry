@@ -22,16 +22,25 @@ public final class PdrMenuIntegrationTest {
             ArrayList<View> matches=new ArrayList<>();
             c.get().getWindow().getDecorView().findViewsWithText(matches,"MENU",View.FIND_VIEWS_WITH_TEXT);
             assertEquals(1,matches.size());assertTrue(matches.get(0).performClick());
-            AlertDialog root=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
-            assertEquals(6,root.getListView().getCount());
-            root.getListView().performItemClick(null,SettingsCatalog.Section.NAVIGATION.ordinal(),SettingsCatalog.Section.NAVIGATION.ordinal());
-            AlertDialog category=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+            org.robolectric.shadows.ShadowActivity.IntentForResult request=
+                Shadows.shadowOf(c.get()).getNextStartedActivityForResult();
+            assertEquals(SettingsActivity.class.getName(),request.intent.getComponent().getClassName());
+            ActivityController<SettingsActivity> page=Robolectric.buildActivity(SettingsActivity.class).create().start().resume();
+            try{
+                assertTrue(page.get().getWindow().getDecorView().findViewWithTag("tab_NAVIGATION").performClick());
+                View row=page.get().getWindow().getDecorView().findViewWithTag("setting_PDR");
+                assertNotNull(row);
+                row.performClick();
+                Intent result=Shadows.shadowOf(page.get()).getResultIntent();
+                assertEquals("PDR",result.getStringExtra(SettingsActivity.EXTRA_ACTION));
+                c.get().onActivityResult(147,android.app.Activity.RESULT_OK,result);
+            }finally{page.pause().stop().destroy();}
+            
             java.util.List<SettingsCatalog.Item> actions=SettingsCatalog.items(SettingsCatalog.Section.NAVIGATION);
             int found=-1;
             for(int i=0;i<actions.size();i++)if(actions.get(i).action==SettingsCatalog.Action.PDR)found=i;
             assertTrue("PDR must not collide with GPX AR, 2D GPS or manual slide",found>=0);
-            assertTrue(category.getListView().getAdapter().getItem(found).toString().contains("NO CAMERA"));
-            category.getListView().performItemClick(null,found,found);
+
             Intent intent=Shadows.shadowOf(c.get()).getNextStartedActivity();
             assertNotNull(intent);
             assertNotNull(intent.getComponent());

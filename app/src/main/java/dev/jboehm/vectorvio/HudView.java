@@ -56,12 +56,30 @@ public final class HudView extends View {
     public void setRendererLabel(String label){rendererLabel=label;invalidate();}
     public void setWorldGpu(boolean enabled){worldGpu=enabled;postInvalidate();}
     private boolean sensors=false, expandedMap=false;
+    private dev.jboehm.vectorvio.gps.GpsRoute loadedGpx;
+    private List<float[]> localGpx=java.util.Collections.emptyList();
+    private double gpsMapLat=Double.NaN,gpsMapLon=Double.NaN,gpsMapAccuracy=Double.NaN;
+    public void setGpxMapRoute(dev.jboehm.vectorvio.gps.GpsRoute route){
+        loadedGpx=route;localGpx=java.util.Collections.emptyList();invalidate();
+    }
+    public void updateLocalGpx(List<float[]> worldEdges){localGpx=worldEdges;invalidate();}
+    public void updateMapGps(double latitude,double longitude,double accuracy){
+        gpsMapLat=latitude;gpsMapLon=longitude;gpsMapAccuracy=accuracy;invalidate();
+    }
+    public boolean isMapExpanded(){return expandedMap;}
+    public boolean canToggleMapAt(float x,float y){
+        int w=getWidth(),h=getHeight();if(w<=0||h<=0)return false;
+        if(expandedMap)return x>=w-d(85)&&x<=w-d(8)&&y>=d(143)&&y<=d(210);
+        if(sensors)return false;
+        return x>=w-d(130)&&x<=w-d(7)&&y>=h-d(290)&&y<=h-d(158);
+    }
     private final float[] accelerationHistory=new float[90];
     private int historyIndex=0;
     public void cycleLayers(){ layers=(layers+1)%4;invalidate(); }
     public void setLayers(int value){layers=Math.max(0,Math.min(3,value));invalidate();}
     public int layers(){return layers;}
     public void toggleSensors(){sensors=!sensors;invalidate();}
+    public void setSensors(boolean visible){sensors=visible;invalidate();}
     public void toggleMap(){expandedMap=!expandedMap;invalidate();}
     public void updateScene(SceneMapper.Snapshot value,float[] sensorValues,float hz) {
         scene=value;imu=sensorValues;cameraHz=hz;
@@ -134,7 +152,7 @@ public final class HudView extends View {
         label(c,gpsStatus+" · "+captureStatus,d(14),d(58),9,MUTED,false);
         label(c,String.format(Locale.US,"%d KF · %d POI · %s · POSE %.0f Hz",keyframes,poiCount,rendererLabel,cameraHz),d(14),d(130),9,MUTED,false);
         if(scene!=null)label(c,"PATH · "+(scene.groundEstimated?"FLOOR EST.":scene.groundMissing?(scene.groundPoints>0?"FLOOR PARTIAL":"NO FLOOR"):"FLOOR"),w-d(135),d(130),9,0xFFFFAB57,true);
-        if(expandedMap)drawLiveMap(c,d(12),d(143),w-d(24),Math.max(d(80),h-d(315)),s);
+        if(expandedMap)drawExpandedMap(c,w,h,s);
         else if(sensors)drawSensors(c,d(12),h-d(334),w-d(24),d(168));
         else drawMiniMap(c,w-d(118),h-d(280),d(106),d(112),s);
         drawDataPanel(c,w,h,s);
@@ -230,7 +248,7 @@ public final class HudView extends View {
 
     private void drawMiniMap(Canvas c,float l,float top,float width,float height,Odometer.Snapshot s) {
         box(c,l,top,l+width,top+height,10,0x90071825,0);
-        label(c,"ROUTE · X/Z",l+d(10),top+d(20),9,MUTED,true);
+        label(c,"TRACE · ZOOM ↗",l+d(7),top+d(19),9,CYAN,true);
         float centerX=l+width/2f,centerY=top+height*.56f;
         for(int i=-2;i<=2;i++){
             line(c,centerX+i*width/6f,top+d(31),centerX+i*width/6f,top+height-d(9),0x273B7886,.7f);
@@ -268,10 +286,14 @@ public final class HudView extends View {
     /** Dense but bounded X/Z view of the current ARCore tracking segment. */
     private void drawLiveMap(Canvas c,float l,float top,float width,float height,Odometer.Snapshot s) {
         box(c,l,top,l+width,top+height,14,0xE9071825,0x8063A9B5);
-        label(c,"FULL ROUTE + LIVE GEOMETRY · X / Z",l+d(11),top+d(19),9,CYAN,true);
+        label(c,localGpx.isEmpty()?"TRACE VIO · X/Z":"TRACE VIO + GPX APPROX.",l+d(11),top+d(19),10,CYAN,true);
         if(scene==null){label(c,"Waiting for tracked geometry…",l+d(15),top+d(48),11,MUTED,false);return;}
         double minX=scene.cameraX,maxX=minX,minZ=scene.cameraZ,maxZ=minZ;
-        for(SceneMapper.MapPoint point:scene.mapPoints){minX=Math.min(minX,point.x);maxX=Math.max(maxX,point.x);minZ=Math.min(minZ,point.z);maxZ=Math.max(maxZ,point.z);}
+        // Fit to trail and GPX, not distant point-cloud features.
+        for(float[] edge:localGpx){
+            minX=Math.min(minX,Math.min(edge[0],edge[2]));maxX=Math.max(maxX,Math.max(edge[0],edge[2]));
+            minZ=Math.min(minZ,Math.min(edge[1],edge[3]));maxZ=Math.max(maxZ,Math.max(edge[1],edge[3]));
+        }
         for(float[] path:scene.path){minX=Math.min(minX,path[0]);maxX=Math.max(maxX,path[0]);minZ=Math.min(minZ,path[2]);maxZ=Math.max(maxZ,path[2]);}
         for(MapArchive.Poi poi:scene.pois){minX=Math.min(minX,poi.pose[0]);maxX=Math.max(maxX,poi.pose[0]);minZ=Math.min(minZ,poi.pose[2]);maxZ=Math.max(maxZ,poi.pose[2]);}
         if(s!=null)for(Odometer.Point point:s.worldTrail){minX=Math.min(minX,point.x);maxX=Math.max(maxX,point.x);minZ=Math.min(minZ,point.z);maxZ=Math.max(maxZ,point.z);}
@@ -294,6 +316,9 @@ public final class HudView extends View {
             float x=(float)(cx+(point.x-midX)*scale),y=(float)(cy+(point.z-midZ)*scale);
             int tint=point.y>1.5f?0xFFAB95FF:0xFFFFD080;disc(c,x,y,d(2f),tint,false);
         }
+        for(float[] e:localGpx)
+            line(c,(float)(cx+(e[0]-midX)*scale),(float)(cy+(e[1]-midZ)*scale),
+                (float)(cx+(e[2]-midX)*scale),(float)(cy+(e[3]-midZ)*scale),0xFF70A8FF,3);
         Odometer.Point prior=null;
         if(s!=null)for(Odometer.Point pose:s.worldTrail){
             if(prior!=null&&prior.segment==pose.segment)line(c,(float)(cx+(prior.x-midX)*scale),(float)(cy+(prior.z-midZ)*scale),(float)(cx+(pose.x-midX)*scale),(float)(cy+(pose.z-midZ)*scale),CYAN,2.3f);prior=pose;
@@ -306,7 +331,85 @@ public final class HudView extends View {
             drawPositionMarker(c,(float)(cx+(last.x-midX)*scale),(float)(cy+(last.z-midZ)*scale),false);
         }
         c.restore();
-        label(c,String.format(Locale.US,"%d scene points · %d planes · %d markers · %.1f m view",scene.mapPoints.size(),scene.horizontal+scene.vertical,scene.pois.size(),side),l+d(11),top+height-d(4),9,MUTED,false);
+        label(c,String.format(Locale.US,"cyan = VIO · bleu = GPX si calé · %.0f m",side),l+d(11),top+height-d(4),9,MUTED,false);
+    }
+
+
+    private void drawExpandedMap(Canvas c,int w,int h,Odometer.Snapshot s){
+        float l=d(12),top=d(143),width=w-d(24),height=Math.max(d(115),h-d(350));
+        box(c,l,top,l+width,top+height,14,0xFF071925,0xFF476D82);
+        label(c,"CARTE · TRACE ET GPX",l+d(12),top+d(25),16,INK,true);
+        box(c,w-d(67),top+d(6),w-d(19),top+d(52),9,0xFF204555,0xFF7291A4);
+        label(c,"×",w-d(52),top+d(38),27,INK,true);
+        float bodyTop=top+d(59),insideHeight=height-d(71);
+        if(loadedGpx==null){
+            drawLiveMap(c,l+d(5),bodyTop,width-d(10),insideHeight,s);
+            label(c,"Importer un GPX avec le bouton GPX",l+d(15),top+height-d(7),9,AMBER,false);
+        }else{
+            float localHeight=Math.max(d(60),insideHeight*.52f);
+            drawLiveMap(c,l+d(5),bodyTop,width-d(10),localHeight,s);
+            drawGeoRoute(c,l+d(5),bodyTop+localHeight+d(7),width-d(10),
+                Math.max(d(54),insideHeight-localHeight-d(7)));
+        }
+    }
+    /** Full imported GPX remains visible even when camera/GPS have not aligned. */
+    private void drawGeoRoute(Canvas c,float l,float top,float width,float height){
+        dev.jboehm.vectorvio.gps.GpsRoute gpx=loadedGpx;
+        if(gpx==null)return;
+        box(c,l,top,l+width,top+height,11,0xFF102839,0xFF456D8C);
+        String name=gpx.name.length()>21?gpx.name.substring(0,20)+"…":gpx.name;
+        label(c,"GPX · "+name,l+d(10),top+d(18),11,0xFF8BBEFF,true);
+        if(localGpx.isEmpty())label(c,"NON CALÉ AVEC VIO",l+d(10),top+d(32),9,AMBER,false);
+        int n=gpx.points.size(),stride=Math.max(1,(int)Math.ceil((n-1d)/999d));
+        double lat0=gpx.points.get(0).lat,lon0=gpx.points.get(0).lon;
+        double cs=Math.cos(Math.toRadians(lat0)),R=6371008.8;
+        double minE=Double.POSITIVE_INFINITY,maxE=Double.NEGATIVE_INFINITY;
+        double minN=Double.POSITIVE_INFINITY,maxN=Double.NEGATIVE_INFINITY;
+        java.util.ArrayList<double[]> xy=new java.util.ArrayList<>();
+        for(int i=0;i<n;i+=stride){
+            dev.jboehm.vectorvio.gps.GpsRoute.Point p=gpx.points.get(i);
+            double[] v={R*Math.toRadians(wrapLongitude(p.lon-lon0))*cs,R*Math.toRadians(p.lat-lat0)};
+            xy.add(v);minE=Math.min(minE,v[0]);maxE=Math.max(maxE,v[0]);
+            minN=Math.min(minN,v[1]);maxN=Math.max(maxN,v[1]);
+        }
+        if((n-1)%stride!=0){
+            dev.jboehm.vectorvio.gps.GpsRoute.Point p=gpx.points.get(n-1);
+            double[] v={R*Math.toRadians(wrapLongitude(p.lon-lon0))*cs,R*Math.toRadians(p.lat-lat0)};
+            xy.add(v);minE=Math.min(minE,v[0]);maxE=Math.max(maxE,v[0]);
+            minN=Math.min(minN,v[1]);maxN=Math.max(maxN,v[1]);
+        }
+        float x0=l+d(17),x1=l+width-d(17),y0=top+d(36),y1=top+height-d(21);
+        if(x1-x0<d(10)||y1-y0<d(8))return;
+        double midE=(minE+maxE)/2,midN=(minN+maxN)/2;
+        double span=Math.max(5,Math.max(maxE-minE,maxN-minN)*1.2);
+        double scale=Math.min((x1-x0)/span,(y1-y0)/span);
+        float cx=(x0+x1)*.5f,cy=(y0+y1)*.5f;
+        Path track=new Path();
+        c.save();c.clipRect(x0,y0,x1,y1);
+        for(int i=0;i<xy.size();i++){
+            double[] v=xy.get(i);float px=(float)(cx+(v[0]-midE)*scale);
+            float py=(float)(cy-(v[1]-midN)*scale);
+            if(i==0)track.moveTo(px,py);else track.lineTo(px,py);
+        }
+        resetPaint();p.setColor(0xFF67A7FF);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(d(3));c.drawPath(track,p);
+        p.setStyle(Paint.Style.FILL);
+        double[] a=xy.get(0),b=xy.get(xy.size()-1);
+        disc(c,(float)(cx+(a[0]-midE)*scale),(float)(cy-(a[1]-midN)*scale),d(4),CYAN,false);
+        disc(c,(float)(cx+(b[0]-midE)*scale),(float)(cy-(b[1]-midN)*scale),d(4),AMBER,false);
+        if(Double.isFinite(gpsMapLat)&&Double.isFinite(gpsMapLon)){
+            double east=R*Math.toRadians(wrapLongitude(gpsMapLon-lon0))*cs;
+            double north=R*Math.toRadians(gpsMapLat-lat0);
+            float gx=(float)(cx+(east-midE)*scale),gy=(float)(cy-(north-midN)*scale);
+            if(Double.isFinite(gpsMapAccuracy)&&gpsMapAccuracy>=0)
+                disc(c,gx,gy,(float)Math.min(d(300),gpsMapAccuracy*scale),0x8872ECD8,true);
+            disc(c,gx,gy,d(5),Color.WHITE,false);
+        }
+        c.restore();
+        label(c,String.format(Locale.US,"%.0f m · nord ↑ · tracé GPS",gpx.length),l+d(10),top+height-d(6),9,MUTED,false);
+    }
+    static double wrapLongitude(double longitude){
+        double wrapped=((longitude+540)%360)-180;
+        return wrapped<-180?wrapped+360:wrapped;
     }
 
     private void drawDataPanel(Canvas c,int w,int h,Odometer.Snapshot s) {

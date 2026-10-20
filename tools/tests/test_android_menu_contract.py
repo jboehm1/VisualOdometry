@@ -55,6 +55,21 @@ class AndroidModeContractTest(unittest.TestCase):
         self.assertTrue(result["modes"]["FLP_AB"]["label_present"])
         self.assertFalse(result["modes"]["FLP_AB"]["action_present"])
 
+    def test_missing_full_screen_settings_registration_fails(self):
+        actual=MAIN.read_text(encoding="utf-8")
+        manifest=MANIFEST.read_text(encoding="utf-8").replace(
+            'android:name=".SettingsActivity"','android:name=".MissingSettingsActivity"')
+        result=contract.inspect(actual,manifest,("PDR",),CATALOG.read_text(encoding="utf-8"))
+        self.assertFalse(result["pass"])
+        self.assertFalse(result["modes"]["PDR"]["label_present"])
+
+    def test_missing_settings_callback_fails_semantic_contract(self):
+        actual=MAIN.read_text(encoding="utf-8").replace(
+            "SettingsCatalog.Action.valueOf(name)", "SettingsCatalog.Action.PDR")
+        manifest=MANIFEST.read_text(encoding="utf-8")
+        result=contract.inspect(actual,manifest,("FLP_AB",),CATALOG.read_text(encoding="utf-8"))
+        self.assertFalse(result["pass"])
+
     def test_unknown_mode_fails_open(self):
         with self.assertRaises(ValueError):
             contract.inspect("void dataMenu(){}","<manifest></manifest>",["UNKNOWN"])

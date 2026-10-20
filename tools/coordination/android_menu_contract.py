@@ -28,7 +28,7 @@ MODES={
 CURRENT_BASELINE=("GPS_ROUTES","ARCORE_REPLAY","FLP_AB")
 TARGET_COMBINED=tuple(MODES)
 
-def inspect(main_source,manifest_text,required=CURRENT_BASELINE,catalog_source=""):
+def inspect(main_source,manifest_text,required=CURRENT_BASELINE,catalog_source="",settings_source=None):
     # Accept both the legacy flat DATA list and the categorized semantic action
     # catalog. The latter is only trusted if MainActivity actually dispatches
     # its stable enum IDs. A disconnected catalog alone cannot pass the gate.
@@ -43,12 +43,27 @@ def inspect(main_source,manifest_text,required=CURRENT_BASELINE,catalog_source="
     # The old DATA menu and its semantic handler stay the only permitted
     # dispatch scope, not incidental mentions in documentation elsewhere.
     categorized="SettingsCatalog.items(category)" in menu and "void performSettingsAction(" in menu
+    if settings_source is None:
+        settings_file=APP_ROOT/"java"/"dev"/"jboehm"/"vectorvio"/"SettingsActivity.java"
+        settings_source=settings_file.read_text(encoding="utf-8") if settings_file.exists() else ""
+    # v0.12 replaces the old double-dialog with a full-screen Activity. Check
+    # BOTH halves of the semantic result route, not merely a disconnected catalog.
+    page_registered=activities.get(".SettingsActivity")=="false"
+    page_opened=("startActivityForResult(new Intent(this,SettingsActivity.class),SETTINGS_REQUEST)" in menu)
+    page_returns=("SettingsCatalog.items(selected)" in settings_source
+                  and "SettingsCatalog.items(section)" in settings_source
+                  and "setResult(RESULT_OK" in settings_source
+                  and "putExtra(EXTRA_ACTION,a.name())" in settings_source)
+    action_handled=("SettingsActivity.EXTRA_ACTION" in main_source
+                    and "SettingsCatalog.Action.valueOf(name)" in main_source
+                    and "performSettingsAction(" in main_source)
+    full_screen=page_registered and page_opened and page_returns and action_handled
     catalog_actions={"GPS_ROUTES":"Action.GPS_ROUTES", "ARCORE_REPLAY":"Action.ARCORE_REPLAY",
                      "FLP_AB":"Action.GPS_COMPARISON",
                      "PDR":"Action.PDR", "COURSES":"Action.COURSES"}
     result={}
     for key,(label,action,activity) in MODES.items():
-        in_catalog=(categorized and label in catalog_source
+        in_catalog=((categorized or full_screen) and label in catalog_source
                     and catalog_actions.get(key,"") in catalog_source)
         label_present=label in menu or in_catalog
         action_present=action in menu and (not in_catalog or

@@ -54,7 +54,7 @@ import javax.microedition.khronos.opengles.GL10;
  * Tracking is deliberately suspended across app backgrounding / relocalization.
  */
 public final class MainActivity extends Activity implements GLSurfaceView.Renderer {
-    private static final int CAMERA_REQUEST=140, EXPORT_REQUEST=141, IMPORT_MAP_REQUEST=142, LOCATION_REQUEST=143, IMPORT_REPLAY_REQUEST=144, IMPORT_GPX_AR_REQUEST=145, GPX_AR_LOCATION_REQUEST=146;
+    private static final int CAMERA_REQUEST=140, EXPORT_REQUEST=141, IMPORT_MAP_REQUEST=142, LOCATION_REQUEST=143, IMPORT_REPLAY_REQUEST=144, IMPORT_GPX_AR_REQUEST=145, GPX_AR_LOCATION_REQUEST=146, SETTINGS_REQUEST=147;
     private static final String EXTRA_REPLAY_PATH="dev.jboehm.vectorvio.replay.path";
     private File playbackFile;
     private boolean playbackMode=false,playbackFinished=false;
@@ -154,7 +154,14 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private final Runnable gpsBadgeRefresh=new Runnable(){
         @Override public void run(){
             if(!foreground)return;
-            if(hud!=null&&gps!=null)hud.updateGps(gps.reading(SystemClock.elapsedRealtimeNanos()));
+            if(hud!=null&&gps!=null){
+                long nowNs=SystemClock.elapsedRealtimeNanos();
+                hud.updateGps(gps.reading(nowNs));
+                android.location.Location fix=gps.freshFix(nowNs);
+                hud.updateMapGps(fix==null?Double.NaN:fix.getLatitude(),
+                    fix==null?Double.NaN:fix.getLongitude(),
+                    fix==null?Double.NaN:fix.getAccuracy());
+            }
             gpsBadgeHandler.postDelayed(this,1000L);
         }
     };
@@ -253,10 +260,18 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
 
         hud=new HudView(this);
         hud.setLayers(preferences.getInt("overlay_layers",0));
+        hud.setGpxMapRoute(selectedArRoute);
         hud.setBikeHints(preferences.getBoolean("bike_view_hints",true));
         try{hud.setVersion(getPackageManager().getPackageInfo(getPackageName(),0).versionName);}
         catch(PackageManager.NameNotFoundException ignored){hud.setVersion("unknown");}
         root.addView(hud,new FrameLayout.LayoutParams(-1,-1));
+        hud.setOnTouchListener((v,event)->{
+            if(event.getActionMasked()==MotionEvent.ACTION_DOWN)
+                return hud.canToggleMapAt(event.getX(),event.getY());
+            if(event.getActionMasked()==MotionEvent.ACTION_UP &&
+               hud.canToggleMapAt(event.getX(),event.getY()))hud.toggleMap();
+            return true;
+        });
 
         LinearLayout actions=new LinearLayout(this);
         actions.setGravity(Gravity.CENTER);
@@ -539,25 +554,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         catch(PackageManager.NameNotFoundException ignored){return "unknown";}
     }
     private void dataMenu(){
-        SettingsCatalog.Section[] sections=SettingsCatalog.Section.values();
-        String[] choices=new String[sections.length];
-        for(int i=0;i<sections.length;i++)choices[i]=sections[i].title+"\n"+sections[i].subtitle;
-        new AlertDialog.Builder(this).setTitle("VECTOR VIO · SETTINGS · v"+getVersionLabel())
-            .setItems(choices,(d,index)->showSettingsCategory(sections[index]))
-            .setNegativeButton("CLOSE",null).show();
-    }
-    private void showSettingsCategory(SettingsCatalog.Section category){
-        java.util.List<SettingsCatalog.Item> items=SettingsCatalog.items(category);
-        String[] titles=new String[items.size()];
-        for(int i=0;i<items.size();i++){
-            SettingsCatalog.Item entry=items.get(i),item=entry;
-            String state=settingsValue(item.action);
-            titles[i]=entry.title+(state.isEmpty()?"":"  ["+state+"]")+"\n"+entry.description;
-        }
-        new AlertDialog.Builder(this).setTitle(category.title)
-            .setItems(titles,(d,index)->performSettingsAction(items.get(index).action))
-            .setNeutralButton("CATEGORIES",(d,w)->dataMenu())
-            .setNegativeButton("CLOSE",null).show();
+        startActivityForResult(new Intent(this,SettingsActivity.class),SETTINGS_REQUEST);
     }
     private String settingsValue(SettingsCatalog.Action a){
         switch(a){
@@ -645,7 +642,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
     }
 
-    private void installGpxArRoute(dev.jboehm.vectorvio.gps.GpsRoute route){gpxAr.setRoute(route);selectedArRoute=route;gpxRouteRevision++;}
+    private void installGpxArRoute(dev.jboehm.vectorvio.gps.GpsRoute route){
+        gpxAr.setRoute(route);selectedArRoute=route;gpxRouteRevision++;
+        runOnUiThread(()->{if(hud!=null)hud.setGpxMapRoute(route);});
+    }
     private void journalGpxArRoute(){
         dev.jboehm.vectorvio.gps.GpsRoute route=selectedArRoute;File file=recorder.currentFile();long revision=gpxRouteRevision;
         if(!gpxArEnabled||route==null||file==null)return;
@@ -1002,6 +1002,14 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if(request==SETTINGS_REQUEST){
+            if(result==RESULT_OK&&data!=null){
+                String name=data.getStringExtra(SettingsActivity.EXTRA_ACTION);
+                if(name!=null)try{performSettingsAction(SettingsCatalog.Action.valueOf(name));}
+                catch(IllegalArgumentException invalid){Toast.makeText(this,"Réglage inconnu",Toast.LENGTH_SHORT).show();}
+            }
+            return;
+        }
         if(request==IMPORT_GPX_AR_REQUEST){if(result==RESULT_OK&&data!=null&&data.getData()!=null)importGpxAr(data.getData());return;}
         if(request==IMPORT_MAP_REQUEST && result==RESULT_OK && data!=null && data.getData()!=null) {
             Uri source=data.getData();
@@ -1179,6 +1187,14 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             startActivity(new Intent(this,CollectionActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
             return;
         }
+        SharedPreferences currentSettings=getSharedPreferences("spatial_explorer",MODE_PRIVATE);
+        boolean wantGps=currentSettings.getBoolean("gps_speed_enabled",true);
+        if(gps.enabled&&!wantGps)gps.disable();
+        else gps.enabled=wantGps;
+        estimatedGround=currentSettings.getBoolean("estimated_ground",false);
+        hud.setBikeHints(currentSettings.getBoolean("bike_view_hints",true));
+        hud.setLayers(currentSettings.getInt("overlay_layers",0));
+        hud.setSensors(currentSettings.getBoolean("imu_overlay_enabled",false));
         if(!playbackMode){imu.start();gps.start();if(gpxArEnabled&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);}
         refreshHud();
         gpsBadgeHandler.removeCallbacks(gpsBadgeRefresh);
@@ -1596,9 +1612,22 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 recorder.sidecar(recorder.currentFile(),"_gpx_ar_alignment.csv","frame_time_ns,route_revision,state,segment,samples,residual_rms_m,horizontal_allowance_m,heading_allowance_rad,absolute_bias_observable,vertical_datum_known",
                     String.format(Locale.US,"%d,%d,%s,%d,%d,%s,%s,%s,false,false",frame.getTimestamp(),gpxRouteRevision,routeState.state,routeState.segment,routeState.samples,dev.jboehm.vectorvio.gpxar.GpxArJournal.value(routeState.residualMeters),dev.jboehm.vectorvio.gpxar.GpxArJournal.value(routeState.horizontalAllowanceMeters),dev.jboehm.vectorvio.gpxar.GpxArJournal.value(routeState.headingAllowanceRadians)));
             }
+            java.util.ArrayList<float[]> localGpx=new java.util.ArrayList<>();
+            Pose worldFromMetric=mapper.gpxWorldFromMetric;
+            if(gpxArEnabled&&worldFromMetric!=null &&
+               (routeState.state==dev.jboehm.vectorvio.gpxar.ArRouteGuide.State.CANDIDATE ||
+                routeState.state==dev.jboehm.vectorvio.gpxar.ArRouteGuide.State.VIO_HOLD)){
+                int limit=0;
+                for(double[] e:routeState.edges){
+                    if(e.length<4||limit++>=800)break;
+                    float[] a=worldFromMetric.transformPoint(new float[]{(float)e[0],0,(float)e[1]});
+                    float[] b=worldFromMetric.transformPoint(new float[]{(float)e[2],0,(float)e[3]});
+                    localGpx.add(new float[]{a[0],a[2],b[0],b[2]});
+                }
+            }
             final SceneMapper.Snapshot published=scene;float[] sensors=imu.snapshot();float hz=now-lastPoseReceivedMs>700?0:cameraHz;
             int keyframes=savedKeyframes,images=capturedImages,pois=savedPois;boolean full=mapFull;
-            runOnUiThread(()->{hud.updateScene(published,sensors,hz);hud.updateCapture(keyframes,images,pois,full);});
+            runOnUiThread(()->{hud.updateScene(published,sensors,hz);hud.updateLocalGpx(localGpx);hud.updateCapture(keyframes,images,pois,full);});
             }
             if(worldOverlay!=null&&camera.getTrackingState()==TrackingState.TRACKING)
                 try{worldOverlay.draw(camera,hud.layers(),width,height,getResources().getDisplayMetrics().density);}catch(RuntimeException|OutOfMemoryError e){disableWorldOverlay(e);}
