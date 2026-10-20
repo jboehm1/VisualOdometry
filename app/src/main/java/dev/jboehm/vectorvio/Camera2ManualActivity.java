@@ -297,6 +297,8 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             Range<Integer> gain=c.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
             StreamConfigurationMap stream=c.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             if(stream==null)continue;
+            Size[] previewOptions=stream.getOutputSizes(SurfaceTexture.class);
+            if(previewOptions==null||previewOptions.length==0)continue;
             if(fallback==null){fallback=id;fallbackStream=stream;}
             if(!manual||e==null||gain==null)continue;
             manualCapable=true;shutterRange=e;isoRange=gain;
