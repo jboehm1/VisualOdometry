@@ -76,7 +76,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private static final int MAX_SAMPLES=7200; // <~1h at 2Hz, bounded memory
     private final StringBuilder opticalCsv=new StringBuilder(
         "time_elapsed_ns,profile,auto,ambient_lux,p10,p50,p90,dark_fraction,clipped_fraction,"+
-        "edge_fraction,gyro_rad_s,actual_exposure_ns,actual_iso,shutter_cap_ns,"+
+        "edge_fraction,coherent_edge_fraction,feature_median,gyro_rad_s,actual_exposure_ns,actual_iso,shutter_cap_ns,"+
         "selected_exposure_ns,selected_iso,iso_ceiling,quality_status\n");
     private int opticalRows;
     private final CameraExposureOptimizer optimizer=new CameraExposureOptimizer();
@@ -144,10 +144,11 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                         }
                         if(opticalRows<MAX_SAMPLES){
                             opticalCsv.append(String.format(Locale.US,
-                                "%d,%s,%b,%s,%d,%d,%d,%.5f,%.5f,%.5f,%s,%d,%d,%d,%d,%d,%d,%s\n",
+                                "%d,%s,%b,%s,%d,%d,%d,%.5f,%.5f,%.5f,%.5f,%d,%s,%d,%d,%d,%d,%d,%d,%s\n",
                                 nowNs,motionMode,autoFast,
                                 Float.isFinite(ambientLux)?Float.toString(ambientLux):"",
                                 m.p10,m.p50,m.p90,m.darkFraction,m.clippedFraction,m.edgeFraction,
+                                m.coherentEdgeFraction,m.featureMedian,
                                 Double.isFinite(w)?Double.toString(w):"",
                                 actualExposureNs,actualIso,
                                 decision==null?0L:decision.shutterCeilingNs,
@@ -159,6 +160,9 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                         String lux=Float.isFinite(ambientLux)?String.format(Locale.US,"%.0f lux",ambientLux):"lux sensor N/A";
                         String quality=m.lacksTexture()?"LOW TEXTURE":
                             m.dark()?"DARK":"IMAGE LIGHT OK?";
+                        quality+=String.format(Locale.US,
+                            " · textured P50 %d · coherent gradients %.1f%%",
+                            m.featureMedian,100*m.coherentEdgeFraction);
                         if(decision!=null){
                             quality+=" · "+decision.status;
                             quality+=String.format(Locale.US,
