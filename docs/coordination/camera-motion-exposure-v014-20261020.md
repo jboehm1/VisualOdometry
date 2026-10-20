@@ -7,3 +7,5 @@
 - Test gate: Android Gradle unit tests, three campaigns on exact new commit, portable bench contract maintained; field verify shutter at gyro turns, under illumination change, and observe actual CaptureResult shutter/ISO/texture. Require at least one nonmanual Camera2 device for fallback test. User S21 previously verified manual Camera2 but not this new motion algorithm.
 
 - Extended shared-file scope after initial coordination: also edited `CameraImageQuality.java` and `CameraImageQualityTest.java` with low-pass coherent gradients / feature-region median, and exposure-regression test. Camera2 export adds the two diagnostic columns. No changes to camera session elsewhere.
+
+- New reusable offline `tools/camera/evaluate_camera2_lab.py` and `tools/tests/test_camera2_lab_quality.py` audit real export against shutter cap/ISO, but explicitly not VIO tracking; added after initial coordination.
