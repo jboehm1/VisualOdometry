@@ -56,3 +56,14 @@
 
 See [native VIO architecture](../NATIVE_VIO_ENGINE_V015.md) and
 [commercial release policy](../COMMERCIAL_RELEASE_GATES.md).
+
+## Dataset determinism addendum — 21/10/2026
+
+- **Live integration SHA previously inspected:** `3d251b8e06536a972b88bcf01bd34912ea5ceabd`; `AGENTS.md` and `DEVELOPMENT_COORDINATION.md` restrictions remain in force. Need refresh heads before any merge.
+- **Additional files owned in PR #43:** `tools/datasets/repro_manifest.py`, `tools/tests/test_dataset_repro_manifest.py`, `tools/testenv/suites/deterministic-pdr-smoke.json`, `.github/workflows/datasets-determinism.yml`, `docs/DATASET_REPRODUCIBILITY_V016.md`, `docs/work/ACTIVE_SPRINT.md` and the updated `docs/HANDOVER_WORK_AUTONOMOUS_V016.md`.
+- **Updated shared documentation:** `README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP_CENTRAL.md`, `docs/VECTOR_VIO_ATLAS_INTERACTIF_v5.html` (additive insert only; do not clobber others' Atlas content).
+- **Protected source still untouched in this isolated branch:** `MainActivity.java`, `Camera2ManualActivity.java`, `AndroidManifest.xml`, `HudView`, GPX, GPS, PDR Java, ARCore and Settings runtime.
+- **Reuse constraints:** no duplicate runner; `repro_manifest.py` imports existing `tools.testenv.contracts` and `runner.code_identity`, then runs the same actual Java PDR and Python baseline through `testenv.py` in CI. Metadata receipts are **not** proof of real dataset or metric accuracy.
+- **Exact real/fixture distinction:** real public ADVIO/Mobile-GVIO scripts remain in original workflows; `deterministic-pdr-smoke.json` is only a synthetic fixture. A downloaded corpus is not distributable automatically; check license and hashes.
+- **Verified test evidence (exact SHA)**: deterministic dataset/PDR smoke CI run `39516731174` **SUCCESS** on `d97f50baeea154add055dfb634b9bc37fcd06ea4`; native contract run `39516730933` **SUCCESS** on same SHA. Subsequent commits require recheck current CI. No real phone ground-truth test run in this scope.
+- **Next**: inspect current PR #43 and all stacked dependencies; reproduce the existing real phone pipelines at pinned input hashes if rights/cost allow, then collect dedicated S21 RTK/survey ground truth, and host-compile an auditable native VIO engine. Do not optimize to synthetic fixture scores or claim perfect GPX anchoring.
