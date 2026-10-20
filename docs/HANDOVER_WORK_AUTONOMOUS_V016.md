@@ -126,6 +126,75 @@ A/B par **scénario et par matériel comparable**, pas de score composite arbitr
 
 ---
 
+## 3.4 Datasets déterministes et pipeline existante — priorité absolue aux preuves
+
+Le choix des datasets **fait partie de l'algorithme d'amélioration**, pas d'une tâche
+annexe. Toujours demander : *Quel capteur ? Quelle vérité ? Quelles conditions
+réelles ? Quels droits ? Quelle durée/énergie de test ? Le moteur exact est-il
+bien exécuté ?* Ne pas télécharger aveuglément tous les jeux de données.
+
+**Lecture obligatoire :** [docs/DATASET_REPRODUCIBILITY_V016.md](DATASET_REPRODUCIBILITY_V016.md).
+Nouvelle couche de preuve : `tools/datasets/repro_manifest.py`
+(`lock`, `verify`, `--require-real-local`) qui utilise la suite/matrice
+existante sans la réimplémenter ; hash SHA256 des fichiers locaux,
+configurations, sources/commits, détection modifications/symlinks, réutilisation
+de `testenv.py`, et signal clair `UNVERIFIED_REMOTE_BYTES_AT_PREFLIGHT`
+quand une exécution réelle doit encore acquérir ses sources.
+
+### Ordre utile, déterministe, sans confusion
+
+1. **Chaque push / moins de 15 min** : `tools/testenv/suites/deterministic-pdr-smoke.json`
+   = vrai PDR Java + baseline Python, entrée IMU synthétique ; CI
+   `datasets-determinism.yml`. Vérifie la non-régression, **pas** les
+   mètres d'erreur PDR.
+2. **PDR réel** : `SIMUL` pour les annotations de pas indépendantes ;
+   OxIOD/RoNIN sujets/personnes/portages tenus à l'écart pour error budget
+   pied/longueur/heading seulement si la référence adéquate existe.
+   `tools/pdr/datasets.py` sait convertir certains formats ; vérifier
+   les octets et les droits avant d'exécuter le Java PdrEngine exact.
+3. **VIO image+IMU** : Mobile-GVIO authentique sert à confirmer l'ingestion
+   vidéo + gyro et performance d'une baseline; **Sim(3) après GT seulement,
+   pas de m d'odométrie métrique**. EuRoC/TUM-VI servent à évaluer le même
+   moteur natif réel après compilation/correction calibrations ; TUM-VI
+   possède des portions sans GT, à exclure du calcul ATE et à rapporter.
+4. **ARCore Android** : ADVIO offre surtout un enregistrement **externe**
+   Pixel ARCore avec vérité reconstructive imparfaite ; il ne faut pas
+   l'utiliser comme score de l'APK S21. Pour comparaison honnête
+   ARCore/native, captures terrain ABBA répétées, données de vérité RTK
+   indépendantes, énergie/rate latence à appareil et résolution comparables.
+5. **GPX/conditions extrêmes** : créer le jeu S21 spécifique nécessaire :
+   logs horodatés GPS brut et FLP, GPX source, VIO/PDR et qualité,
+   caméra contrôlée si droits, vrai itinéraire RTK/survey, événements
+   de perte GPS, tunnels, multipath, nuit, pluie/forêt, bifurcations.
+   Faire tests perturbations déterministes **et** tests terrain avec
+   référence indépendante ; pas d'ancrage « parfait » affirmé.
+6. **Règle anti-overfit** : chaque variante compare au baseline sur
+   le même dataset hashé, mêmes unités, seeds et configuration figées.
+   Choisir paramètres sur train/dev, revalider sur held-out seulement,
+   mesurer **précision / couverture / temps reprise / p95 latence / CPU /
+   énergie / mémoire**. Conserver le meilleur front de Pareto et les
+   échecs. Si l'amélioration échoue, revenir à la baseline et documenter.
+
+```bash
+python testenv.py plan --suite tools/testenv/suites/deterministic-pdr-smoke.json
+python tools/datasets/repro_manifest.py lock --suite tools/testenv/suites/deterministic-pdr-smoke.json --receipt /tmp/pdr-lock.json
+python tools/datasets/repro_manifest.py verify --suite tools/testenv/suites/deterministic-pdr-smoke.json --receipt /tmp/pdr-lock.json
+python testenv.py run --suite tools/testenv/suites/deterministic-pdr-smoke.json --out campaign_results/pdr-fixture --resume
+# Pour les données réelles, utiliser les anciennes suites/adapters et un cache
+# externe à Git, avec manifeste local de fichiers SHA et licence vérifiée.
+```
+
+Le système ci-dessus existe dans **PR #43** mais ne remplace pas une
+suite VIO native opérationnelle, et la réussite de la CI synthétique ne
+prouve ni coût/performance ni précision d'ancrage. Utiliser les rapports
+d'origine du runner et archiver les jeux de mesures brutes seulement avec
+consentement.
+
+**Fichier checkpoint Work :** `docs/work/ACTIVE_SPRINT.md` : journal durable
+d'hypothèses, runs, gains/pertes, erreurs et commandes pour l'itération suivante.
+
+---
+
 ## 4. Contrats techniques à ne jamais trahir
 
 - **Repères :** ARCore est local (+Y vertical), le VIO natif a un monde local différent, GPX est WGS84; ENU et quaternions/transformations sont explicitement identifiés, tracés, versionnés. Un nouveau monde local nécessite recalage documenté, pas une fusion de points naïve.
