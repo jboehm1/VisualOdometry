@@ -66,6 +66,8 @@ public final class ArRouteGuide {
     private State state=State.OFF;
     private boolean enabled;
     private double x,z,manualShiftX,manualShiftZ;
+    private double cachedNearLat=Double.NaN,cachedNearLon=Double.NaN;
+    private List<double[]> cachedNear;
     public synchronized void setRoute(GpsRoute route){
         RouteIndex next=route==null?null:new RouteIndex(route);
         this.route=route;index=next;resetTracking();
@@ -87,6 +89,7 @@ public final class ArRouteGuide {
         navigator=route==null?null:new GpsNavigator(route);if(navigator!=null)navigator.joinNearest();
         lastPoseNs=lastFixNs=lastSeenFixNs=0;source=null;
         manualShiftX=manualShiftZ=0;
+        cachedNear=null;cachedNearLat=cachedNearLon=Double.NaN;
         state=!enabled?State.OFF:route==null?State.NO_ROUTE:State.WAITING_POSES;
     }
     /** Call on AR discontinuity, pause/reset and tracking loss. Keeps the imported route. */
@@ -168,9 +171,17 @@ public final class ArRouteGuide {
                 if(shown==State.CANDIDATE)target=fit.unproject(next.lat,next.lon);
             }
             double[] geo=fit.project(x-manualShiftX,-z+manualShiftZ);
-            if(geo!=null)for(double[] edge:index.near(geo[0],geo[1],WORLD_PREVIEW_RADIUS_METERS,950)){
+            if(geo!=null) {
+                // Camera yaw changes every frame but local GPX topology rarely
+                // needs recomputing. Cache the geographic query until >2 m move.
+                if(cachedNear==null || distanceMeters(geo[0],geo[1],cachedNearLat,cachedNearLon)>2){
+                    cachedNear=index.near(geo[0],geo[1],WORLD_PREVIEW_RADIUS_METERS,950);
+                    cachedNearLat=geo[0];cachedNearLon=geo[1];
+                }
+                for(double[] edge:cachedNear){
                 double[] a=fit.unproject(edge[0],edge[1]),b=fit.unproject(edge[2],edge[3]);
                 if(a!=null&&b!=null)edges.add(new double[]{a[0]+manualShiftX,-a[1]+manualShiftZ,b[0]+manualShiftX,-b[1]+manualShiftZ});
+                }
             }
         }
         double hold=shown==State.VIO_HOLD?Math.max(0,(nowNs-lastFixNs)*1e-9):0;
@@ -185,6 +196,12 @@ public final class ArRouteGuide {
             snapshot.markers=Collections.unmodifiableList(markers);
         }
         return snapshot;
+    }
+    private static double distanceMeters(double lat,double lon,double lat2,double lon2){
+        if(!Double.isFinite(lat2)||!Double.isFinite(lon2))return Double.POSITIVE_INFINITY;
+        double a=Math.toRadians(lat-lat2),b=Math.toRadians(lon-lon2);
+        double h=Math.pow(Math.sin(a*.5),2)+Math.cos(Math.toRadians(lat))*Math.cos(Math.toRadians(lat2))*Math.pow(Math.sin(b*.5),2);
+        return 12742017.6*Math.asin(Math.min(1,Math.sqrt(Math.max(0,h))));
     }
     private void addMarker(List<Marker> markers,double progress,String text,boolean endpoint){
         GpsRoute.Point p=route.at(progress);double[] q=fit.unproject(p.lat,p.lon);

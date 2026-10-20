@@ -187,14 +187,26 @@ final class SceneMapper {
         snapshot.groundMissing=groundMissing;snapshot.groundPoints=groundPoints;
         snapshot.cameraPoseValid=true;
         snapshot.cameraX=camera.getPose().tx();snapshot.cameraZ=camera.getPose().tz();
-        if((gpxDisplayFlags&dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.DIRECTION)!=0&&gpxRoute!=null&&gpxWorldFromMetric!=null&&Double.isFinite(gpxRoute.targetX)&&Double.isFinite(gpxRoute.targetZ)){
-            float[] target=gpxWorldFromMetric.transformPoint(new float[]{(float)gpxRoute.targetX,0,(float)gpxRoute.targetZ});
+        if((gpxDisplayFlags&dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.DIRECTION)!=0
+           &&gpxRoute!=null&&gpxWorldFromMetric!=null){
+            float[] target=null;
+            if(Double.isFinite(gpxRoute.targetX)&&Double.isFinite(gpxRoute.targetZ))
+                target=gpxWorldFromMetric.transformPoint(new float[]{(float)gpxRoute.targetX,0,(float)gpxRoute.targetZ});
+            else {
+                // GPS fix may go stale while the local AR pose stays tracked:
+                // point towards the nearest visible GPX section, never a
+                // fabricated global north or hidden GPS correction.
+                double[] nearest=GpxWorldCue.nearest(worldEdges,snapshot.cameraX,snapshot.cameraZ);
+                if(nearest!=null&&nearest[2]>2)target=new float[]{(float)nearest[0],0,(float)nearest[1]};
+            }
+            if(target!=null){
             double dx=target[0]-snapshot.cameraX,dz=target[2]-snapshot.cameraZ;
             snapshot.gpxDistanceMeters=(float)Math.hypot(dx,dz);
             float[] direction=camera.getDisplayOrientedPose().getZAxis();
             if(Math.hypot(dx,dz)>.5&&Math.hypot(direction[0],direction[2])>.2){
                 double angle=Math.atan2(dx,-dz)-Math.atan2(-direction[0],direction[2]);
                 snapshot.gpxDirectionRadians=(float)Math.atan2(Math.sin(angle),Math.cos(angle));
+            }
             }
         }
         float[] axis=camera.getDisplayOrientedPose().getZAxis();
