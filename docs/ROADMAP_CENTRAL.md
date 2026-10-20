@@ -1,3 +1,19 @@
+## Datasets / matrices déterministes : état documenté 21/10/2026
+
+**Livré sur branche PR #43** : `tools/datasets/repro_manifest.py` (hash SHA256 des datasets locaux y compris arborescences et du code source, validation de l'état exact, symlink interdit, sorties historiques immuables), suite `deterministic-pdr-smoke.json` Java/Python et `.github/workflows/datasets-determinism.yml`. **C'est une garantie de reproductibilité d'entrée**, pas une preuve de dérive métrique ou d'ancrage GPX. Réutilise le moteur unique `tools/testenv` / `tools/campaigns/unified.py`; les runners ADVIO et Mobile-GVIO réels restent distincts. **Non faits** : acquisition S21 GPS+RTK indépendante, qualification PDR OxIOD/RoNIN complète, Basalt/JNI Android, A/B métrique et énergétique sur le même appareil. Voir [matrice](DATASET_REPRODUCIBILITY_V016.md), [handover](HANDOVER_WORK_AUTONOMOUS_V016.md) et [checkpoint Work](work/ACTIVE_SPRINT.md).
+
+## Work continuation and comparative navigation goal
+
+A full [autonomous Work handover](HANDOVER_WORK_AUTONOMOUS_V016.md) records the GPX anchor fail-closed design, PDR camera-free validation, fair ARCore/Camera2 native-VIO comparisons, energy/cost Pareto metrics, and persistent iteration/checkpoint instructions. Extreme conditions require **visible uncertainty and safe degradation**, not unverified perfect anchoring. Read it and current Git/CI before each new agent cycle; never interpret the document as proof that Work runs indefinitely or without external permissions.
+
+## Native VIO benchmark-first progress addendum
+
+New: C++17 engine-neutral API and host CI smoke (no native estimator), stricter Java calibration matrix gate, license release blocker, and measured-run scorecard skeleton (`tools/vio/compare_measured_runs.py`) with real-vs-synthetic differentiation and Pareto analysis. Its inputs must come from **actual** external engine measurements and independent truth; scorecard code by itself provides **zero comparative performance evidence**. Native JNI, YUV streaming, commercial legal signoff and GPX hard-condition field validation remain open. Follow `docs/NATIVE_VIO_ENGINE_V015.md` and `docs/coordination/nativevio-commercial-v015-20261021.md`.
+
+## Native VIO v0.15: staged commercial-safe R&D
+
+**New isolated implementation branch:** `feature/v015-commercial-nativevio-contracts` stacked on PR #42. Status: Java camera/IMU input timing/calibration guard **coded; CI pending**, a structural third-party release gate and docs, no C++ VIO engine and no direct GPX integration. Priorities: (1) pin & compile permissive engine + audit *every* redistributed dependency; (2) real camera+IMU benchmark with independent GT; (3) calibrated Android Camera2 YUV + SensorManager + native JNI and truthful tracking flags; (4) benchmark shutter A/B and GPX, test S21 and fallback devices; (5) product-grade privacy/ARCore terms/license/release process. ARCore stays default, and native VIO stays disabled until full gates. Details: [Native VIO engine v0.15](NATIVE_VIO_ENGINE_V015.md), [Commercial release](COMMERCIAL_RELEASE_GATES.md), [Atlas v5](VECTOR_VIO_ATLAS_INTERACTIF_v5.html).
+
 # VECTOR VIO — Feuille de route CENTRALE (tous chantiers)
 
 > **20/10/2026 — v0.13 global GPX fin de chantier (PR à valider).** La branche `feature/v013-full-gpx-global-lod` prolonge la PR #34 (90 m) par un index complet, un échantillonnage par bandes jusqu'à **50 km**, un clipping frustum, un budget de rendu borné, et l'import GPX >50k points. Le rendu violet distant reste **virtuel et approximatif**; la carte 2D donne accès au GPX complet. Limites configurées et nécessité des essais S21 dans [doc technique](GPX_AR_WORLD_GUIDE_V013.md). Ni succès CI ni coordonnées de plan virtuel ne certifient l'alignement réel.

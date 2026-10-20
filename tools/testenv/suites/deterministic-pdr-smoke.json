@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "id": "deterministic-pdr-smoke",
+  "description": "Offline deterministic canonical IMU fixture on existing Java PdrEngine and Python baseline. Synthetic input: NOT field accuracy.",
+  "jobs": [
+    {
+      "id": "pdr-java",
+      "dataset": "canonical",
+      "engine": "android-pdr",
+      "fixture": "canonical_imu",
+      "timeout_s": 150,
+      "checks": [
+        {
+          "field": "status",
+          "equals": "PASS"
+        },
+        {
+          "field": "actual_estimator_executed",
+          "equals": true
+        },
+        {
+          "field": "reference_used_to_score",
+          "equals": false
+        },
+        {
+          "field": "metric_distance_accuracy_proven",
+          "equals": false
+        }
+      ]
+    },
+    {
+      "id": "pdr-python",
+      "dataset": "canonical",
+      "engine": "python-pdr",
+      "fixture": "canonical_imu",
+      "timeout_s": 150,
+      "checks": [
+        {
+          "field": "status",
+          "equals": "PASS"
+        },
+        {
+          "field": "actual_estimator_executed",
+          "equals": true
+        },
+        {
+          "field": "reference_used_to_score",
+          "equals": false
+        },
+        {
+          "field": "metric_distance_accuracy_proven",
+          "equals": false
+        }
+      ]
+    }
+  ]
+}
