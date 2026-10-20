@@ -1,3 +1,7 @@
+## Native VIO v0.15 R&D / possible commercial product
+
+Camera2 Lab can change shutter/ISO, but it **does not feed a native metric-VIO tracker** yet; ARCore remains the default. An isolated `nativevio.NativeVioInputGate` now validates camera/IMU timing and verified calibration (contract + synthetic JUnit tests only). No Basalt, Kimera, OKVIS or C++ pose engine ships in the APK. For future commercial distribution, privacy-first design, ARCore terms, transitive dependencies, licenses/attribution and independent field accuracy evidence are mandatory: see [native-VIO specification](docs/NATIVE_VIO_ENGINE_V015.md), [commercial release gates](docs/COMMERCIAL_RELEASE_GATES.md), and [Atlas v5](docs/VECTOR_VIO_ATLAS_INTERACTIF_v5.html).
+
 **🌐 Pilotage central VECTOR VIO (Android)** : [Atlas interactif V5 — GPS/FLP, brouillard et fumée dense/pompiers (R&D)](docs/VECTOR_VIO_ATLAS_INTERACTIF_v5.html) · [Feuille de route centrale de tous les chantiers](docs/ROADMAP_CENTRAL.md) · [Suivi JSON](docs/ROADMAP_CENTRAL.json). **La branche par défaut `master` reste l'archive 2019 ; `feature/slam-explorer` est l'intégration Android actuelle.**
 
 **Développements parallèles :** lire [la coordination commune](docs/DEVELOPMENT_COORDINATION.md) avant de toucher aux fichiers partagés ; état des branches, conflits reproduits et ordre d’intégration.
