@@ -29,6 +29,7 @@ public class SettingsCatalogTest {
         assertEquals(SettingsCatalog.Action.GPS_MANUAL_ALIGN,navigation.get(1).action);
         assertTrue(navigation.stream().anyMatch(x->x.action==SettingsCatalog.Action.RETURN_TRACE));
         assertTrue(navigation.stream().anyMatch(x->x.action==SettingsCatalog.Action.PDR));
+        assertTrue(navigation.stream().anyMatch(x->x.action==SettingsCatalog.Action.COURSES));
         assertEquals(SettingsCatalog.Section.NAVIGATION,SettingsCatalog.byId(SettingsCatalog.Action.PDR).section);
         assertTrue(SettingsCatalog.items(SettingsCatalog.Section.LOCATION).stream()
             .anyMatch(x->x.action==SettingsCatalog.Action.GPS_COMPARISON));
