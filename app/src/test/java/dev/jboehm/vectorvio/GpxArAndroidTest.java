@@ -17,24 +17,25 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class) @Config(sdk=28)
 public class GpxArAndroidTest {
 
-    private static AlertDialog openCategory(ActivityController<MainActivity> c,SettingsCatalog.Section section){
-        ArrayList<View> buttons=new ArrayList<>();
-        c.get().getWindow().getDecorView().findViewsWithText(buttons,"MENU",View.FIND_VIEWS_WITH_TEXT);
-        assertEquals(1,buttons.size());assertTrue(buttons.get(0).performClick());
-        AlertDialog root=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
-        assertEquals(6,root.getListView().getCount());
-        for(int i=0;i<6;i++)assertTrue(root.getListView().getAdapter().getItem(i).toString()
-            .startsWith(SettingsCatalog.Section.values()[i].title));
-        root.getListView().performItemClick(null,section.ordinal(),section.ordinal());
-        AlertDialog category=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
-        assertEquals(SettingsCatalog.count(section),category.getListView().getCount());
-        return category;
-    }
     private static AlertDialog openGpx(ActivityController<MainActivity> c){
-        AlertDialog category=openCategory(c,SettingsCatalog.Section.NAVIGATION);
-        assertTrue(category.getListView().getAdapter().getItem(0).toString().startsWith("GPX AR"));
-        category.getListView().performItemClick(null,0,0);
+        ArrayList<View> buttons=new ArrayList<>();
+        c.get().getWindow().getDecorView().findViewsWithText(buttons,"GPX",View.FIND_VIEWS_WITH_TEXT);
+        assertEquals(1,buttons.size());assertTrue(buttons.get(0).performClick());
         return org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+    }
+    private static void dispatchSetting(ActivityController<MainActivity> main,
+                                        SettingsCatalog.Section section,SettingsCatalog.Action action){
+        ActivityController<SettingsActivity> settings=Robolectric.buildActivity(SettingsActivity.class).create().start().resume();
+        try{
+            View tab=settings.get().getWindow().getDecorView().findViewWithTag("tab_"+section.name());
+            assertNotNull(tab);tab.performClick();
+            View setting=settings.get().getWindow().getDecorView().findViewWithTag("setting_"+action.name());
+            assertNotNull(setting);setting.performClick();
+            Intent response=Shadows.shadowOf(settings.get()).getResultIntent();
+            assertNotNull(response);
+            assertEquals(action.name(),response.getStringExtra(SettingsActivity.EXTRA_ACTION));
+            main.get().onActivityResult(147,android.app.Activity.RESULT_OK,response);
+        }finally{settings.pause().stop().destroy();}
     }
     @Test public void categorizedMenuPreservesGpxImportAndOtherModules()throws Exception{
         ActivityController<MainActivity> c=Robolectric.buildActivity(MainActivity.class).create();
@@ -49,17 +50,13 @@ public class GpxArAndroidTest {
         }finally{c.destroy();}
         ActivityController<MainActivity> next=Robolectric.buildActivity(MainActivity.class).create();
         try{
-            AlertDialog locations=openCategory(next,SettingsCatalog.Section.LOCATION);
-            assertTrue(locations.getListView().getAdapter().getItem(1).toString().contains("GPS ↔ FUSED"));
-            locations.getListView().performItemClick(null,1,1);
+            dispatchSetting(next,SettingsCatalog.Section.LOCATION,SettingsCatalog.Action.GPS_COMPARISON);
             Intent request=Shadows.shadowOf(next.get()).getNextStartedActivity();
             assertNotNull(request);assertEquals(LocationComparisonActivity.class.getName(),request.getComponent().getClassName());
         }finally{next.destroy();}
         ActivityController<MainActivity> replay=Robolectric.buildActivity(MainActivity.class).create();
         try{
-            AlertDialog capture=openCategory(replay,SettingsCatalog.Section.CAPTURE);
-            assertTrue(capture.getListView().getAdapter().getItem(2).toString().contains("ARCORE REPLAY"));
-            capture.getListView().performItemClick(null,2,2);
+            dispatchSetting(replay,SettingsCatalog.Section.CAPTURE,SettingsCatalog.Action.ARCORE_REPLAY);
             assertTrue(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().getListView().getAdapter().getItem(0).toString().contains("Import an ARCore MP4"));
         }finally{replay.destroy();}
     }
@@ -116,9 +113,7 @@ public class GpxArAndroidTest {
     @Test public void manualAdjustmentRequiresLiveArAndFreshAlignment(){
         ActivityController<MainActivity> c=Robolectric.buildActivity(MainActivity.class).create();
         try{
-            AlertDialog settings=openCategory(c,SettingsCatalog.Section.NAVIGATION);
-            assertTrue(settings.getListView().getAdapter().getItem(1).toString().startsWith("Adjust GPX on screen"));
-            settings.getListView().performItemClick(null,1,1);
+            dispatchSetting(c,SettingsCatalog.Section.NAVIGATION,SettingsCatalog.Action.GPS_MANUAL_ALIGN);
             assertNull("No camera or tracking is started",Shadows.shadowOf(c.get()).getNextStartedService());
             assertNull(Shadows.shadowOf(c.get()).getNextStartedActivity());
         }finally{c.destroy();}
