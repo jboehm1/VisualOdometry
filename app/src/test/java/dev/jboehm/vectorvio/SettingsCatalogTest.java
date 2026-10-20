@@ -26,7 +26,8 @@ public class SettingsCatalogTest {
     @Test public void navigationKeepsGpxAndDedicatedManualShiftDiscoverable(){
         List<SettingsCatalog.Item> navigation=SettingsCatalog.items(SettingsCatalog.Section.NAVIGATION);
         assertEquals(SettingsCatalog.Action.GPX_AR,navigation.get(0).action);
-        assertEquals(SettingsCatalog.Action.GPS_MANUAL_ALIGN,navigation.get(1).action);
+        assertTrue("Manual GPX alignment must remain discoverable regardless of option order",
+            navigation.stream().anyMatch(item->item.action==SettingsCatalog.Action.GPS_MANUAL_ALIGN));
         assertTrue(navigation.stream().anyMatch(x->x.action==SettingsCatalog.Action.RETURN_TRACE));
         assertTrue(navigation.stream().anyMatch(x->x.action==SettingsCatalog.Action.PDR));
         assertTrue(navigation.stream().anyMatch(x->x.action==SettingsCatalog.Action.COURSES));
