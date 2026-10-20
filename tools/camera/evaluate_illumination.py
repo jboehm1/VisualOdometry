@@ -33,9 +33,9 @@ def analyze(path):
                 edges=float(row["edge_fraction"])
                 exp=float(row["exposure_ms"]);iso=int(row["iso"])
             except (ValueError,TypeError,KeyError) as e:raise ValueError("corrupt camera frame row") from e
-            if t<=last or p10<0 or p90>255 or not p10<=p50<=p90 or
+            if (t<=last or p10<0 or p90>255 or not p10<=p50<=p90 or
                 not 0<=dark<=1 or not 0<=clipped<=1 or not 0<=edges<=1 or
-                not math.isfinite(exp) or exp<=0 or iso<1:
+                not math.isfinite(exp) or exp<=0 or iso<1):
                 raise ValueError("out-of-order, invalid or unmeasured frame data")
             last=t;total+=1
             state=row["tracking_state"].strip()
