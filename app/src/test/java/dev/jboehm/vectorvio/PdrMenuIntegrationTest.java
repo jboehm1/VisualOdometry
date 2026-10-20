@@ -28,7 +28,7 @@ public final class PdrMenuIntegrationTest {
             AlertDialog category=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
             java.util.List<SettingsCatalog.Item> actions=SettingsCatalog.items(SettingsCatalog.Section.NAVIGATION);
             int found=-1;
-            for(int i=0;i<actions.size();i++)if(actions.get(i).action==SettingsCatalog.Action.PDR_NO_CAMERA)found=i;
+            for(int i=0;i<actions.size();i++)if(actions.get(i).action==SettingsCatalog.Action.PDR)found=i;
             assertTrue("PDR must not collide with GPX AR, 2D GPS or manual slide",found>=0);
             assertTrue(category.getListView().getAdapter().getItem(found).toString().contains("NO CAMERA"));
             category.getListView().performItemClick(null,found,found);
