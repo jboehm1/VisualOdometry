@@ -579,9 +579,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 else returnTraceRequested=!returnTraceRequested;
                 break;
             case GPS_TOGGLE:
-                if(gps.enabled)gps.disable();
-                else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED ||
-                    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED){
+                boolean locationPermitted=checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED ||
+                    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED;
+                if(gps.enabled&&locationPermitted)gps.disable();
+                else if(locationPermitted){
                     gps.enabled=true;gps.start();
                 }else{gps.enabled=true;requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_REQUEST);}
                 getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("gps_speed_enabled",gps.enabled).apply();
