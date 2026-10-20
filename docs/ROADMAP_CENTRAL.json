@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-20 (v0.12 settings UI in isolated PR)",
+  "updated_at": "2026-10-20 (v0.13 AR GPX future/past visual range; CI qualification pending)",
   "source_of_truth": "feature/slam-explorer:docs/ROADMAP_CENTRAL.md",
   "branch_notes": {
     "default_github_branch": "master — archive 2019, non utilisée pour intégration Android",
@@ -374,5 +374,23 @@
       "On-device font/density/accessibility manual tests not complete"
     ],
     "documentation": "docs/SETTINGS_SCREEN_V012.md"
+  },
+  "gpx_world_v013": {
+    "stage": "EN_COURS",
+    "branch": "feature/v013-gpx-world-horizon",
+    "baseline": "3d251b8e06536a972b88bcf01bd34912ea5ceabd",
+    "rendering": [
+      "observed ground only -> anchored blue ribbon",
+      "unknown floor -> distinctly dashed purple preview, opt-out",
+      "90m past and future neighborhood",
+      "variable meter-width world GPU and dp-width Canvas",
+      "independent return-to-trail cue"
+    ],
+    "truth_limits": [
+      "ARCore alignment candidate is not certified geographic truth",
+      "purple altitude is a visual guess, not a terrain model",
+      "GPX preview never changes odometry/GNSS/PDR data"
+    ],
+    "documentation": "docs/GPX_AR_WORLD_GUIDE_V013.md"
   }
 }

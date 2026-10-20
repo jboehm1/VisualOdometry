@@ -46,7 +46,12 @@ final class WorldOverlayRenderer {
     void update(SceneMapper.Snapshot scene){
         if(program==0)throw new IllegalStateException("Overlay is not initialized");
         check("before overlay upload");
-        geometry.clear();gpxGeometry.clear();for(SceneMapper.Shape s:scene.shapes){if(s.kind==5)gpxGeometry.add(3,s.world);else geometry.add(s.kind,s.world);}geometry.finishRoute();gpxGeometry.finishRoute();
+        geometry.clear();gpxGeometry.clear();for(SceneMapper.Shape s:scene.shapes){if(s.kind==5&&s.world!=null){
+            float[] e=s.world;
+            float cx=(e[0]+e[3])*.5f,cz=(e[2]+e[5])*.5f;
+            float distance=(float)Math.hypot(cx-scene.cameraX,cz-scene.cameraZ);
+            gpxGeometry.add(3,e,GpxStrokePolicy.halfWidthMeters(distance));
+        }else geometry.add(s.kind,s.world);}geometry.finishRoute();gpxGeometry.finishRoute();
         WorldGeometry.Batch[] batches={geometry.floor,geometry.wall,geometry.points,geometry.route,gpxGeometry.route};
         for(int i=0;i<5;i++){
             WorldGeometry.Batch b=batches[i];counts[i]=b.size/3;if(b.size==0)continue;

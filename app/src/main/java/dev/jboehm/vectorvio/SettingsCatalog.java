@@ -19,7 +19,7 @@ final class SettingsCatalog {
         Section(String title,String subtitle){this.title=title;this.subtitle=subtitle;}
     }
     enum Action {
-        GPX_AR, GPS_MANUAL_ALIGN, GPS_ROUTES, PDR, COURSES, RETURN_TRACE,
+        GPX_AR, GPS_MANUAL_ALIGN, GPS_ROUTES, PDR, COURSES, RETURN_TRACE, GPX_EXTENDED_PREVIEW,
         GPS_TOGGLE, GPS_COMPARISON, IMU_TOGGLE,
         LAYERS, UNKNOWN_GROUND, BIKE_VIEW_HINTS, OVERLAY_RENDER,
         VIDEO_TRAINING, COLLECT_ONLY, ARCORE_REPLAY, EXPORT, CAPTURE_INFO,
@@ -34,6 +34,7 @@ final class SettingsCatalog {
     }
     private static final List<Item> ALL=Collections.unmodifiableList(Arrays.asList(
         new Item(Section.NAVIGATION,Action.GPX_AR,"GPX AR — experimental camera guidance","Show an imported route on the observed ground · opt-in"),
+        new Item(Section.NAVIGATION,Action.GPX_EXTENDED_PREVIEW,"Extended GPX world preview","Approximate dotted future/past outside ARCore-detected floor; opt-out"),
         new Item(Section.NAVIGATION,Action.GPS_MANUAL_ALIGN,"Adjust GPX on screen","Drag to match real trail · manual, session-only"),
         new Item(Section.NAVIGATION,Action.GPS_ROUTES,"GPS ROUTES — import GPX / follow / record","2D GPS guidance without a camera"),
         new Item(Section.NAVIGATION,Action.PDR,"PDR · NO CAMERA — steps / sensors / GNSS course","Step/IMU walking and running, no camera · local estimate"),

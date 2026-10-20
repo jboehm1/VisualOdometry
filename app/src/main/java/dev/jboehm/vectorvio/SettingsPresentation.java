@@ -15,6 +15,7 @@ final class SettingsPresentation {
     }
     static String title(SettingsCatalog.Action a) {
         switch(a){
+            case GPX_EXTENDED_PREVIEW:return "GPX au loin (pointillé)";
             case GPX_AR:return "Guidage GPX sur caméra";
             case GPS_MANUAL_ALIGN:return "Ajustement manuel du GPX";
             case GPS_ROUTES:return "Navigation GPS sur carte";
@@ -45,6 +46,7 @@ final class SettingsPresentation {
     }
     static String explanation(SettingsCatalog.Action a) {
         switch(a){
+            case GPX_EXTENDED_PREVIEW:return "Afficher futur et passé au-delà du sol détecté. Trait violet pointillé : hauteur supposée, non mesurée. Désactivable.";
             case GPX_AR:return "Importer une trace .gpx, choisir le sens et activer son affichage sur le sol observé. Alignement GPS et caméra nécessaire.";
             case GPS_MANUAL_ALIGN:return "Déplacer visuellement le tracé pour le comparer au chemin réel. Ne change jamais les données GPS ni la distance mesurée.";
             case GPS_ROUTES:return "Suivre un GPX en mode 2D, même sans caméra. Utilise la localisation du téléphone.";
@@ -74,7 +76,8 @@ final class SettingsPresentation {
         }
     }
     static boolean toggle(SettingsCatalog.Action a){
-        return a==SettingsCatalog.Action.GPS_TOGGLE ||
+        return a==SettingsCatalog.Action.GPX_EXTENDED_PREVIEW ||
+               a==SettingsCatalog.Action.GPS_TOGGLE ||
                a==SettingsCatalog.Action.IMU_TOGGLE ||
                a==SettingsCatalog.Action.UNKNOWN_GROUND ||
                a==SettingsCatalog.Action.BIKE_VIEW_HINTS;
