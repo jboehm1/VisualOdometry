@@ -112,6 +112,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile int gpxDisplayFlags=dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.ALL;
     /** Optional occlusion only; depth NEVER becomes absolute terrain or GNSS truth. */
     private volatile boolean gpxDepthEnabled;
+    private volatile boolean gpxExtendedPreview=true;
     private volatile boolean gpxDepthSupported;
     private final ArPoseClock gpxPoseClock=new ArPoseClock();
     private final dev.jboehm.vectorvio.gpxar.ArRouteGuide gpxAr=new dev.jboehm.vectorvio.gpxar.ArRouteGuide();
@@ -234,6 +235,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         SharedPreferences preferences=getSharedPreferences("spatial_explorer",MODE_PRIVATE);
         gps.enabled=preferences.getBoolean("gps_speed_enabled",true);
         gpxDisplayFlags=preferences.getInt("gpx_display_flags",dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.ALL);
+        gpxExtendedPreview=preferences.getBoolean("gpx_extended_preview",true);
         gpxDepthEnabled=preferences.getBoolean("gpx_depth_occlusion",false);
         estimatedGround=preferences.getBoolean("estimated_ground",false);
         keyframeIntervalSeconds=preferences.getFloat("keyframe_interval",1f);
@@ -572,6 +574,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private void performSettingsAction(SettingsCatalog.Action a){
         switch(a){
             case GPX_AR:gpxArMenu();break;
+            case GPX_EXTENDED_PREVIEW:
+                gpxExtendedPreview=!gpxExtendedPreview;
+                getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit()
+                    .putBoolean("gpx_extended_preview",gpxExtendedPreview).apply();break;
             case GPS_MANUAL_ALIGN:beginGpxManualMode();break;
             case GPS_ROUTES:startActivity(new Intent(this,GpsRoutesActivity.class));break;
             case PDR:
@@ -1193,6 +1199,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         else gps.enabled=wantGps;
         estimatedGround=currentSettings.getBoolean("estimated_ground",false);
         hud.setBikeHints(currentSettings.getBoolean("bike_view_hints",true));
+        gpxExtendedPreview=currentSettings.getBoolean("gpx_extended_preview",true);
         hud.setLayers(currentSettings.getInt("overlay_layers",0));
         hud.setSensors(currentSettings.getBoolean("imu_overlay_enabled",false));
         if(!playbackMode){imu.start();gps.start();if(gpxArEnabled&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);}
@@ -1599,6 +1606,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             mapper.allowEstimatedGround=estimatedGround;
             dev.jboehm.vectorvio.gpxar.ArRouteGuide.Snapshot routeState=gpxAr.snapshot(SystemClock.elapsedRealtimeNanos());
             mapper.gpxRoute=routeState;mapper.gpxWorldFromMetric=gpxReference.worldFromMetric();mapper.gpxDisplayFlags=gpxDisplayFlags;mapper.gpxMode=gpxArEnabled;
+            mapper.gpxExtendedPreview=gpxExtendedPreview;
             mapper.gpxDepthOcclusion=gpxArEnabled&&gpxDepthEnabled&&gpxDepthSupported&&!playbackMode;
 
             SceneMapper.Snapshot scene=mapper.update(arSession,frame,latestPoseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,history);

@@ -55,6 +55,23 @@ public final class SettingsActivityTest {
             assertFalse(((Switch)a.getWindow().getDecorView().findViewWithTag("switch_BIKE_VIEW_HINTS")).isChecked());
         }finally{d.pause().stop().destroy();}
     }
+    @Test public void extendedGpxIsAnOptOutNativeSwitch(){
+        org.robolectric.RuntimeEnvironment.getApplication()
+            .getSharedPreferences("spatial_explorer",Activity.MODE_PRIVATE)
+            .edit().putBoolean("gpx_extended_preview",true).commit();
+        ActivityController<SettingsActivity> c=open();
+        try{
+            SettingsActivity a=c.get();
+            View row=a.getWindow().getDecorView().findViewWithTag("setting_GPX_EXTENDED_PREVIEW");
+            assertNotNull(row);
+            Switch enabled=(Switch)a.getWindow().getDecorView().findViewWithTag("switch_GPX_EXTENDED_PREVIEW");
+            assertTrue(enabled.isChecked());
+            enabled.setChecked(false);
+            assertFalse(a.getSharedPreferences("spatial_explorer",Activity.MODE_PRIVATE)
+                .getBoolean("gpx_extended_preview",true));
+        }finally{c.pause().stop().destroy();}
+    }
+
     @Test public void searchFindsGpxAcrossSectionsAndUsesTypedAction(){
         ActivityController<SettingsActivity> c=open();
         try{

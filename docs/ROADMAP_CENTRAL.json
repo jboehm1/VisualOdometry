@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-20 (v0.12 settings UI in isolated PR)",
+  "updated_at": "2026-10-20 (GPX global v0.13 finalization PR #38; verify CI before merge)",
   "source_of_truth": "feature/slam-explorer:docs/ROADMAP_CENTRAL.md",
   "branch_notes": {
     "default_github_branch": "master — archive 2019, non utilisée pour intégration Android",
@@ -374,5 +374,36 @@
       "On-device font/density/accessibility manual tests not complete"
     ],
     "documentation": "docs/SETTINGS_SCREEN_V012.md"
+  },
+  "gpx_world_v013": {
+    "stage": "EN_COURS",
+    "branch": "feature/v013-full-gpx-global-lod",
+    "baseline": "3d251b8e06536a972b88bcf01bd34912ea5ceabd",
+    "rendering": [
+      "observed ground only -> anchored blue ribbon",
+      "unknown floor -> distinctly dashed purple preview, opt-out",
+      "90m past and future neighborhood",
+      "variable meter-width world GPU and dp-width Canvas",
+      "independent return-to-trail cue",
+      "full GPX is retained in immutable geographic index; LOD geographic samples across full track",
+      "global 4-band virtual AR preview up to explicit 50km limit with camera-frustum visibility",
+      "1600 sampled global edges and 1400 drawn distant dashes maximum, fair reservoir across path",
+      "GPX 2D map keeps the full route, camera far segments are approximate and may be sparse"
+    ],
+    "truth_limits": [
+      "ARCore alignment candidate is not certified geographic truth",
+      "purple altitude is a visual guess, not a terrain model",
+      "GPX preview never changes odometry/GNSS/PDR data",
+      "50km is an explicit rendering limit, not a guarantee that every route component will be drawn from every view",
+      "a 30km path or 120k points in CI is not an Android outdoor accuracy measurement",
+      "no physical Galaxy S21 validation or long outdoor track reference yet"
+    ],
+    "documentation": "docs/GPX_AR_WORLD_GUIDE_V013.md",
+    "pr": 38,
+    "acceptance_gates": [
+      "Android JUnit/lint/assemble and Three Campaigns on exact final source SHA",
+      "repeat CI on merged integration SHA",
+      "S21 front/back/side, 2/10/30km GPX, GNSS/ARCore dropout and actual battery/FPS"
+    ]
   }
 }

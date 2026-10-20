@@ -26,7 +26,7 @@ public final class GpxIO {
                 else if(container==2&&d==3&&tag.equals("name")){capture="name";text.setLength(0);textDepth=d;}
                 else if(points!=null&&d==segment+1&&((segment==3&&tag.equals("trkpt"))||(segment==2&&tag.equals("rtept")))){
                     lat=number(p.getAttributeValue(null,"lat"));lon=number(p.getAttributeValue(null,"lon"));ele=Double.NaN;pointDepth=d;
-                    if(!Geo.valid(lat,lon))throw new IOException("Invalid GPX coordinate");if(++count>GpsRoute.MAX_POINTS)throw new IOException("GPX exceeds 50000 points");
+                    if(!Geo.valid(lat,lon))throw new IOException("Invalid GPX coordinate");if(++count>GpsRoute.MAX_POINTS)throw new IOException("GPX exceeds "+GpsRoute.MAX_POINTS+" points");
                 }else if(pointDepth>0&&d==pointDepth+1&&tag.equals("ele")){capture="ele";text.setLength(0);textDepth=d;}
             }else if((event==XmlPullParser.TEXT||event==XmlPullParser.CDSECT||event==XmlPullParser.ENTITY_REF)&&capture!=null){if(p.getText()!=null)text.append(p.getText());if(text.length()>4096)throw new IOException("GPX text too long");}
             else if(event==XmlPullParser.END_TAG){String tag=p.getName();int d=p.getDepth();if(!Objects.equals(rootNs,p.getNamespace()))continue;

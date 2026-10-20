@@ -179,4 +179,27 @@ public class ArRouteGuideTest {
         assertTrue(g.snapshot(now).edges.isEmpty());
     }
 
+    @Test public void findWholeRouteWhenUserOutsideRenderedNinetyMeterWindow(){
+        RouteIndex idx=new RouteIndex(route());
+        double[] nearest=idx.closest(lat(100),lon(300));
+        assertNotNull(nearest);assertTrue(nearest[2]>200);
+        assertEquals(0,idx.closest(lat(40),lon(20))[2],.15);
+        assertNull(idx.closest(Double.NaN,lon(20)));
+        assertTrue(idx.near(lat(100),lon(300),90,950).isEmpty());
+    }
+    @Test public void candidateAlignmentMaintainsWholeRouteRecoveryTargetBeyondViewport(){
+        ArRouteGuide g=engine();
+        long t=feed(g,0,false,0);
+        assertEquals(ArRouteGuide.State.CANDIDATE,g.snapshot(t).state);
+        g.onPose(1,t+100_000_000L,t+100_000_000L,250,-10);
+        ArRouteGuide.Snapshot s=g.snapshot(t+100_000_000L);
+        assertEquals(ArRouteGuide.State.CANDIDATE,s.state);
+        assertTrue(s.edges.isEmpty());
+        assertTrue(s.nearestMeters>150);
+        assertTrue(Double.isFinite(s.nearestX));
+        assertTrue(Double.isFinite(s.nearestZ));
+        g.trackingLost();
+        assertTrue(Double.isNaN(g.snapshot(t+200_000_000L).nearestX));
+    }
+
 }
