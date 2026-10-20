@@ -84,8 +84,21 @@ def lock_suite(path: Path, max_bytes: int = MAX_BYTES) -> dict:
         raise ValueError("Symlink suite not allowed")
     suite = load_suite(suite_path)
     source_id = code_identity()
+    # Include this lock tool and relevant stand-alone converters/contracts,
+    # which are not all covered by the historical testenv source list.
+    for extra in ("tools/datasets/repro_manifest.py", "tools/pdr/datasets.py",
+                  "native/vio/VioEngine.hpp", "tools/vio/compare_measured_runs.py"):
+        extra_path = ROOT / extra
+        if extra_path.is_file():
+            source_id["source_sha256"].setdefault(extra, sha256(extra_path))
     jobs = []
     for job in suite["jobs"]:
+        # job_inputs() canonicalizes paths. Check the literal suite path first:
+        # resolving a symlink would otherwise hide the original indirection.
+        for value in job.get("inputs", {}).values():
+            raw = suite_path.parent / value
+            if raw.is_symlink():
+                raise ValueError("Symlink input declared in suite: " + value)
         declared_inputs = job_inputs(job, suite_path)
         hashes = {key: lock_input(value, max_bytes)
                   for key, value in sorted(declared_inputs.items())}
