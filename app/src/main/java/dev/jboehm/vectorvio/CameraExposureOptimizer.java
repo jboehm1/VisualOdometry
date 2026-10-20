@@ -107,11 +107,22 @@ public final class CameraExposureOptimizer {
                 actualExposure>shutterLimit);
         }
 
-        double value=Math.max(3,image.p50);
+        // Textured, coherent-gradient regions are more relevant to potential
+        // feature tracking than e.g. featureless sky. Strong spatial smoothing
+        // suppresses some single-pixel sensor noise; NOT a certified SLAM score.
+        boolean validFeatures=image.coherentEdgeFraction>=.045;
+        double measured=validFeatures?
+            .65*image.featureMedian+.35*image.p50:image.p50;
+        double value=Math.max(3,measured);
         // Preview is gamma/tone mapped. This is only a bounded feedback heuristic.
         double errorEv=1.5*Math.log(goal/value)/Math.log(2);
         boolean saturated=image.clippedFraction>.08;
-        if(saturated)errorEv=Math.min(errorEv,-.35);
+        if(saturated){
+            // Preserve shadow detail in textured parts of high-contrast scenes
+            // without blindly blowing out sky/highlights.
+            errorEv=validFeatures&&image.featureMedian<goal*.75?
+                Math.min(errorEv,.12):Math.min(errorEv,-.35);
+        }
         if(Math.abs(errorEv)<.14)errorEv=0;
         errorEv=Math.max(-.43,Math.min(.43,errorEv));
         exposureBudget=Math.max(budgetMin,Math.min(budgetMax,
@@ -127,7 +138,7 @@ public final class CameraExposureOptimizer {
         // Low light is evaluated in the observed image AFTER the controller is
         // at both configured limits. Do not mistake a dim sky for untracked VO.
         boolean atHardwareOrMotionLimit=shutter>=shutterLimit*.97 && iso>=isoCeiling*.97;
-        boolean underexposed=image.p50<goal*.65 && atHardwareOrMotionLimit;
+        boolean underexposed=value<goal*.65 && atHardwareOrMotionLimit;
         double smear=Double.isFinite(speed)?Math.toDegrees(speed*shutter/1e9):Double.NaN;
         String status=underexposed?"LIGHT / MOTION LIMIT":
             saturated?"HIGHLIGHTS CLIPPED":
