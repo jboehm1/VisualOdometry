@@ -9,11 +9,13 @@ spec.loader.exec_module(contract)
 ROOT=Path(__file__).resolve().parents[2]
 MAIN=ROOT/"app"/"src"/"main"/"java"/"dev"/"jboehm"/"vectorvio"/"MainActivity.java"
 MANIFEST=ROOT/"app"/"src"/"main"/"AndroidManifest.xml"
+CATALOG=ROOT/"app"/"src"/"main"/"java"/"dev"/"jboehm"/"vectorvio"/"SettingsCatalog.java"
 
 class AndroidModeContractTest(unittest.TestCase):
     def test_actual_baseline_exposes_gps_replay_and_flp(self):
         result=contract.inspect(MAIN.read_text(encoding="utf-8"),
-                                MANIFEST.read_text(encoding="utf-8"))
+                                MANIFEST.read_text(encoding="utf-8"),
+                                catalog_source=CATALOG.read_text(encoding="utf-8"))
         self.assertTrue(result["pass"],result["missing"])
         self.assertEqual("STATIC_ONLY_NOT_UI_TESTED",result["source"])
         # New modes may be legitimately integrated later; never fail just
@@ -40,7 +42,7 @@ class AndroidModeContractTest(unittest.TestCase):
         actual=MAIN.read_text(encoding="utf-8")
         manifest=MANIFEST.read_text(encoding="utf-8")
         corrupted=manifest.replace('android:name=".LocationComparisonActivity"','android:name=".RenamedActivity"')
-        result=contract.inspect(actual,corrupted,("FLP_AB",))
+        result=contract.inspect(actual,corrupted,("FLP_AB",),CATALOG.read_text(encoding="utf-8"))
         self.assertFalse(result["pass"])
         self.assertEqual(["FLP_AB"],result["missing"])
 
@@ -48,7 +50,7 @@ class AndroidModeContractTest(unittest.TestCase):
         actual=MAIN.read_text(encoding="utf-8")
         manifest=MANIFEST.read_text(encoding="utf-8")
         source=actual.replace("LocationComparisonActivity.class","MissingClass.class")
-        result=contract.inspect(source,manifest,("FLP_AB",))
+        result=contract.inspect(source,manifest,("FLP_AB",),CATALOG.read_text(encoding="utf-8"))
         self.assertFalse(result["pass"])
         self.assertTrue(result["modes"]["FLP_AB"]["label_present"])
         self.assertFalse(result["modes"]["FLP_AB"]["action_present"])

@@ -114,6 +114,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private dev.jboehm.vectorvio.gpxar.GpxArRouteStore gpxRouteStore;
     private dev.jboehm.vectorvio.location.LocationSource.Mode gpxLocationMode=dev.jboehm.vectorvio.location.LocationSource.Mode.AUTO;
     private volatile boolean gpxArEnabled;
+    /** True only in the intentional, app-local GPS drop-out test. */
+    private volatile boolean gpxLocationMuted;
+    private boolean gpxManualMode;
+    private LinearLayout gpxManualToolbar;
+    private float manualTouchX,manualTouchY;
+    private long manualTouchMs;
     private volatile dev.jboehm.vectorvio.gps.GpsRoute selectedArRoute;
     private volatile long gpxRouteRevision;
     private String lastJournaledRoute="";
@@ -206,7 +212,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         trackingTask=new CoalescingTask(surface::queueEvent,this::processFrame);
         frameScheduler=new LiveFrameScheduler(new android.os.Handler(cadenceThread.getLooper()),trackingTask::offer,surface::requestRender);
         frameScheduler.setMode(LiveFrameScheduler.Mode.from(preferences.getString("live_power","full")));
-        surface.setOnTouchListener(this::powerTouch);
+        surface.setOnTouchListener(this::cameraTouch);
         root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
 
         hud=new HudView(this);
@@ -233,7 +239,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         root.addView(actions,controls);
         LinearLayout modes=new LinearLayout(this);
         TextView layers=action("LAYERS",0xCC102D39,Color.WHITE);
-        TextView sensors=action("DATA",0xCC102D39,Color.WHITE);
+        TextView sensors=action("MENU",0xCC102D39,Color.WHITE);
         TextView map=action("MAPS",0xCC102D39,Color.WHITE);
         TextView simulation=action("SIM",0xCC102D39,Color.WHITE);
         torchButton=action("FLASH OFF",0xCC102D39,Color.WHITE);
@@ -241,6 +247,23 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         FrameLayout.LayoutParams modeLayout=new FrameLayout.LayoutParams(-1,dp(40),Gravity.TOP);
         modeLayout.topMargin=dp(72);modeLayout.leftMargin=dp(12);modeLayout.rightMargin=dp(12);
         root.addView(modes,modeLayout);
+        gpxManualToolbar=new LinearLayout(this);
+        gpxManualToolbar.setGravity(Gravity.CENTER_VERTICAL);
+        gpxManualToolbar.setPadding(dp(6),0,dp(6),0);
+        gpxManualToolbar.setBackgroundColor(0xF00C2B3C);
+        TextView dragTitle=new TextView(this);dragTitle.setText("ALIGN GPX • DRAG");
+        dragTitle.setTextSize(12);dragTitle.setTextColor(Color.WHITE);
+        gpxManualToolbar.addView(dragTitle,new LinearLayout.LayoutParams(0,-2,1f));
+        TextView clearManual=action("RESET",0xFF294957,Color.WHITE);
+        TextView doneManual=action("DONE",0xFF70FADE,0xFF061723);
+        gpxManualToolbar.addView(clearManual,new LinearLayout.LayoutParams(dp(62),dp(40)));
+        gpxManualToolbar.addView(doneManual,new LinearLayout.LayoutParams(dp(62),dp(40)));
+        clearManual.setOnClickListener(v->{gpxAr.clearVisualShift();surface.requestRender();});
+        doneManual.setOnClickListener(v->endGpxManualMode());
+        FrameLayout.LayoutParams dragParams=new FrameLayout.LayoutParams(-1,dp(48),Gravity.TOP);
+        dragParams.topMargin=dp(190);dragParams.leftMargin=dp(14);dragParams.rightMargin=dp(14);
+        root.addView(gpxManualToolbar,dragParams);
+        gpxManualToolbar.setVisibility(View.GONE);
         powerButton=action("",0xBB102D39,Color.WHITE);powerButton.setTextSize(10);
         FrameLayout.LayoutParams powerLayout=new FrameLayout.LayoutParams(dp(164),dp(32),Gravity.TOP|Gravity.RIGHT);
         powerLayout.topMargin=dp(146);powerLayout.rightMargin=dp(12);
@@ -375,37 +398,197 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     private void powerHelp(){new AlertDialog.Builder(this).setTitle("Power · limits")
         .setMessage("Profiles change presentation only: camera preview, overlay preparation and HUD refresh. Tracking/odometry, map capture and frame metadata keep a 30 updates/s target in every profile. The actual rate can be lower if the device is busy; the HUD reports received pose cadence. No new pose-distance filter is applied.\n\nARCore opens the camera itself at a 30 FPS target and retains its internal tracking. Display at 5 FPS does not mean camera capture at 5 FPS. In Hold mode, press the image for a 30 FPS view; release for 5. The same latest-frame GL pipeline is used at every display rate.\n\nFor maximum autonomy, GPS ROUTES avoids the camera; COLLECT ONLY records video without live mapping. Battery savings require measurement on your phone.").setPositiveButton("OK",null).show();}
+    /** Manual visual adjustment requires an existing geographic/VIO alignment. */
+    private void beginGpxManualMode(){
+        dev.jboehm.vectorvio.gpxar.ArRouteGuide.Snapshot state=gpxAr.snapshot(SystemClock.elapsedRealtimeNanos());
+        if(!gpxArEnabled||!rendererRunning||!gpxAr.hasRoute()||
+          (state.state!=dev.jboehm.vectorvio.gpxar.ArRouteGuide.State.CANDIDATE &&
+           state.state!=dev.jboehm.vectorvio.gpxar.ArRouteGuide.State.VIO_HOLD)){
+            Toast.makeText(this,"First enable GPX AR and walk until tracking + alignment are ready",Toast.LENGTH_LONG).show();return;
+        }
+        new AlertDialog.Builder(this).setTitle("MANUAL GPX ALIGNMENT")
+            .setMessage("Stand where you can see the real path. Slide the camera view with one finger to move the GPX line horizontally. Fine positioning is approximate; it does NOT correct GPS or create surveyed ground truth.\n\nTap DONE to keep the shift during this AR session or RESET to remove it. Locking the phone or losing tracking discards this adjustment. The route file and odometer are never changed.")
+            .setNegativeButton("CANCEL",null)
+            .setPositiveButton("START DRAG",(d,w)->{
+                gpxManualMode=true;
+                gpxManualToolbar.setVisibility(View.VISIBLE);
+                Toast.makeText(this,"Drag on the camera view · RESET / DONE above",Toast.LENGTH_SHORT).show();
+            }).show();
+    }
+    private void endGpxManualMode(){
+        gpxManualMode=false;
+        if(gpxManualToolbar!=null)gpxManualToolbar.setVisibility(View.GONE);
+    }
+    /**
+     * Drag gesture is deliberately active ONLY when the manual toolbar is on.
+     * Camera orientation converts screen motion to a horizontal offset in the
+     * stable current VIO reference, not a replacement GPS or odometry pose.
+     */
+    private boolean cameraTouch(View view,MotionEvent event){
+        if(!gpxManualMode)return powerTouch(view,event);
+        if(event.getPointerCount()!=1&&event.getActionMasked()!=MotionEvent.ACTION_UP)return true;
+        if(event.getActionMasked()==MotionEvent.ACTION_DOWN){
+            manualTouchX=event.getX();manualTouchY=event.getY();manualTouchMs=0;return true;
+        }
+        if(event.getActionMasked()==MotionEvent.ACTION_MOVE||event.getActionMasked()==MotionEvent.ACTION_UP){
+            long now=SystemClock.elapsedRealtime();
+            if(event.getActionMasked()==MotionEvent.ACTION_MOVE&&now-manualTouchMs<35)return true;
+            final float beforeX=manualTouchX,beforeY=manualTouchY;
+            final float afterX=event.getX(),afterY=event.getY();
+            float dx=afterX-beforeX,dy=afterY-beforeY;
+            manualTouchX=afterX;manualTouchY=afterY;manualTouchMs=now;
+            if(Math.hypot(dx,dy)<.5)return true;
+            surface.queueEvent(()->{
+                if(!gpxManualMode||!rendererRunning||latestFrame==null)return;
+                if(latestFrame.getCamera().getTrackingState()!=TrackingState.TRACKING)return;
+                Pose reference=gpxReference.worldFromMetric();
+                if(reference==null)return;
+                Pose camera=latestFrame.getCamera().getPose();
+                float[] right=camera.getXAxis(),forward=camera.getZAxis();
+                double rn=Math.hypot(right[0],right[2]),fn=Math.hypot(forward[0],forward[2]);
+                if(rn<.3||fn<.3)return;
+                // Where available, derive displacement from TWO hits on the
+                // SAME ARCore-observed upward plane. This respects slope and
+                // camera pitch rather than assuming metres per pixel.
+                float[] observed=manualGroundDisplacement(latestFrame,beforeX,beforeY,afterX,afterY);
+                double scale=10.0/Math.max(320,width);
+                double mx=observed==null?(right[0]/rn*dx+forward[0]/fn*dy)*scale:observed[0];
+                double mz=observed==null?(right[2]/rn*dx+forward[2]/fn*dy)*scale:observed[2];
+                double magnitude=Math.hypot(mx,mz);
+                if(magnitude>2){mx*=2/magnitude;mz*=2/magnitude;}
+                Pose metricFromWorld=reference.inverse();
+                float[] base=metricFromWorld.transformPoint(new float[]{0,0,0});
+                float[] shifted=metricFromWorld.transformPoint(new float[]{(float)mx,0,(float)mz});
+                if(gpxAr.shiftVisual(shifted[0]-base[0],shifted[2]-base[2]))surface.requestRender();
+            });
+            return true;
+        }
+        return true;
+    }
+
+    /** Difference between ray hits on the same detected ground patch. */
+    private float[] manualGroundDisplacement(Frame frame,float ax,float ay,float bx,float by){
+        try{
+            java.util.List<com.google.ar.core.HitResult> first=frame.hitTest(ax,ay);
+            java.util.List<com.google.ar.core.HitResult> second=frame.hitTest(bx,by);
+            for(com.google.ar.core.HitResult a:first){
+                if(!(a.getTrackable() instanceof com.google.ar.core.Plane))continue;
+                com.google.ar.core.Plane plane=(com.google.ar.core.Plane)a.getTrackable();
+                if(plane.getTrackingState()!=TrackingState.TRACKING ||
+                    plane.getType()!=com.google.ar.core.Plane.Type.HORIZONTAL_UPWARD_FACING ||
+                    !plane.isPoseInPolygon(a.getHitPose()))continue;
+                for(com.google.ar.core.HitResult b:second){
+                    if(!plane.equals(b.getTrackable())||!plane.isPoseInPolygon(b.getHitPose()))continue;
+                    float[] u=a.getHitPose().getTranslation(),v=b.getHitPose().getTranslation();
+                    return new float[]{v[0]-u[0],v[1]-u[1],v[2]-u[2]};
+                }
+            }
+        }catch(RuntimeException missingGround){/* Manual approximate drag still available. */}
+        return null;
+    }
+
+    /**
+     * Semantic DATA menu contract: all existing module entries live in the
+     * catalog, not fixed positions that collide across parallel branches.
+     * GPS ROUTES — import GPX / follow / record; GpsRoutesActivity.class
+     * GPS ↔ FUSED — Android location A/B (experimental); LocationComparisonActivity.class
+     * ARCORE REPLAY — evaluate saved video with same odometer; playbackPicker();
+     */
     private void dataMenu(){
-        String[] choices={"Show / hide IMU overlay","GPS: "+(gps.enabled?"ON — disable":"OFF — enable foreground location"),"Training video: "+(trainingEnabled?"ON — disable":"OFF — arm video + IMU capture"),"What is captured?","COLLECT ONLY — long trips / screen off","Overlay rendering — Auto / Canvas / Retry GPU","Return along current trace: "+(returnTraceRequested?"ON — stop":"OFF — freeze route and return"),"Unknown floor ribbon: "+(estimatedGround?"ESTIMATED — disable":"HIDDEN — enable height estimate"),"GPS ROUTES — import GPX / follow / record","ARCORE REPLAY — evaluate saved video with same odometer","GPS ↔ FUSED — Android location A/B (experimental)","GPX AR — experimental camera guidance"};
-        new AlertDialog.Builder(this).setTitle("DATA · capture and sensors").setItems(choices,(d,i)->{
-            if("GPX AR — experimental camera guidance".equals(choices[i])){gpxArMenu();return;}
-            // Stable semantic dispatch: do not claim DATA index 9/10 shared with PDR, courses or replay.
-            if("GPS ↔ FUSED — Android location A/B (experimental)".equals(choices[i])){
+        SettingsCatalog.Section[] sections=SettingsCatalog.Section.values();
+        String[] choices=new String[sections.length];
+        for(int i=0;i<sections.length;i++)choices[i]=sections[i].title+"\n"+sections[i].subtitle;
+        new AlertDialog.Builder(this).setTitle("VECTOR VIO · SETTINGS & TOOLS")
+            .setMessage("Choose a category. Live measurement, geographic location, recording and visual effects are separate.")
+            .setItems(choices,(d,index)->showSettingsCategory(sections[index]))
+            .setNegativeButton("CLOSE",null).show();
+    }
+    private void showSettingsCategory(SettingsCatalog.Section category){
+        java.util.List<SettingsCatalog.Item> items=SettingsCatalog.items(category);
+        String[] titles=new String[items.size()];
+        for(int i=0;i<items.size();i++){
+            SettingsCatalog.Item entry=items.get(i),item=entry;
+            String state=settingsValue(item.action);
+            titles[i]=entry.title+(state.isEmpty()?"":"  ["+state+"]")+"\n"+entry.description;
+        }
+        new AlertDialog.Builder(this).setTitle(category.title)
+            .setMessage(category.subtitle+" · tap an item to configure it")
+            .setItems(titles,(d,index)->performSettingsAction(items.get(index).action))
+            .setNeutralButton("CATEGORIES",(d,w)->dataMenu())
+            .setNegativeButton("CLOSE",null).show();
+    }
+    private String settingsValue(SettingsCatalog.Action a){
+        switch(a){
+            case GPX_AR:return gpxArEnabled?"ON":"OFF";
+            case GPS_MANUAL_ALIGN:return gpxManualMode?"DRAGGING":gpxAr.visualShifted()?"MANUAL":"OFF";
+            case RETURN_TRACE:return returnTraceRequested?"ON":"OFF";
+            case GPS_TOGGLE:return gps.enabled?"ON":"OFF";
+            case UNKNOWN_GROUND:return estimatedGround?"ON":"OFF";
+            case VIDEO_TRAINING:return trainingEnabled?"ARMED":"OFF";
+            case POWER:return frameScheduler.mode().id.toUpperCase(Locale.US);
+            default:return "";
+        }
+    }
+    private void performSettingsAction(SettingsCatalog.Action a){
+        switch(a){
+            case GPX_AR:gpxArMenu();break;
+            case GPS_MANUAL_ALIGN:beginGpxManualMode();break;
+            case GPS_ROUTES:startActivity(new Intent(this,GpsRoutesActivity.class));break;
+            case RETURN_TRACE:
+                if(!returnTraceRequested&&!odometer.isRecording())
+                    Toast.makeText(this,"Start recording to follow one continuous trace",Toast.LENGTH_LONG).show();
+                else returnTraceRequested=!returnTraceRequested;
+                break;
+            case GPS_TOGGLE:
+                if(gps.enabled)gps.disable();
+                else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED ||
+                    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED){
+                    gps.enabled=true;gps.start();
+                }else requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_REQUEST);
+                refreshHud();break;
+            case GPS_COMPARISON:
                 if(odometer.isRecording()){
-                    Toast.makeText(this,"PAUSE first; comparison must not interrupt live VIO",Toast.LENGTH_LONG).show();
-                    return;
+                    Toast.makeText(this,"Pause recording before comparing location providers",Toast.LENGTH_LONG).show();
+                }else startActivity(new Intent(this,LocationComparisonActivity.class));
+                break;
+            case IMU_TOGGLE:hud.toggleSensors();break;
+            case LAYERS:
+                hud.cycleLayers();getSharedPreferences("spatial_explorer",MODE_PRIVATE)
+                    .edit().putInt("overlay_layers",hud.layers()).apply();break;
+            case UNKNOWN_GROUND:
+                estimatedGround=!estimatedGround;
+                getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit()
+                    .putBoolean("estimated_ground",estimatedGround).apply();break;
+            case OVERLAY_RENDER:overlaySettings();break;
+            case VIDEO_TRAINING:
+                if(odometer.isRecording()){
+                    Toast.makeText(this,"Pause before changing video capture",Toast.LENGTH_LONG).show();break;
                 }
-                startActivity(new Intent(this,LocationComparisonActivity.class));return;
-            }
-            if(i==9){playbackPicker();return;}
-            if(i==8){startActivity(new Intent(this,GpsRoutesActivity.class));return;}
-            if(i==7){estimatedGround=!estimatedGround;getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("estimated_ground",estimatedGround).apply();return;}
-            if(i==6){
-                if(!returnTraceRequested&&!odometer.isRecording()){
-                    Toast.makeText(this,"Start tracking first; return mode needs one continuous session",Toast.LENGTH_LONG).show();return;
-                }
-                returnTraceRequested=!returnTraceRequested;return;
-            }
-            if(i==5){overlaySettings();return;}
-            if(i==4){startActivity(new Intent(this,CollectionActivity.class));return;}
-            if(i==0)hud.toggleSensors();
-            if(i==1){if(gps.enabled)gps.disable();else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED){gps.enabled=true;gps.start();}else requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_REQUEST);refreshHud();}
-            if(i==2){if(odometer.isRecording()){Toast.makeText(this,"Pause first to change video capture",Toast.LENGTH_LONG).show();return;}
                 if(trainingEnabled){trainingEnabled=false;refreshHud();}
-                else new AlertDialog.Builder(this).setTitle("Capture training video?").setMessage("START/RESUME will save the camera image and internal ARCore sensors in an MP4 on this phone, plus external IMU and frame metadata. PAUSE stops the video; RESUME creates another part. No microphone audio. Export as Dataset ZIP. Video may contain private surroundings. Capture uses extra storage and battery.").setNegativeButton("CANCEL",null).setPositiveButton("ARM CAPTURE",(a,b)->{trainingEnabled=true;training.status="VIDEO ARMED";refreshHud();}).show();
-            }
-            if(i==3)new AlertDialog.Builder(this).setTitle("Full camera frame · local data").setMessage("The reticle only selects the POI hit-test target. Cyan/violet polygons are detected planes, clipped for display; they do not crop the camera input. ARCore processes its camera stream.\n\nVIO speed measures motion relative to the viewed environment. Looking at a car interior can give near-zero VIO while the car moves: GPS ground speed is separate and is not silently fused.\n\nCSV: poses + diagnostic IMU. Dataset ZIP adds video parts only if armed, frame timestamps/intrinsics, device metadata and GPS fixes if enabled. ARCore poses are estimates, not training ground truth; camera/IMU offset and extrinsics need calibration. Simulation CSV is generated truth, not the estimated map or real footage.").setPositiveButton("OK",null).show();
-        }).show();
+                else new AlertDialog.Builder(this).setTitle("Capture camera + IMU video?")
+                    .setMessage("Opt-in training video creates ARCore MP4 dataset parts, stored privately. This uses extra power and storage. No audio.")
+                    .setNegativeButton("CANCEL",null)
+                    .setPositiveButton("ARM CAPTURE",(d,w)->{trainingEnabled=true;training.status="VIDEO ARMED";refreshHud();}).show();
+                break;
+            case COLLECT_ONLY:startActivity(new Intent(this,CollectionActivity.class));break;
+            case ARCORE_REPLAY:playbackPicker();break;
+            case EXPORT:pickExport();break;
+            case CAPTURE_INFO:
+                new AlertDialog.Builder(this).setTitle("What is captured?")
+                    .setMessage("ARCore poses are estimates, not independent ground truth. Odometer distance uses camera-based motion, not GPS. GPS coordinates and visual GPX placement are separate.\n\nRecording only saves video when explicitly armed; exported ZIPs may contain images and private location. Locking the screen stops live AR tracking.")
+                    .setPositiveButton("OK",null).show();break;
+            case MAP_VIEW:mapMenu();break;
+            case MAP_SAVED:openMaps();break;
+            case MAP_SETTINGS:mappingSettings();break;
+            case MAP_PLACE_POI:placePoi();break;
+            case POWER:powerMenu();break;
+            case SIMULATION:startActivity(new Intent(this,SimulationActivity.class));break;
+            case HELP:
+                new AlertDialog.Builder(this).setTitle("VECTOR VIO · guide")
+                    .setMessage("Navigation & GPX: imported track, visual direction and manual adjustment.\nLocation: GPS/Fused/IMU.\nCamera: overlays and depth.\nRecording: files, capture and export.\nMaps: points of interest and 3D scenes.\nPerformance: FPS and tests.\n\nManual GPX adjustment is not a new GPS observation. GPS-free visual continuation can drift.")
+                    .setPositiveButton("OK",null).show();break;
+            default:throw new IllegalArgumentException("Unknown menu action "+a);
+        }
     }
 
     private void installGpxArRoute(dev.jboehm.vectorvio.gps.GpsRoute route){gpxAr.setRoute(route);selectedArRoute=route;gpxRouteRevision++;}
@@ -417,19 +600,29 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     private void postGpxUi(Runnable task){runOnUiThread(()->{if(!isFinishing()&&!isDestroyed())task.run();});}
     private void gpxArMenu(){
-        String[] actions={gpxArEnabled?"PAUSE AR GPX":"ENABLE AR GPX", "IMPORT GPX", "LOCATION SOURCE", "REVERSE SELECTED ROUTE", "RESET ALIGNMENT", "REMOVE SELECTED ROUTE", "HELP / ACCURACY", "DISPLAY OPTIONS", "ADD ALTITUDE · EU-DEM (ONLINE)", gpxDepthEnabled?"RAW DEPTH OCCLUSION · ON":"RAW DEPTH OCCLUSION · OFF"};
+        String[] actions={gpxArEnabled?"PAUSE AR GPX":"ENABLE AR GPX", "IMPORT GPX", "LOCATION SOURCE", "REVERSE SELECTED ROUTE", "RESET ALIGNMENT", "REMOVE SELECTED ROUTE", "HELP / ACCURACY", "DISPLAY OPTIONS", "ADD ALTITUDE · EU-DEM (ONLINE)", gpxDepthEnabled?"RAW DEPTH OCCLUSION · ON":"RAW DEPTH OCCLUSION · OFF", "MANUAL GPX SLIDE · match the path", gpxLocationMuted?"GPS AID · MUTED (TEST)":"GPS AID · ON"};
         new AlertDialog.Builder(this).setTitle("GPX AR · experimental").setItems(actions,(d,i)->{
             if(i==0){if(gpxArEnabled)setGpxArEnabled(false);else if(!gpxAr.hasRoute())Toast.makeText(this,"Import a GPX first",Toast.LENGTH_LONG).show();
                 else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},GPX_AR_LOCATION_REQUEST);
                 else setGpxArEnabled(true);}
             if(i==1){Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(picker,IMPORT_GPX_AR_REQUEST);}
             if(i==2)new AlertDialog.Builder(this).setTitle("Location source").setSingleChoiceItems(new String[]{"AUTO · Google Fused, GPS fallback","GPS native","Google Fused only"},gpxLocationMode.ordinal(),(dialog,index)->{
-                gpxLocationMode=dev.jboehm.vectorvio.location.LocationSource.Mode.values()[index];gpxAr.trackingLost();if(gpxArEnabled&&foreground)gpxLocation.start(gpxLocationMode);dialog.dismiss();}).show();
+                gpxLocationMode=dev.jboehm.vectorvio.location.LocationSource.Mode.values()[index];gpxAr.trackingLost();if(gpxArEnabled&&foreground&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);dialog.dismiss();}).show();
             if(i==3){setGpxArEnabled(false);mapIo.execute(()->{try{dev.jboehm.vectorvio.gps.GpsRoute old=gpxRouteStore.load();if(old!=null){dev.jboehm.vectorvio.gps.GpsRoute reversed=old.reverse();gpxRouteStore.save(reversed);installGpxArRoute(reversed);postGpxUi(()->Toast.makeText(this,"AR route reversed · enable to start",Toast.LENGTH_LONG).show());}}catch(Exception e){postGpxUi(()->Toast.makeText(this,"Cannot reverse saved route",Toast.LENGTH_LONG).show());}});}
             if(i==4)gpxAr.trackingLost();
             if(i==5){setGpxArEnabled(false);mapIo.execute(()->{gpxRouteStore.clear();installGpxArRoute(null);});}
             if(i==7)gpxDisplayMenu();
             if(i==8)gpxEnrichElevation();
+            if(i==10)beginGpxManualMode();
+            if(i==11){
+                if(!gpxArEnabled){Toast.makeText(this,"Enable GPX AR first",Toast.LENGTH_LONG).show();return;}
+                gpxLocationMuted=!gpxLocationMuted;
+                if(gpxLocationMuted)gpxLocation.stop();
+                else if(foreground&&!playbackMode)gpxLocation.start(gpxLocationMode);
+                Toast.makeText(this,gpxLocationMuted?
+                    "GPX GPS input intentionally muted • VIO-only test; enable again to resume GPS":
+                    "GPX GNSS assistance resumed",Toast.LENGTH_LONG).show();
+            }
             if(i==9){
                 gpxDepthEnabled=!gpxDepthEnabled;
                 getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("gpx_depth_occlusion",gpxDepthEnabled).apply();
@@ -498,7 +691,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(enabled&&(playbackMode||CollectionService.running)){Toast.makeText(this,"GPX AR needs live camera mode",Toast.LENGTH_LONG).show();return;}
         gpxArEnabled=enabled;gpxAr.setEnabled(enabled);gpxArText="";resetGpxReference=true;
         if(enabled&&odometer.isRecording())journalGpxArRoute();
-        if(enabled&&foreground&&!playbackMode)gpxLocation.start(gpxLocationMode);else gpxLocation.stop();
+        if(enabled&&foreground&&!playbackMode&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);else gpxLocation.stop();
         // Quick-view mode never forces recording or camera access in the background.
         // On screen unlock GPS is reacquired; the old ARCore reference is not reused.
     }
@@ -519,6 +712,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     private String describeGpxAr(dev.jboehm.vectorvio.gpxar.ArRouteGuide.Snapshot snap){
         if(!gpxArEnabled)return "";
+        String visual=snap.manualAdjusted?" · MANUAL ALIGNMENT (NOT GPS VERIFIED)":"";
         // After screen unlock a fresh GPS fix can recover approximate route
         // progress BEFORE walking far enough to establish absolute AR yaw.
         // This banner is GPS-only: never draw an apparently anchored blue line.
@@ -536,8 +730,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             case CANDIDATE:
                 if(snap.navigationStatus==dev.jboehm.vectorvio.gps.GpsNavigator.Status.AMBIGUOUS)return "GPX · AMBIGUOUS PATH · NO DIRECTION";
                 String remaining=(gpxDisplayFlags&dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.REMAINING)!=0?String.format(Locale.US," · %.0f m left",snap.remainingMeters):"";
-                return String.format(Locale.US,"GPX ~%.0f m · %s%s · %s",snap.horizontalAllowanceMeters,snap.navigationStatus,remaining,mapper.gpxGroundEdges>0?"ANCHORED FLOOR":mapper.gpxAnchorCount>0?"NO FLOOR":"FLOOR / ANCHOR WAIT");
-            case VIO_HOLD:return String.format(Locale.US,"GPX VIO HOLD · GPS LOST %.0f s · allowance ≥ %.0f m (NOT CALIBRATED)",snap.holdSeconds,snap.horizontalAllowanceMeters);
+                return String.format(Locale.US,"GPX ~%.0f m · %s%s · %s%s",snap.horizontalAllowanceMeters,snap.navigationStatus,remaining,mapper.gpxGroundEdges>0?"ANCHORED FLOOR":mapper.gpxAnchorCount>0?"NO FLOOR":"FLOOR / ANCHOR WAIT",visual);
+            case VIO_HOLD:return String.format(Locale.US,"GPX VIO ONLY · NO GPS %.0f s · drift UNCERTAIN (≥ %.0f m diagnostic)%s",snap.holdSeconds,snap.horizontalAllowanceMeters,visual);
             case NEED_BASELINE:return "GPX · WALK TO ALIGN ("+snap.samples+" fixes)";
             case STALE:return "GPX HIDDEN · STALE LOCATION / POSE";
             case INCONSISTENT:return "GPX HIDDEN · INCONSISTENT ALIGNMENT";
@@ -931,7 +1125,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             startActivity(new Intent(this,CollectionActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
             return;
         }
-        if(!playbackMode){imu.start();gps.start();if(gpxArEnabled)gpxLocation.start(gpxLocationMode);}
+        if(!playbackMode){imu.start();gps.start();if(gpxArEnabled&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);}
         if(liveModeRequested)startAr();
     }
     private void startAr() {
@@ -1032,6 +1226,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     @Override protected void onPause() {
         foreground=false;gpxLocation.stop();gpxAr.trackingLost();gpxGeneration++;
+        endGpxManualMode();
         frameScheduler.stop();boostPointer=-1;updatePowerLabel();
         imu.stop();
         gps.stopUpdates();
