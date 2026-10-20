@@ -28,3 +28,7 @@ The user confirmed on **Galaxy S21** that manual Camera2 shutter and ISO really 
 - The next *major architectural research question* is using this acquisition with custom VIO while preserving GPX coordinate alignment, since manual Camera2 control is **not presently injected into ARCore**.
 
 References: https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics , https://developer.android.com/reference/android/hardware/camera2/CaptureRequest , https://developers.google.com/ar/reference/java/com/google/ar/core/SharedCamera .
+
+## Paired ARCore tracking/brightness diagnostic added
+
+When the normal **ARCore VIO recording** is active, approximately once per second the existing 1-Hz camera metadata pass *attempts* `Frame.acquireCameraImage()` (no camera parameter changes), samples its Y plane at 96×54, immediately closes the image, and adds `_arcore_luma.csv` with actual `tracking_state`, `failure_reason`, P10/P50/P90, dark/clipped fractions, image edge proxy, exposure and ISO. If CPU image is temporarily unavailable or unsupported this telemetry is skipped without affecting SLAM. This explicitly enables real-light calibration **against whether ARCore was tracking** rather than guessing a single universal minimum from ambient lux. Preview RGB luma and YUV plane luma are different image spaces and should be analysed separately. The app does NOT apply manual shutter to ARCore.
