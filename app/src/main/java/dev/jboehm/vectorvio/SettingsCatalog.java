@@ -40,7 +40,7 @@ final class SettingsCatalog {
         new Item(Section.NAVIGATION,Action.COURSES,"COURSES — plan manuel hors ligne","Shopping route planner · manual aisles and product places, no visual recognition"),
         new Item(Section.NAVIGATION,Action.RETURN_TRACE,"Return on local trace","Follow the recorded trail back to its start"),
 
-        new Item(Section.LOCATION,Action.GPS_TOGGLE,"GPS speed badge · show / hide","Fresh native GPS vs VIO speed, horizontal ±m and speed ± when reported; foreground only"),
+        new Item(Section.LOCATION,Action.GPS_TOGGLE,"GPS speed badge · show / hide","Fresh native GPS vs VIO speed, horizontal ±m and speed ± when reported; updates while this screen is active"),
         new Item(Section.LOCATION,Action.GPS_COMPARISON,"GPS ↔ FUSED — Android location A/B (experimental)","Compare native GPS with Google Fused; correlated sources"),
         new Item(Section.LOCATION,Action.IMU_TOGGLE,"IMU telemetry overlay","Show/hide raw accelerometer and gyroscope"),
 
