@@ -197,7 +197,9 @@ public final class SettingsActivity extends Activity {
     }
     private boolean isChecked(SettingsCatalog.Action a){
         switch(a){
-            case GPS_TOGGLE:return prefs.getBoolean("gps_speed_enabled",true);
+            case GPS_TOGGLE:return prefs.getBoolean("gps_speed_enabled",true) &&
+                (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED ||
+                 checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED);
             case IMU_TOGGLE:return prefs.getBoolean("imu_overlay_enabled",false);
             case UNKNOWN_GROUND:return prefs.getBoolean("estimated_ground",false);
             case BIKE_VIEW_HINTS:return prefs.getBoolean("bike_view_hints",true);
