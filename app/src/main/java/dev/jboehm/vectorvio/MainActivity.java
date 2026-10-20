@@ -1509,6 +1509,28 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                         String.format(Locale.US,"%d,%.4f,%d,%.6f,%.5f,%s",
                             frame.getTimestamp(),quality.exposureMs,iso,angularSpeed,
                             quality.angularBlurDeg,quality.state));
+                // Evidence needed to calibrate image brightness vs genuine ARCore
+                // tracking quality, WITHOUT taking control of ARCore's shutter.
+                // CPU images are optional; on some devices they are unavailable.
+                // Never hold the Image across renderer frames or store its pixels.
+                if(odometer.isRecording()&&recorder.currentFile()!=null&&frame.getTimestamp()>0){
+                    android.media.Image cameraImage=null;
+                    try{
+                        cameraImage=frame.acquireCameraImage();
+                        CameraImageQuality.Metrics m=ArCoreFrameLuma.measure(cameraImage);
+                        if(m!=null){
+                            String reason=frame.getCamera().getTrackingState()==TrackingState.TRACKING?
+                                "NONE":frame.getCamera().getTrackingFailureReason().name();
+                            recorder.sidecar(recorder.currentFile(),"_arcore_luma.csv",
+                                "frame_time_ns,tracking_state,failure_reason,p10_y,p50_y,p90_y,dark_fraction,clipped_fraction,edge_fraction,exposure_ms,iso",
+                                String.format(Locale.US,"%d,%s,%s,%d,%d,%d,%.4f,%.4f,%.4f,%.4f,%d",
+                                    frame.getTimestamp(),frame.getCamera().getTrackingState(),reason,
+                                    m.p10,m.p50,m.p90,m.darkFraction,m.clippedFraction,m.edgeFraction,
+                                    quality.exposureMs,iso));
+                        }
+                    }catch(Exception cpuImageUnavailable){ /* live AR must never fail because of diagnostic */ }
+                    finally{if(cameraImage!=null)cameraImage.close();}
+                }
             }
             if(clearMap){gpxAr.trackingLost();gpxReference.reset();gpxGeneration++;traceGuide.clear();returnTraceRequested=false;guideText="";anchoredOdometry.reset();odometer.lostTracking();mapper.clear();if(worldOverlay!=null)worldOverlay.clear();clearMap=false;}
             Odometer.Result poseResult=Odometer.Result.INACTIVE;
