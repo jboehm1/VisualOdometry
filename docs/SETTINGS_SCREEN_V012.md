@@ -17,6 +17,13 @@ Le menu en modal Android v0.11 (catégorie puis sous-dialogue, texte denses, pet
 - Contraste/taille calibrés en unités `sp/dp` ; tests Robolectric vérifient présence, interactions, toggle et dispatch. Une capture d'écran et un test VoiceOver/TalkBack sur vrai S21 restent à faire.
 - Aucune modification du moteur d'odométrie, du calcul des vitesses ni des algorithmes PDR/GPX/SLAM. Pas de promesse de meilleure précision grâce à l'UX.
 
+## Carte : grand affichage à partir de la miniature
+- Tap sur la petite carte de droite : zoom plein panneau avec bouton × en haut à droite; gestes hors miniature restent ceux de la caméra.
+- Haut : carte VIO locale et POI ; si GPX AR candidat + repères disponibles, lignes GPS alignées **à titre approximatif** en bleu.
+- Bas : carte du GPX chargé entier même sans activer l'AR GPX. Projection longitude/latitude locale north-up, départ en cyan, arrivée en orange, position GPS si fraîche (cercle de précision déclaré).
+- Jamais de superposition géographique de la trajectoire VIO avant calage : panneau GPX séparé avec badge **NON CALÉ AVEC VIO**. Calage candidat ne constitue pas une vérité terrain.
+- Tester zoom/fermeture, GPX chargé ou absent, perte GPS, 50k points GPX, suivi AR, vieux segments distincts.
+
 ## Essais manuels
 1. Ouvrir MENU, vérifier lecture des cartes à distance normale, revenir depuis système et bouton ‹, tester portrait, agrandissement police système et clavier de recherche.
 2. Ouvrir chaque onglet; recherche « GPX » et « vitesse »; vérifier chaque ligne; essayer toggles en conservant l'écran ouvert.

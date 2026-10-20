@@ -27,6 +27,12 @@ final class GpsMonitor implements LocationListener {
     @android.annotation.SuppressLint("MissingPermission")
     void stopUpdates(){try{manager.removeUpdates(this);}catch(Exception ignored){}}
     void disable(){enabled=false;stopUpdates();latest=null;status="GPS OFF";}
+    Location freshFix(long nowNs){
+        Location fix=latest;
+        if(!enabled||fix==null)return null;
+        long age=nowNs-fix.getElapsedRealtimeNanos();
+        return age<0||age>GpsSpeedStatus.MAX_AGE_MS*1_000_000L?null:new Location(fix);
+    }
     GpsSpeedStatus.Reading reading(long nowNs){
         if(!enabled)return GpsSpeedStatus.unavailable("GPS OFF");
         Location fix=latest;
