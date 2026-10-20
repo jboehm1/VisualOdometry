@@ -34,3 +34,39 @@ Ce n'était donc pas une segmentation neuronale du sol : ARCore fournissait les 
 - Branche isolée : `feature/v013-gpx-world-horizon`; base `feature/slam-explorer` `3d251b8e06536a972b88bcf01bd34912ea5ceabd`.
 - Fichiers partagés : `MainActivity`, `HudView`, `SceneMapper`, `WorldGeometry`, `WorldOverlayRenderer`, `ArRouteGuide`, `RouteIndex`, `SettingsActivity`, `SettingsCatalog`, `SettingsPresentation`, Gradle, tests et docs centrales.
 - PR fumée #17 et docs low-light #21/#22 préservées. Priorité : CI au SHA exact, puis fusion sans remplacement de fichiers entiers du reste de l'application.
+
+## Global GPX camera extension (separate V0.13 finishing branch)
+
+This release extends the previous 90 m-only AR virtual horizon with an explicitly
+**bounded global geographic LOD**. It does not claim surveyed metric accuracy.
+
+- `RouteIndex.world(...,50000m,1600)` scans the immutable route, keeps all
+  imported geometry in memory, and samples across four distance bands (90–300 m,
+  300–1500 m, 1.5–6 km, 6–50 km). Nothing is permanently removed from GPX.
+  The drawn subset is fair across earlier and later portions, even when the
+  original route exceeds 50,000 points.
+- Sampled far edges are NEVER joined across discarded vertices. This may appear
+  intermittent on very dense long tracks: truthful absence of detail is preferable
+  to inventing a path through unseen turns. The full 2D GPX map remains canonical.
+- `GpxExtendedGuide.dashesInView` projects into the current camera frustum,
+  culls off-screen segments, and draws distance-adjusted violet strokes via
+  Canvas (no ARCore Anchor/ground observation). Local near-90 m blue anchors
+  and navigation closest-point matching remain independent.
+- **Limits**: 50 km maximum global AR candidate radius, 1600 global geometric
+  segments and 1400 visible dashed primitives per frame, while observed-floor
+  local track remains independently limited to 90 m. On distant/mountain routes
+  the virtual height is only a visual assumption, not measured topography. A
+  50 km selection radius does not mean all 50 km are visible in the physical
+  camera image: occlusion, perspective and screen resolution still apply.
+- Camera frustum uses 60 km virtual far clipping for 2D-overlay projection;
+  near/far dash sampling limits avoid unbounded draw work.
+- `GpsRoute.MAX_POINTS` increased to 120000. GPX input remains limited to
+  12 MiB total and route densification 200000 vertices in the AR index.
+
+### Exact release / field gates
+Unit tests: global 40 km bidirectional query and hard budgets, 50k+ point route,
+invalid input, previous 90 m local behavior, GpxWorldGuide, GPX/PDR regressions.
+Verify CI at exact PR head SHA and again at merge SHA before distributing one APK.
+On Samsung S21: rotate 180°/360°; test >90 m straight route and winding path,
+10/30 km GPX zoom, GPS outages, ARCore loss, fps/CPU/thermals and artifacts.
+Do not represent these automatic tests as a physical device qualification.
