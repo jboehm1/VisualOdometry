@@ -73,7 +73,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private int isoProgress=40;
     private int actualWidth=1280,actualHeight=720;
     private static final int EXPORT_OPTICAL_CSV=220;
-    private static final int MAX_SAMPLES=7200; // <~1h at 2Hz, bounded memory
+    private static final int MAX_SAMPLES=20000; // <=~40 min bike at 8 Hz; bounded memory
     private final StringBuilder opticalCsv=new StringBuilder(
         "time_elapsed_ns,profile,auto,ambient_lux,p10,p50,p90,dark_fraction,clipped_fraction,"+
         "edge_fraction,coherent_edge_fraction,feature_median,gyro_rad_s,actual_exposure_ns,actual_iso,shutter_cap_ns,"+
@@ -234,7 +234,11 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                     if(evidence!=null)evidence.setText("Preview brightness not available: "+e.getClass().getSimpleName());
                 }finally{if(thumbnail!=null)thumbnail.recycle();}
             }
-            if(foreground)ui.postDelayed(this,430);
+            // At bike speed a 430ms interval often exceeds ±14px patch search.
+            // Sample more frequently in BIKE mode, but hardware requests still
+            // obey independent 650ms photometric settling limits.
+            if(foreground)ui.postDelayed(this,
+                motionMode==CameraExposureOptimizer.MotionMode.BIKE?120:250);
         }
     };
 
