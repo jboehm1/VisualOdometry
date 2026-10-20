@@ -24,3 +24,10 @@ Sources:
 - Android Camera2 sensor exposure and sensitivity behavior: https://developer.android.com/reference/android/hardware/camera2/CaptureResult
 - Android motion sensors: https://developer.android.com/develop/sensors-and-location/sensors/sensors_motion
 - Motion and region-gradient based VO exposure optimisation (2025): https://doi.org/10.1016/j.jai.2025.10.001
+
+
+## Exposure guided by textured regions (experimental enhancement)
+
+`CameraImageQuality` now computes an independent, 3×3-smoothed gradient ratio and the **median brightness of pixels with spatially coherent gradients**. Exposure feedback uses a tentative 65% feature-median / 35% scene-median mixture when >=4.5% of the examined image has coherent texture. This reduces the influence of bright, featureless sky when a darker patterned path fills the lower preview. A high-frequency alternating 1-pixel checkerboard no longer counts as usable *coherent* texture even though raw gradients are abundant, helping distinguish some alias/noise from persistent structure. Bright clipping continues to constrain adjustments.
+
+The threshold/weight and spatial Gaussian approximation are heuristics, **not benchmarked true feature inliers nor measured noise**. No real model weight or VIO pose correction is added. Exported Camera2 CSV includes both raw and smoothed texture fraction and textured median to allow later comparison with the actual tracking losses recorded by ARCore on independent runs.
