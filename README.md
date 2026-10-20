@@ -1,3 +1,5 @@
+See the complete **autonomous Work-mode engineering handover**: [GPX + PDR + ARCore/native-VIO A/B](docs/HANDOVER_WORK_AUTONOMOUS_V016.md). This document defines iterative Git/CI checkpoints, ground-truth protocols, commercial constraints and continuation rules. It is a plan, not a claim of complete robustness.
+
 ## Native VIO v0.15 R&D / possible commercial product
 
 Camera2 Lab can change shutter/ISO, but it **does not feed a native metric-VIO tracker** yet; ARCore remains the default. An isolated `nativevio.NativeVioInputGate` now validates camera/IMU timing and verified calibration (contract + synthetic JUnit tests only). No Basalt, Kimera, OKVIS or C++ pose engine ships in the APK. For future commercial distribution, privacy-first design, ARCore terms, transitive dependencies, licenses/attribution and independent field accuracy evidence are mandatory: see [native-VIO specification](docs/NATIVE_VIO_ENGINE_V015.md), [commercial release gates](docs/COMMERCIAL_RELEASE_GATES.md), and [Atlas v5](docs/VECTOR_VIO_ATLAS_INTERACTIF_v5.html).
