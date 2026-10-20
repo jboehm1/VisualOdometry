@@ -84,6 +84,13 @@ RUNNERS = {
         "reference": "FastLIO2_lidar_inertial_posthoc_clock_and_scale_fit",
         "accuracy": "research_shape_only_not_metric",
     },
+    "upo_smoke": {
+        "engines": ("radar-sensor-audit",),
+        "input": "local_ros1_bag",
+        "capability": "actual_smoke_radar_lidar_pointcloud_count_and_temporal_coverage",
+        "reference": "marker_and_wheel_odometry_smoothed_descriptive_only",
+        "accuracy": "sensor_observability_only_no_position_or_obstacle_accuracy",
+    },
     "phone_csv": {
         "engines": ("csv-audit",),
         "input": "local_phone_export",
@@ -141,6 +148,14 @@ LIMITATIONS = {
         "Reference is LiDAR-IMU FastLIO2; camera/reference extrinsic lever arm remains unverified",
         "A 951 MB compressed original is downloaded; extracted ROS bag occupies approximately 2.8 GB transiently",
     ],
+    "upo_smoke": [
+        "REAL original UPO experiment_7.bag input required; dataset license CC-BY-NC-SA-3.0",
+        "This is a sensor decoder and descriptive statistics, NOT a radar-SLAM/VIO/PDR estimator",
+        "The published /ground_truth marker trajectory is partly smoothed with wheel odometry",
+        "No sensor extrinsic/transformation verification for radar/LiDAR spatial alignment",
+        "Returns per cloud do not establish obstacle recall or safe free space",
+        "No independent pose, smoke opacity, thermal imagery or obstacle-label accuracy metric",
+    ],
     "phone_csv": [
         "Summarizes a CSV already exported by the phone; cannot run ARCore on this cloud host",
         "A known route length allows distance error, not absolute 6DoF ATE",
@@ -188,6 +203,14 @@ def available_catalog() -> list[dict]:
         "scenario": "recorded monocular camera+gyro research odometry; shape alignment only",
         "url": "https://zenodo.org/records/20525157",
         "truth": "FastLIO2 LiDAR-IMU poses, posthoc GT clock + scale fitted",
+    }
+    names["upo_smoke"] = {
+        "id": "upo_smoke",
+        "name": "University Pablo de Olavide original indoor artificial-smoke ROS1 bag",
+        "scenario": "Real radar and LiDAR point clouds, under varying artificial smoke; exp7 selected",
+        "url": "https://robotics.upo.es/datasets/smoke/",
+        "license": "CC-BY-NC-SA-3.0",
+        "truth": "AR markers + odometry-smoothed partial reference, descriptive only, not used for estimator accuracy",
     }
     names["phone_csv"] = {
         "id": "phone_csv", "name": "VECTOR on-phone exported trajectory",
@@ -542,6 +565,59 @@ def _run_inertial(base: dict, output: Path, dataset: str, engine: str,
     base["metrics_are_estimates_not_independent_errors"] = True
 
 
+def _run_upo_smoke(base: dict, output: Path, args: argparse.Namespace) -> None:
+    """Run smoke sensor extraction as part of canonical benchmark (NOT radar odometry)."""
+    if any(getattr(args, k, None) is not None for k in
+           ("truth", "estimate", "root", "heading_csv", "heading_source", "known_distance")):
+        raise ValueError("UPO sensor audit accepts original ROS1 bag only, no estimator reference inputs")
+    original = _require_file(args.input, "--input")
+    if original.name != "experiment_7.bag":
+        raise ValueError("UPO real adapter supports only original experiment_7.bag")
+    _invoke([sys.executable, str(ROOT / "tools/smoke_rescue/upo_real.py"),
+             "--bag", str(original), "--out", str(output / "source_report.json"),
+             "--max-seconds", "60"], output, timeout_s=args.timeout_s)
+    native = json.loads((output / "source_report.json").read_text(encoding="utf-8"))
+    if native.get("mode") != "DECODED_REAL_ROS1_BAG" or native.get("input_bytes", 0) < 100_000:
+        raise ValueError("UPO adapter did not decode real input")
+    for name in ("radar_left", "radar_right", "lidar"):
+        if native["metrics"][name]["frames"] < 10:
+            raise ValueError("Insufficient real " + name + " sensor frames")
+    stats = native["metrics"]
+    base.update({
+        "status": "PASS",
+        "measured_engine": native["engine"],
+        "actual_estimator_executed": False,
+        "reference_used_to_score": False,
+        "reference_kind": "marker_odometry_smoothed_descriptive_only",
+        "metric_distance_accuracy_proven": False,
+        "metrics": {
+            "radar_left_frames": stats["radar_left"]["frames"],
+            "radar_right_frames": stats["radar_right"]["frames"],
+            "lidar_frames": stats["lidar"]["frames"],
+            "radar_left_returns_median": stats["radar_left"]["advertised_points_per_frame_p50"],
+            "radar_right_returns_median": stats["radar_right"]["advertised_points_per_frame_p50"],
+            "lidar_points_median": stats["lidar"]["advertised_points_per_frame_p50"],
+            "radar_left_rate_hz": stats["radar_left"]["frame_rate_from_capture_header_hz"],
+            "radar_right_rate_hz": stats["radar_right"]["frame_rate_from_capture_header_hz"],
+            "lidar_rate_hz": stats["lidar"]["frame_rate_from_capture_header_hz"],
+            "radar_left_zero_return_fraction": stats["radar_left"]["zero_usable_return_fraction"],
+            "radar_right_zero_return_fraction": stats["radar_right"]["zero_usable_return_fraction"],
+            "reference_samples": native["reference_info_not_independent_pose_accuracy"]["frames"],
+            "radar_left_time_ref_coverage": native["temporal_coverage_vs_published_reference"]["radar_left"]["fractions_within_0_1s"],
+            "radar_right_time_ref_coverage": native["temporal_coverage_vs_published_reference"]["radar_right"]["fractions_within_0_1s"],
+        },
+        "provenance": {
+            "original_upo_bag_sha256": native["input_sha256"],
+            "original_upo_bytes": native["input_bytes"],
+            "dataset_license": native["source_license"],
+            "source_url": native["source_url"],
+            "actual_sensor_messages_decoded": native["real_sensor_records_seen"],
+            "no_odom_estimator": True,
+            "source_report_sha256": hash_file(output / "source_report.json"),
+        },
+    })
+
+
 def _run_phone(base: dict, output: Path, args: argparse.Namespace) -> None:
     source = _require_file(args.input, "--input")
     command = [sys.executable, str(HERE / "run_dataset.py"),
@@ -601,6 +677,8 @@ def run(args: argparse.Namespace) -> dict:
             _run_raw_index(base, output, args.dataset, engine, args)
         elif args.dataset in ("oxiod", "canonical"):
             _run_inertial(base, output, args.dataset, engine, args)
+        elif args.dataset == "upo_smoke":
+            _run_upo_smoke(base, output, args)
         elif args.dataset == "phone_csv":
             _run_phone(base, output, args)
         else:

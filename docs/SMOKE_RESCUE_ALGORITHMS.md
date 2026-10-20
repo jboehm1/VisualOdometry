@@ -1,0 +1,130 @@
+# Smoke Rescue — measurable real-world radar/IMU R&D (not navigation)
+
+Date: 2026-10-19. Branch: feature/smoke-rescue-research. Review against AGENTS.md and docs/DEVELOPMENT_COORDINATION.md on current Android integration. No Android production UI is modified.
+
+## Definition of the current experiment
+
+**Actual real-data workflow**: .github/workflows/smoke-upo-real.yml automatically downloads the exact **UPO indoor artificial smoke Experiment 7** original ROS1 bag (2,183,007,782 bytes) transiently. The bag is CC BY-NC-SA 3.0; CI publishes reports only, then deletes the original. Source: https://robotics.upo.es/datasets/smoke/ . Its original index is https://robotics.upo.es/datasets/smoke/experiment_7.txt .
+
+The existing **canonical Test Environment V2** \`upo_smoke / radar-sensor-audit\` checks original PointCloud2 radar and LiDAR stream statistics. A new **separate experimental engine** \`tools/smoke_rescue/doppler_odom.py\` reads original RadarScan *velocities* plus original lidar IMU angular speed and constructs research-only local planar positions. It additionally displays radar points in local estimated coordinates **without inferring free space**.
+
+Do not mix these results or describe them as a validated SLAM system. There is **no loop detection**, no map/pose optimization, no camera or thermal sensing in UPO, no absolute heading and no safety-grade localization. Estimates are **open-loop inertial yaw + Doppler velocity** and will drift. Do not use any path to guide human emergency exits.
+
+## Original sensor verification (real GitHub Actions)
+
+A real source probe decoded the underlying UPO headers and found:
+
+| Topic | Original header frame | Capture clock |
+| --- | --- | --- |
+| \`/ti_mmwave_left_radar/radar_scan\` | \`ti_mmwave_left_radar\` | Unix epoch, approximately 1606476287.55 s |
+| \`/ti_mmwave_right_radar/radar_scan\` | \`ti_mmwave_right_radar\` | Unix epoch |
+| \`/os1_cloud_node/imu\` | \`os1_imu\` | **sensor uptime approximately 2788.85 s**, not Unix |
+| \`/ground_truth\` | \`map\` | Unix epoch |
+| Radar PointCloud2 | \`ti_mmwave_left_radar\` | Unix epoch |
+
+**Important:** ROS IMU header time is in a different clock domain. Comparing it directly to radar would produce an invalid filter. The initial research estimator explicitly substitutes ROS **bag receipt time** for the IMU, which introduces unknown latency/jitter. This must be improved by measured hardware-uptime-to-host clock transformation before any metric claims. Original samples also show RadarScan messages carry velocity, although PointCloud2 exposes only x,y,z,intensity. \`range\` and \`bearing\` in first custom RadarScan samples are zero even when x,y,z nonzero: calculate 2D geometry from x,y, NOT the published range=0.
+
+Published raw message geometry resembles the TI ROS custom \`RadarScan\` definition at https://git.ti.com/cgit/mmwave_radar/mmwave_ti_ros/tree/ros2_driver/src/ti_mmwave_rospkg_msgs/msg/RadarScan.msg ; related README https://github.com/radar-lab/ti_mmwave_rospkg .
+
+TF is available in \`/tf\` and \`/tf_static\` but a complete verified transform from radar frame to IMU frame has **not** yet been implemented. The initial code makes an **unverified** common upright-z orientation assumption, which can cause large heading/translation biases. Frame identity must be verified before calling this a calibrated sensor fusion.
+
+## Algorithm — explicitly no ground truth used for pose estimation
+
+For a stationary radar reflector at horizontal polar unit direction \(u=(x/r,y/r)\) and radial velocity \(d\), estimated radar ego velocity \(v=(v_x,v_y)\) satisfies approximately:
+
+    u_x v_x + u_y v_y = -d
+
+- Inputs: original per-point \`RadarScan\` x,y,velocity from **left** radar only (not the pseudo reference, not robot wheel odometry, not LiDAR).
+- Accumulate returns into fixed 0.5-second temporal windows. A single sparse scan often contains only 2–3 points; insufficient to solve full horizontal velocity alone.
+- Solve 2D normal equations by deterministic Huber iteratively reweighted least squares. Enforce minimum 5 returns, sufficient angular diversity, finite ranges/velocity, estimated speed < 3 m/s, and median absolute radial residual <= 0.7 m/s. Reject invalid windows and mark their displacement **unknown**, not zero.
+- Use raw Ouster IMU gyro-z and \`dt\` to obtain yaw changes, with no absolute heading correction; its clock is bag-arrival-proxy **not calibrated**. Apply this yaw to radar-frame ego velocity, integrate only consecutive accepted bins, never fill missing data using truth.
+- Build a positive-return-only 0.25 m grid by projecting real measured radar x/y from the closest estimated radar pose, if timestamp separation <=0.3 s. No range ray freespace inference; an orange cell means **a radar echo mapped using an uncertain pose**, not independently established structural geometry.
+- Only **after** estimating the frozen trajectory, independently read UPO \`/ground_truth\` and pair by Unix header time <=120 ms. Fit *rigid* planar SE(2) (rotation + translation, **no scale fitting**) over matched points, then report RMSE vs the **partially wheel-odometry-smoothed** pseudo reference with matched sample count and a zero-motion baseline. This is **not independent absolute accuracy**; the SE2 fit uses test GT after inference, so it must be labeled *posthoc-aligned research score*, never live-deployable accuracy.
+
+For a different radar data source, validate radial Doppler sign, body axes, clock basis, TF, echo filtering and motor/platform movement model **before** reusing this engine.
+
+## How to reproduce with real data
+
+No large datasets in the repository. Run the dedicated GitHub Actions workflow \`Smoke UPO real-bag sensor benchmark\` (on pushes to feature branch, or workflow_dispatch), and download the small *stats/artifact* ZIP.
+
+Offline unit suite (no network):
+\`\`\`sh
+python -m unittest discover -s tools/smoke_rescue/tests -p 'test_*.py' -v
+\`\`\`
+
+With original bag deliberately present at your local location (dataset is licensed for non-commercial use):
+\`\`\`sh
+python -m pip install rosbags==0.11.4
+python tools/smoke_rescue/doppler_odom.py --bag /data/experiment_7.bag --max-seconds 60 \
+  --out /tmp/upo-radar-gyro.json --html /tmp/upo-radar-map.html
+\`\`\`
+
+Generated JSON separates \`motion_observability\`, \`sparse_positive_echo_map\` and \`pseudo_reference_posthoc_evaluation\`, with declared sensor clock caveat, software type, SHA and full estimated trajectory. A small HTML visualization is demonstrative and explicitly NOT a fire navigation map.
+
+## What must be improved before calling this an actual SLAM benchmark
+
+1. **Calibration first:** decode TF tree, independently validate radar_left/right↔base_link↔os1_imu rotations, 3D lever arms and actual motion directions. Derive hardware-vs-receipt clock offset using *sensor-only* signals rather than reference poses.
+2. **Estimate orientation robustly:** gyro biases, possible attitude correction only from magnetometer or environment when trustworthy. Proper ZUPT where a foot IMU exists; a wheeled robot has no foot ZUPT.
+3. **Multi-radar Doppler quality:** use both horizontal radars, test static scatterer assumption and multipath/moving clutter rejection; estimate uncertainty, not just least squares velocity.
+4. **Spatial performance:** calibrate radar/LiDAR extrinsics and temporal matching, measure reflectivity detection recall vs well-visible calibrated solid structures. Do not call every LiDAR return truth inside dense fog.
+5. **Trajectory evaluation:** count valid and missing bins, actual reference matched motion and segments, compare gyro-only/constant-zero baseline; report confidence and p50/p95 per smoke level; use truly independent AR marker positions where available.
+6. **Smoke severity:** vary controlled-smoke experiments #1–#7 with separate smoke-density info if actually recorded; do not infer optical depth solely from a filename.
+7. **Thermal + radar + IMU follow-on**: IROS 2021 IRS RTVI has genuinely synchronized 60GHz radar, thermal FLIR Boson, monochrome RGB and IMU, with calibration files and **MoCap truth for the 5 lab sequences**, but **no demonstrated smoke recordings** in its dataset listing. https://christopherdoer.github.io/datasets/irs_rtvi_datasets_iros2021 . That is the nearest option-C sensor fusion reference, complementary to UPO smoke instead of pretending one source has all 3 modalities. Reference software RRxIO: https://github.com/christopherdoer/rrxio (GPL-3.0, old ROS/Kinetic/Melodic dependency).
+8. Proper radar-SLAM would add scan-to-submap matching/loop closure, dynamic object suppression, pose graph, source-grade ground truth and safe fail states; none exists here yet.
+
+Source/license policies: UPO CC BY-NC-SA 3.0, IRS RTVI license must be checked prior to redistribution, RRxIO code GPL-3.0. A CI run only establishes algorithm execution on **that** source SHA, not real human/firefighter performance.
+
+
+## First genuinely executed NEW radar/gyro estimator (2026-10-19)
+
+**Exact run**: [GitHub Actions 39210658719 — SUCCESS](https://github.com/jboehm1/VisualOdometry/actions/runs/39210658719), code at **4f831b3fe5982e20ecedee0c7dd2b45867941263**. Downloaded *original* 2,183,007,782-byte UPO Experiment 7, **35 Python smoke tests pass**, decoded custom Doppler \`RadarScan\` and Ouster IMU plus separately tagged partially odometry-derived marker reference. All statistics below cover the first 60s of bag time; original bag deleted; evidence artifact **12168005336** retains JSON/HTML only.
+
+| Measured field | Result |
+| --- | ---: |
+| Accepted radar velocity bins (0.5s window) | **69 / 80 = 86.25%** |
+| Degenerate geometries rejected | 11 bins |
+| Total correctly integrated time (not all elapsed time) | **32.52 s** |
+| Measured-velocity estimated path | **9.28 m** |
+| Real echo points projected to sparse map | **2,045** |
+| Unprojectable/invalid echo points | 240 |
+| Cells containing positive radar echoes at 25 cm | **212** |
+| Estimated poses paired with pseudo reference within 120 ms | **60** |
+| **Posthoc rigid SE(2) aligned ATE RMSE vs pseudo reference** | **0.891 m** |
+| Median aligned position error | 0.800 m |
+| P95 aligned position error | 1.606 m |
+| **Zero-motion baseline SE(2) aligned RMSE** | **1.788 m** |
+| ATE ratio vs zero-motion baseline | **0.498** |
+| Path integrated over the same matched contiguous segments | **7.997 m** |
+| Pseudo-reference path over matched segments | **5.462 m** |
+
+**Critical nuance**: Our 0.891 m vs 1.788 m baseline suggests useful **nonzero radar motion information** on this short recording. However matched-path integrated length is **46% longer** than the partially wheel-odometry-derived reference (7.997 vs 5.462m), the estimated displacement gaps are NOT filled, and the evaluated region is a small smoke basement. This is NOT a proven accuracy level, real robot trajectory metric guarantee or a generalization result. It is **not Radar-SLAM**: no loop closure, surface registration, uncertainty calibrated against independent truth, or terrain safety. The posthoc rigid SE2 fit and partial ground truth prevent making a certified metric-odometry claim.
+
+The user's desired Option-C combination radar + LWIR thermal + IMU is partly available in the IRS RTVI dataset (Doer/Trommer IROS 2021), but those recordings are **not demonstrated smoky**: https://christopherdoer.github.io/datasets/irs_rtvi_datasets_iros2021 . This source complements rather than replaces UPO.
+
+The 168-second frozen-parameter full recording campaign is a separate new CI test; its result must be reported at its own exact run SHA, not inferred from these 60s scores.
+
+
+## FULL original 168s held-parameter run — VERIFIED, critical negative result
+
+[GitHub Actions 39211106764 — SUCCESS](https://github.com/jboehm1/VisualOdometry/actions/runs/39211106764), branch head at time of run \`a82bd255732b85c84ed1f3a6a1d7e9c5ea68e970\`. Genuine full original UPO Experiment 7, **35 unit tests PASS**, same algorithm and untouched parameters for 60s and 168s, not a new reference-fitting method. Evidence artifact **12167518553**, with original dataset SHA256 \`b8e9340a2465e3b71d6ce2edffe47a5faff9616ebff59f754ae234896df09c3e\`. Published JSON and generated HTML maps are strictly research-only. Dataset raw bytes deleted on runner.
+
+| Measure (identical frozen estimator) | First 60s of bag | Full 168s of bag |
+| --- | ---: | ---: |
+| Received 0.5s radar-return windows (during radar availability) | 80 | **290** |
+| Accepted velocity windows | 69 (86.25%) | **269 (92.76%)** |
+| Correctly integrated consecutive intervals | 32.52s | **127.66s** |
+| Estimate traveled path from accepted intervals | 9.28m | **35.11m** |
+| Actual Doppler echoes projected to uncalibrated map | 2,045 | **8,241** |
+| Map cells at 25cm with ≥1 positive radar echo | 212 | **723** |
+| Matched pseudo-reference poses | 60 | **258** |
+| Rigid-SE2 posthoc ATE RMSE vs partial AR-marker/odometry pseudo reference | **0.891m** | **3.242m** |
+| ATE median / P95 | 0.800m / 1.606m | **1.667m / 7.105m** |
+| Zero-motion baseline RMSE against same reference sample set | 1.788m | **2.930m** |
+| ATE / stationary baseline (<1 better) | 0.498 | **1.106 (WORSE)** |
+| Traveled path matched intervals (estimated vs pseudo GT) | 7.997 vs 5.462m | **33.366 vs 26.569m** |
+
+**Meaningful scientific finding:** The longer test exposed substantial error and drift. The **full 168s estimate has a higher position RMSE than doing no motion at all** on the same posthoc alignment/evaluation protocol. A quick 60s positive score is not proof of robust localization. The estimated path on the full matched contiguous intervals overshoots the pseudo-reference by approximately **25.6%**. The 723 populated grid cells are simply positive detections and cannot be scored as correct obstacles without verified transforms and an independent labeled map.
+
+The root cause is **not proven**. Hypotheses: mismatch between OS1 IMU device-uptime and radar Unix-time stamps (currently bridged with ROS bag arrival time), unknown radar↔IMU extrinsic yaw and lever arm, gyro bias, Doppler on moving/multipath scatterers, gap handling, a static-reflector assumption, poor observability of a sparse side-looking radar. All must be tested with sensor-only calibration and independent held-out sequences. Do **not** tune to minimize this exact pseudo-ground-truth RMSE then call the same data an independent test.
+
+**Prioritized next measurable work:** inspect and resolve UPO \`/tf\`/\`/tf_static\`, calibrate gyro hardware-uptime↔ROS timestamp offset from sensor stamps only; score against raw \`/fiducial_pose\` marker detections separately (not the odometry-smoothed \`/ground_truth\`); add correctly aligned LiDAR-to-radar detection association and a distance/angle-stratified miss-rate benchmark with conservative unknown-state; evaluate another smoke experiment as held-out. Use direct radar+thermal+IMU IRS RTVI for synchronized fusion as a separate non-smoke test.
