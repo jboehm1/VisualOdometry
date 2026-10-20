@@ -42,6 +42,8 @@ https://github.com/RoyinaJayanth/NIO_Lie_Events
 - `MainActivity.java`: 1 Hz metadata read only, appends HUD warning on high ISO/motion blur; recording sidecar `_camera_quality.csv` for data collection, optional metadata supported.
 - `hybrid/HybridPoseEstimator.java`: first strict contract for motion deltas **in AR world frame**, with speed, timestamp, uncertainty, 30s visibility gate, pedestrian/bicycle differentiation, and visual re-anchoring; unit tested. **This is not yet fed IMU/model outputs, GPX or world renderer; no neural weights are included.**
 - Existing camera-free `PdrEngine`, route GPX, rendering, realtime geofusion and CSV unchanged except passive camera telemetry. Unit tests are fixture/synthetic only.
+- `tools/hybrid/evaluate_outage.py`: model-neutral outage evaluator with independent ground truth file, fixed initial anchor, identical timestamps, hard motion/time gates, no end-of-track realignment, and reproducible RMSE / endpoint drift / p95. It is wired into `tools/tests` CI; current checks are **synthetic only**, not measurements of RoNIN or TLIO.
+
 
 ## Next acceptance gates (explicitly NOT done yet)
 1. Dataset adapter + reproducible RoNIN vs TinyOdom vs TLIO comparison: SAME split, clocks, device axes, gravity, labels; walking, turning, held/pocket, stairs, outage durations 5/15/30 s. Report ATE/RTE, drift per 100m/30s, failure rate, latency, inference cost and uncertainty calibration, NO leaked ground truth.
