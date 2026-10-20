@@ -80,6 +80,22 @@ public final class CameraExposureOptimizerTest {
         assertTrue(urgent.changed);
         assertTrue(urgent.exposureNs<=1_000_000L);
     }
+    @Test public void shadowFeaturesMatterMoreThanBrightSky(){
+        CameraExposureOptimizer bright=new CameraExposureOptimizer();
+        CameraExposureOptimizer shade=new CameraExposureOptimizer();
+        CameraImageQuality.Metrics skyOnly=new CameraImageQuality.Metrics(
+            25,160,240,.1,0,.12,.0,160,1000);
+        CameraImageQuality.Metrics visiblePath=new CameraImageQuality.Metrics(
+            25,160,240,.1,0,.12,.2,30,1000);
+        CameraExposureOptimizer.Decision a=bright.updateMotionAware(
+            1_000_000_000L,skyOnly,4_000_000L,1000,limits(),1600,90,
+            0,CameraExposureOptimizer.MotionMode.WALK);
+        CameraExposureOptimizer.Decision b=shade.updateMotionAware(
+            1_000_000_000L,visiblePath,4_000_000L,1000,limits(),1600,90,
+            0,CameraExposureOptimizer.MotionMode.WALK);
+        assertTrue("textured shadows should receive more signal than featureless sky",
+            (double)b.exposureNs*b.iso>(double)a.exposureNs*a.iso);
+    }
     @Test public void clampHardStopsEvenIfSceneBlack(){
         CameraExposureOptimizer c=new CameraExposureOptimizer();
         long exposure=33_000_000L;int iso=1600;
