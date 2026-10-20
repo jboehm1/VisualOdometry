@@ -60,7 +60,7 @@ final class SceneMapper {
             clear();return new Snapshot(new ArrayList<>(),0,0,0,0,0,new ArrayList<>(),new ArrayList<>(),new ArrayList<>(),new ArrayList<>(),segment);
         }
         if(result==Odometer.Result.REFERENCE || result==Odometer.Result.GAP || result==Odometer.Result.REJECTED) clear();
-        camera.getViewMatrix(view,0);camera.getProjectionMatrix(projection,0,.05f,100f);
+        camera.getViewMatrix(view,0);camera.getProjectionMatrix(projection,0,.05f,60000f);
         Matrix.multiplyMM(vp,0,projection,0,view,0);
         ArrayList<Shape> shapes=new ArrayList<>();ArrayList<MapSurface> surfaces=new ArrayList<>();
         List<GroundTrail.Floor> floors=new ArrayList<>();
@@ -142,6 +142,21 @@ final class SceneMapper {
             ?GpxExtendedGuide.dashes(worldEdges,camera.getPose().tx(),camera.getPose().ty(),
                 camera.getPose().tz(),previewReferenceY,floors)
             :java.util.Collections.emptyList();
+        if(gpxExtendedPreview && gpxRoute!=null && gpxWorldFromMetric!=null){
+            List<double[]> distantWorld=new ArrayList<>(gpxRoute.worldEdges.size());
+            for(double[] edge:gpxRoute.worldEdges){
+                float[] a=gpxWorldFromMetric.transformPoint(new float[]{(float)edge[0],0,(float)edge[1]});
+                float[] b=gpxWorldFromMetric.transformPoint(new float[]{(float)edge[2],0,(float)edge[3]});
+                distantWorld.add(new double[]{a[0],a[2],b[0],b[2]});
+            }
+            List<float[]> farPreview=GpxExtendedGuide.dashesInView(
+                distantWorld,camera.getPose().tx(),camera.getPose().ty(),camera.getPose().tz(),
+                previewReferenceY,floors,vp);
+            if(!farPreview.isEmpty()){
+                ArrayList<float[]> both=new ArrayList<>(preview.size()+farPreview.size());
+                both.addAll(preview);both.addAll(farPreview);preview=both;
+            }
+        }
         List<float[]> anchored=gpxAnchors.update(session,gpxWorldFromMetric,projected,gpxRoute==null?0:gpxRoute.segment,
             gpxRoute==null?0:gpxRoute.alignmentRevision,android.os.SystemClock.elapsedRealtimeNanos(),camera.getPose().tx(),camera.getPose().tz());
         gpxAnchorCount=gpxAnchors.size();
@@ -159,7 +174,7 @@ final class SceneMapper {
         for(float[] edge:preview){
             float[] xy=Projection.line(vp,new float[]{edge[0],edge[1],edge[2]},
                 new float[]{edge[3],edge[4],edge[5]});
-            if(xy!=null)shapes.add(new Shape(xy,7,""));
+            if(xy!=null)shapes.add(new Shape(xy,7,"",edge));
         }
         if(gpxGroundEdges>0&&gpxRoute!=null&&gpxWorldFromMetric!=null){
             for(dev.jboehm.vectorvio.gpxar.ArRouteGuide.Marker marker:gpxRoute.markers){
