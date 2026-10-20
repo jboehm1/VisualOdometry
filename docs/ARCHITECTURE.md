@@ -1,3 +1,7 @@
+## v0.15 native-VIO boundary (experimental)
+
+The new pure Java `nativevio.NativeVioInputGate` is a **fail-closed acquisition contract**, not a VIO estimator. It checks explicit camera identity/calibration and clock source, frame monotonicity, shutter duration and gyro/accelerometer timestamp bracketing; >1-second capture gaps start fresh acquisition segments. It is **not connected** to existing Camera2 Lab or ARCore. Do not report the gate as a second visual-inertial engine, a metric pose, or a replacement for ARCore/GPX. Future boundaries: `ImageReader YUV_420_888` + checked `CaptureResult` timestamps → calibrated C++ estimator → source/scale/quality-tagged pose → explicit world reanchoring. See [native VIO](NATIVE_VIO_ENGINE_V015.md) and [commercial release policy](COMMERCIAL_RELEASE_GATES.md).
+
 > Current implementation inventory: [MODULES_AND_DATASETS.md](MODULES_AND_DATASETS.md). This document retains historical mathematical explanations; use that inventory and CAPTURE_FORMAT.md for implemented features.
 
 > Updated behavior: see [SPATIAL_EXPLORER.md](SPATIAL_EXPLORER.md). Since 0.2 displacement/height restart per independent segment, and diagnostic raw IMU is logged. Since 0.3 map snapshots can be saved/reopened, with optional image keyframes and a manual endpoint constraint. The older baseline explanations below describe 0.1 where inconsistent.
