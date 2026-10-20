@@ -31,3 +31,15 @@ Sources:
 `CameraImageQuality` now computes an independent, 3×3-smoothed gradient ratio and the **median brightness of pixels with spatially coherent gradients**. Exposure feedback uses a tentative 65% feature-median / 35% scene-median mixture when >=4.5% of the examined image has coherent texture. This reduces the influence of bright, featureless sky when a darker patterned path fills the lower preview. A high-frequency alternating 1-pixel checkerboard no longer counts as usable *coherent* texture even though raw gradients are abundant, helping distinguish some alias/noise from persistent structure. Bright clipping continues to constrain adjustments.
 
 The threshold/weight and spatial Gaussian approximation are heuristics, **not benchmarked true feature inliers nor measured noise**. No real model weight or VIO pose correction is added. Exported Camera2 CSV includes both raw and smoothed texture fraction and textured median to allow later comparison with the actual tracking losses recorded by ARCore on independent runs.
+
+## Offline field export audit
+
+In Camera2 lab, select **EXPORT CAMERA2 QUALITY TRACE (CSV)** after moving the phone through shadow/sun, then analyze the resulting file:
+
+```bash
+python3 tools/camera/evaluate_camera2_lab.py \
+    --csv /path/to/vector-camera2-fast-exposure.csv \
+    --out camera2-quality-report.json
+```
+
+This validates actual ISO/shutter usage against user limits, records motion-proxy smear and low-light sample proportions, and groups WALK vs BIKE. It **never reports VIO accuracy** because ARCore is paused during the separate manual Camera2 lab. The companion `tools/tests/test_camera2_lab_quality.py` validates the CSV scoring on synthetic samples in CI.
