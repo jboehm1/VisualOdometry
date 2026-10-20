@@ -1,3 +1,7 @@
+## Work continuation and comparative navigation goal
+
+A full [autonomous Work handover](HANDOVER_WORK_AUTONOMOUS_V016.md) records the GPX anchor fail-closed design, PDR camera-free validation, fair ARCore/Camera2 native-VIO comparisons, energy/cost Pareto metrics, and persistent iteration/checkpoint instructions. Extreme conditions require **visible uncertainty and safe degradation**, not unverified perfect anchoring. Read it and current Git/CI before each new agent cycle; never interpret the document as proof that Work runs indefinitely or without external permissions.
+
 ## Native VIO benchmark-first progress addendum
 
 New: C++17 engine-neutral API and host CI smoke (no native estimator), stricter Java calibration matrix gate, license release blocker, and measured-run scorecard skeleton (`tools/vio/compare_measured_runs.py`) with real-vs-synthetic differentiation and Pareto analysis. Its inputs must come from **actual** external engine measurements and independent truth; scorecard code by itself provides **zero comparative performance evidence**. Native JNI, YUV streaming, commercial legal signoff and GPX hard-condition field validation remain open. Follow `docs/NATIVE_VIO_ENGINE_V015.md` and `docs/coordination/nativevio-commercial-v015-20261021.md`.
