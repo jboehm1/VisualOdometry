@@ -37,6 +37,15 @@ public final class RegionGradientExposureController {
        CameraExposureOptimizer.Limits hardware,int requestedIsoCeiling,
        double gyroRadPerSecond,CameraExposureOptimizer.MotionMode mode,
        CameraPreviewFlow.Result flow){
+        return update(nowNs,metric,image,measuredShutterNs,measuredIso,hardware,
+            requestedIsoCeiling,gyroRadPerSecond,mode,flow,90);
+    }
+
+    public Decision update(long nowNs,RegionWeightedGradient.Result metric,
+       CameraImageQuality.Metrics image,long measuredShutterNs,int measuredIso,
+       CameraExposureOptimizer.Limits hardware,int requestedIsoCeiling,
+       double gyroRadPerSecond,CameraExposureOptimizer.MotionMode mode,
+       CameraPreviewFlow.Result flow,int fallbackTargetLuma){
         if(hardware==null||metric==null||image==null||nowNs<0)
             throw new IllegalArgumentException("No capture feedback");
         int isoCap=clamp(requestedIsoCeiling,hardware.minIso,hardware.maxIso);
@@ -69,7 +78,7 @@ public final class RegionGradientExposureController {
             }else{
                 // Safety: meaningful low texture / overexposure should still be
                 // bounded like baseline AE, not guess a derivative from noise.
-                double error=Math.log(90.0/Math.max(5,image.p50))/Math.log(2);
+                double error=Math.log(clamp(fallbackTargetLuma,55,150)/(double)Math.max(5,image.p50))/Math.log(2);
                 step=clamp(error*.22,-.22,.22);
                 if(Math.abs(step)<.07)step=0;
             }
