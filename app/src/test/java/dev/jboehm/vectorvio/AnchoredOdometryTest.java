@@ -32,4 +32,12 @@ public class AnchoredOdometryTest {
         f.fail=true;assertEquals(5,t.update(f,p(5),1_100_000_000L).tx(),1e-6);assertFalse(old.detached);
         f.fail=false;assertEquals(6,t.update(f,p(6),1_200_000_000L).tx(),1e-6);assertTrue(old.detached);
     }
+    @Test public void independentGeographicFrameCanProjectBackAfterWorldCorrection(){
+        Factory f=new Factory();AnchoredOdometry geo=new AnchoredOdometry();
+        geo.update(f,p(0),1_000_000_000L);geo.update(f,p(2),1_100_000_000L);
+        f.last.p=Pose.makeTranslation(10,0,0);
+        Pose metric=geo.update(f,p(12),1_200_000_000L);assertEquals(2,metric.tx(),1e-6);
+        assertEquals(12,geo.worldFromMetric().compose(metric).tx(),1e-6);
+    }
+
 }

@@ -5,8 +5,8 @@ import com.google.ar.core.Camera;
 import java.nio.*;
 /** GL-thread renderer. World VBOs survive camera movement; matrix refreshed each draw. */
 final class WorldOverlayRenderer {
-    private final WorldGeometry geometry=new WorldGeometry();
-    private final int[] buffers=new int[4],capacities=new int[4],counts=new int[4];
+    private final WorldGeometry geometry=new WorldGeometry(),gpxGeometry=new WorldGeometry();
+    private final int[] buffers=new int[5],capacities=new int[5],counts=new int[5];
     private final float[] view=new float[16],projection=new float[16],vp=new float[16];
     private FloatBuffer staging;
     private int program,position,matrix,color,size,round;
@@ -25,7 +25,7 @@ final class WorldOverlayRenderer {
             if(ok[0]==0)throw new IllegalStateException(GLES20.glGetProgramInfoLog(program));
             position=GLES20.glGetAttribLocation(program,"aPosition");matrix=GLES20.glGetUniformLocation(program,"uVP");color=GLES20.glGetUniformLocation(program,"uColor");size=GLES20.glGetUniformLocation(program,"uSize");round=GLES20.glGetUniformLocation(program,"uRound");
             if(position<0||matrix<0||color<0||size<0||round<0)throw new IllegalStateException("Missing overlay shader binding");
-            GLES20.glGenBuffers(4,buffers,0);for(int id:buffers)if(id==0)throw new IllegalStateException("No overlay buffer");
+            GLES20.glGenBuffers(5,buffers,0);for(int id:buffers)if(id==0)throw new IllegalStateException("No overlay buffer");
             check("overlay initialization");
         }catch(RuntimeException|OutOfMemoryError e){release();throw e;}
         finally{if(v!=0)GLES20.glDeleteShader(v);if(f!=0)GLES20.glDeleteShader(f);}
@@ -38,17 +38,17 @@ final class WorldOverlayRenderer {
     }
     void release(){
         try{GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER,0);GLES20.glDisable(GLES20.GL_SCISSOR_TEST);GLES20.glDisable(GLES20.GL_BLEND);GLES20.glDepthMask(true);GLES20.glUseProgram(0);
-            GLES20.glDeleteBuffers(4,buffers,0);if(program!=0)GLES20.glDeleteProgram(program);
+            GLES20.glDeleteBuffers(5,buffers,0);if(program!=0)GLES20.glDeleteProgram(program);
         }finally{program=0;java.util.Arrays.fill(buffers,0);java.util.Arrays.fill(capacities,0);clear();staging=null;}
     }
 
-    void clear(){for(int i=0;i<4;i++)counts[i]=0;}
+    void clear(){for(int i=0;i<5;i++)counts[i]=0;}
     void update(SceneMapper.Snapshot scene){
         if(program==0)throw new IllegalStateException("Overlay is not initialized");
         check("before overlay upload");
-        geometry.clear();for(SceneMapper.Shape s:scene.shapes)geometry.add(s.kind,s.world);geometry.finishRoute();
-        WorldGeometry.Batch[] batches={geometry.floor,geometry.wall,geometry.points,geometry.route};
-        for(int i=0;i<4;i++){
+        geometry.clear();gpxGeometry.clear();for(SceneMapper.Shape s:scene.shapes){if(s.kind==5)gpxGeometry.add(3,s.world);else geometry.add(s.kind,s.world);}geometry.finishRoute();gpxGeometry.finishRoute();
+        WorldGeometry.Batch[] batches={geometry.floor,geometry.wall,geometry.points,geometry.route,gpxGeometry.route};
+        for(int i=0;i<5;i++){
             WorldGeometry.Batch b=batches[i];counts[i]=b.size/3;if(b.size==0)continue;
             if(staging==null||staging.capacity()<b.size)staging=ByteBuffer.allocateDirect(b.data.length*4).order(ByteOrder.nativeOrder()).asFloatBuffer();
             staging.clear();staging.put(b.data,0,b.size).flip();GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER,buffers[i]);
@@ -70,6 +70,7 @@ final class WorldOverlayRenderer {
             if(layers==0||layers==1){batch(0,.45f,.99f,.88f,.078f,false);batch(1,.71f,.63f,1,.078f,false);}
             if(layers==0||layers==2)batch(2,.97f,.84f,.54f,.44f,true);
             batch(3,1,.67f,.34f,1,false);
+            batch(4,.35f,.72f,1,.8f,false);
         }finally{GLES20.glDisableVertexAttribArray(position);GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER,0);GLES20.glDisable(GLES20.GL_SCISSOR_TEST);GLES20.glDisable(GLES20.GL_BLEND);GLES20.glDepthMask(true);GLES20.glUseProgram(0);}
         check("overlay draw");
     }

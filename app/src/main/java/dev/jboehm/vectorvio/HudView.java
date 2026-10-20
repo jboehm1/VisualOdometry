@@ -137,16 +137,25 @@ public final class HudView extends View {
         if(scene==null)return;
         c.save();c.clipRect(0,d(138),w,h-d(166));
         for(SceneMapper.Shape shape:scene.shapes) {
-            if(worldGpu&&shape.kind<4)continue;
+            if(worldGpu&&(shape.kind<4||shape.kind==5))continue;
             if(shape.kind<2 && (layers==2 || layers==3))continue;
             if(shape.kind==2 && (layers==1 || layers==3))continue;
             float[] xy=shape.xy;
-            if(xy==null||xy.length%2!=0||((shape.kind==2||shape.kind==4)&&xy.length<2)||(shape.kind==3&&xy.length<4)||(shape.kind<2&&xy.length<6))continue;
+            if(xy==null||xy.length%2!=0||((shape.kind==2||shape.kind==4||shape.kind==6)&&xy.length<2)||((shape.kind==3||shape.kind==5)&&xy.length<4)||(shape.kind<2&&xy.length<6))continue;
             int color=shape.kind==1?0xFFB5A0FF:CYAN;
             if(shape.kind==2){disc(c,xy[0]*w,xy[1]*h,d(1.2f),0x70F8D58A,false);continue;}
+            if(shape.kind==5){
+                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0x5059B8FF,8);
+                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xCC59B8FF,3);continue;
+            }
             if(shape.kind==3){
                 line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0x50FF922B,8);
                 line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xFFFFAB57,3);continue;
+            }
+            if(shape.kind==6){
+                float x=xy[0]*w,y=xy[1]*h;disc(c,x,y,d(4),0xCC59B8FF,false);
+                float labelX=Math.max(d(55),Math.min(w-d(80),x+d(8)));
+                label(c,shape.label,labelX,Math.max(d(155),Math.min(h-d(170),y-d(7))),9,0xFF85C8FF,true);continue;
             }
             if(shape.kind==4) {
                 float x=xy[0]*w,y=xy[1]*h;disc(c,x,y,d(7),0xFFFFC976,false);disc(c,x,y,d(2),Color.WHITE,false);
@@ -160,6 +169,12 @@ public final class HudView extends View {
                 if(i==0)path.moveTo(x,y);else path.lineTo(x,y);
             }
             path.close();resetPaint();p.setColor((color&0xFFFFFF)|0x14000000);c.drawPath(path,p);
+        }
+        if(Float.isFinite(scene.gpxDirectionRadians)){
+            float x=w*.5f,y=d(190);c.save();c.rotate((float)Math.toDegrees(scene.gpxDirectionRadians),x,y);
+            Path arrow=new Path();arrow.moveTo(x,y-d(13));arrow.lineTo(x-d(8),y+d(8));arrow.lineTo(x,y+d(4));arrow.lineTo(x+d(8),y+d(8));arrow.close();
+            resetPaint();p.setColor(0xCC59B8FF);c.drawPath(arrow,p);c.restore();
+            label(c,"GPX · EST.",x-d(22),y+d(25),8,0xCC59B8FF,false);
         }
         c.restore();
     }

@@ -50,7 +50,21 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --install 'platforms;android-36' 'build-tools;35.0.0'
       - name: Python telemetry-analysis unit tests
-        run: python3 -m unittest discover -s tools/tests -v
+        run: |
+          python3 -m unittest discover -s tools/tests -v
+          python3 -m unittest discover -s tools/gpx_ar/tests -v
+      - name: Exported ZIP alignment replay smoke (synthetic, exact Java engine)
+        run: |
+          mkdir -p app/build/reports/gpx-ar
+          python3 - <<'PYTHON'
+          import importlib.util
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('fixture', 'tools/gpx_ar/tests/test_replay.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          module.fixture(Path('app/build/reports/gpx-ar/synthetic-input.zip'))
+          PYTHON
+          python3 tools/gpx_ar/replay.py app/build/reports/gpx-ar/synthetic-input.zip --out app/build/reports/gpx-ar/replay --input-origin synthetic_fixture
       - name: Unit tests and installable APK
         run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
       - name: GPS matching regression with noisy parallel paths and dense routes
@@ -71,6 +85,7 @@ jobs:
           path: |
             app/build/reports/replay-*/
             app/build/reports/gps/
+            app/build/reports/gpx-ar/
           retention-days: 14
           if-no-files-found: ignore
       - name: Upload APK (debug-signed, for sideloading only)
