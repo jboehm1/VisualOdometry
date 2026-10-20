@@ -149,6 +149,15 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile String message="Tap START for AR tracking, or SIM for offline replay";
     private volatile String trackingLabel="SIM READY";
     private long lastHudUpdateMs=0,lastLoggedFrameNs=0;
+    // GPS badge freshness must expire even while the camera/renderer is stopped.
+    private final android.os.Handler gpsBadgeHandler=new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable gpsBadgeRefresh=new Runnable(){
+        @Override public void run(){
+            if(!foreground)return;
+            if(hud!=null&&gps!=null)hud.updateGps(gps.reading(SystemClock.elapsedRealtimeNanos()));
+            gpsBadgeHandler.postDelayed(this,1000L);
+        }
+    };
     private boolean installRequested=false,needsNewFile=true,liveModeRequested=false;
     private int markerCount=0;
     private File exportFile;
@@ -1171,6 +1180,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             return;
         }
         if(!playbackMode){imu.start();gps.start();if(gpxArEnabled&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);}
+        refreshHud();
+        gpsBadgeHandler.removeCallbacks(gpsBadgeRefresh);
+        gpsBadgeHandler.post(gpsBadgeRefresh);
         if(liveModeRequested)startAr();
     }
     private void startAr() {
@@ -1272,7 +1284,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
     }
     @Override protected void onPause() {
-        foreground=false;gpxLocation.stop();gpxAr.trackingLost();gpxGeneration++;
+        foreground=false;gpsBadgeHandler.removeCallbacks(gpsBadgeRefresh);gpxLocation.stop();gpxAr.trackingLost();gpxGeneration++;
         endGpxManualMode();
         frameScheduler.stop();boostPointer=-1;updatePowerLabel();
         imu.stop();
