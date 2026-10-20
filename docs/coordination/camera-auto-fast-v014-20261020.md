@@ -7,3 +7,7 @@
 - Design invariant: separate Camera2 laboratory must not imply exposure override during ARCore session. Preview p50/contrast are image-space heuristics, not lux or ARCore tracking confidence.
 - Hardware compatibility: manual capability probing with system-AE fallback; sensor ISO/shutter limit, no platform/model-specific values; optional light sensor.
 - Next: verify exact SHA via Android CI, handle any tests/compile issues, link PR and artifact. S21 second user field test must verify automatic adjustment, saturation and fallback. Preserve v0.13 GPX/other parallel feature branches.
+
+## Additional bounded VIO telemetry shared-file edit
+
+Also modified shared `MainActivity.java` **only inside the existing 1-Hz passive camera metadata branch**: optional ARCore YUV luminance samples with tracking-state/failed-reason logging while recording. This must be reconciled with concurrent MainActivity changes at integration. Added `ArCoreFrameLuma.java`. ARCore Session, CameraConfig, renderer, GPX, PDR and frame lifecycle remain untouched, and images are always closed. The earlier sentence saying Camera2ManualActivity is the sole shared file was accurate *before* this additive telemetry extension.
