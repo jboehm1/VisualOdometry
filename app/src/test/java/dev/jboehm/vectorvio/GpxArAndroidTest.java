@@ -16,24 +16,52 @@ import static org.junit.Assert.*;
 
 @RunWith(RobolectricTestRunner.class) @Config(sdk=28)
 public class GpxArAndroidTest {
-    @Test public void dataActionCoexistsWithRoutesReplayAndFusedComparison()throws Exception{
+
+    private static AlertDialog openCategory(ActivityController<MainActivity> c,SettingsCatalog.Section section){
+        ArrayList<View> buttons=new ArrayList<>();
+        c.get().getWindow().getDecorView().findViewsWithText(buttons,"MENU",View.FIND_VIEWS_WITH_TEXT);
+        assertEquals(1,buttons.size());assertTrue(buttons.get(0).performClick());
+        AlertDialog root=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+        assertEquals(6,root.getListView().getCount());
+        for(int i=0;i<6;i++)assertTrue(root.getListView().getAdapter().getItem(i).toString()
+            .startsWith(SettingsCatalog.Section.values()[i].title));
+        root.getListView().performItemClick(null,section.ordinal(),section.ordinal());
+        AlertDialog category=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+        assertEquals(SettingsCatalog.count(section),category.getListView().getCount());
+        return category;
+    }
+    private static AlertDialog openGpx(ActivityController<MainActivity> c){
+        AlertDialog category=openCategory(c,SettingsCatalog.Section.NAVIGATION);
+        assertTrue(category.getListView().getAdapter().getItem(0).toString().startsWith("GPX AR"));
+        category.getListView().performItemClick(null,0,0);
+        return org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+    }
+    @Test public void categorizedMenuPreservesGpxImportAndOtherModules()throws Exception{
         ActivityController<MainActivity> c=Robolectric.buildActivity(MainActivity.class).create();
         try{
-            ArrayList<View> buttons=new ArrayList<>();
-            c.get().getWindow().getDecorView().findViewsWithText(buttons,"DATA",View.FIND_VIEWS_WITH_TEXT);
-            assertEquals(1,buttons.size());assertTrue(buttons.get(0).performClick());
-            AlertDialog data=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
-            Set<String> labels=new HashSet<>();for(int i=0;i<data.getListView().getCount();i++)labels.add(data.getListView().getAdapter().getItem(i).toString());
-            assertTrue(labels.contains("GPS ROUTES — import GPX / follow / record"));
-            assertTrue(labels.contains("GPS ↔ FUSED — Android location A/B (experimental)"));
-            assertTrue(labels.contains("ARCORE REPLAY — evaluate saved video with same odometer"));
-            int position=-1;for(int i=0;i<data.getListView().getCount();i++)if(data.getListView().getAdapter().getItem(i).equals("GPX AR — experimental camera guidance"))position=i;
-            assertTrue(position>=0);data.getListView().performItemClick(null,position,position);
-            AlertDialog ar=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(9,ar.getListView().getCount());
-            assertEquals("ADD ALTITUDE · EU-DEM (ONLINE)",ar.getListView().getAdapter().getItem(8));
-            ar.getListView().performItemClick(null,1,1);
-            Intent request=Shadows.shadowOf(c.get()).getNextStartedActivity();assertNotNull(request);assertEquals(Intent.ACTION_OPEN_DOCUMENT,request.getAction());
+            AlertDialog gpx=openGpx(c);
+            assertEquals(12,gpx.getListView().getCount());
+            assertTrue(gpx.getListView().getAdapter().getItem(8).toString().startsWith("ADD ALTITUDE"));
+            assertTrue(gpx.getListView().getAdapter().getItem(10).toString().contains("MANUAL GPX"));
+            gpx.getListView().performItemClick(null,1,1);
+            Intent request=Shadows.shadowOf(c.get()).getNextStartedActivity();
+            assertNotNull(request);assertEquals(Intent.ACTION_OPEN_DOCUMENT,request.getAction());
         }finally{c.destroy();}
+        ActivityController<MainActivity> next=Robolectric.buildActivity(MainActivity.class).create();
+        try{
+            AlertDialog locations=openCategory(next,SettingsCatalog.Section.LOCATION);
+            assertTrue(locations.getListView().getAdapter().getItem(1).toString().contains("GPS ↔ FUSED"));
+            locations.getListView().performItemClick(null,1,1);
+            Intent request=Shadows.shadowOf(next.get()).getNextStartedActivity();
+            assertNotNull(request);assertEquals(LocationComparisonActivity.class.getName(),request.getComponent().getClassName());
+        }finally{next.destroy();}
+        ActivityController<MainActivity> replay=Robolectric.buildActivity(MainActivity.class).create();
+        try{
+            AlertDialog capture=openCategory(replay,SettingsCatalog.Section.CAPTURE);
+            assertTrue(capture.getListView().getAdapter().getItem(2).toString().contains("ARCORE REPLAY"));
+            capture.getListView().performItemClick(null,2,2);
+            assertTrue(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().getListView().getAdapter().getItem(0).toString().contains("Import an ARCore MP4"));
+        }finally{replay.destroy();}
     }
     @Test public void selectedRouteRoundTripPreservesElevationAndInvalidReplacementKeepsPrevious()throws Exception{
         Path temp=Files.createTempDirectory("gpx-ar-store");GpxArRouteStore store=new GpxArRouteStore(temp.toFile());
@@ -45,47 +73,54 @@ public class GpxArAndroidTest {
             assertEquals(route.name,store.load().name);store.clear();assertNull(store.load());
         }finally{try(java.util.stream.Stream<Path> paths=Files.walk(temp)){paths.sorted(Comparator.reverseOrder()).forEach(p->{try{Files.delete(p);}catch(Exception ignored){}});}}
     }
+
     @Test public void displayOptionsPersistWithoutStartingCaptureOrLocation()throws Exception{
-        // Android changes the checked state before dispatching a user tap. Calling
-        // performItemClick directly in Robolectric skips this ListView transition.
         org.robolectric.RuntimeEnvironment.getApplication().getSharedPreferences("spatial_explorer",0)
             .edit().putInt("gpx_display_flags",31).commit();
         ActivityController<MainActivity> c=Robolectric.buildActivity(MainActivity.class).create();
         try{
-            ArrayList<View> buttons=new ArrayList<>();c.get().getWindow().getDecorView().findViewsWithText(buttons,"DATA",View.FIND_VIEWS_WITH_TEXT);
-            assertEquals(1,buttons.size());assertTrue(buttons.get(0).performClick());
-            AlertDialog data=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();int index=-1;
-            for(int i=0;i<data.getListView().getCount();i++)if(data.getListView().getAdapter().getItem(i).equals("GPX AR — experimental camera guidance"))index=i;
-            assertTrue(index>=0);data.getListView().performItemClick(null,index,index);
-            AlertDialog menu=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();menu.getListView().performItemClick(null,7,7);
-            AlertDialog options=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(5,options.getListView().getCount());
+            AlertDialog gpx=openGpx(c);gpx.getListView().performItemClick(null,7,7);
+            AlertDialog options=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+            assertEquals(5,options.getListView().getCount());
             android.widget.ListView list=options.getListView();
-            assertEquals("Direction preference initially ON",1,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",0)&1);
-            // Robolectric does not hydrate the multi-choice checked state from
-            // Builder.setMultiChoiceItems(), even though the backing preference
-            // is ON. Prime the list only once. performItemClick then toggles
-            // the checked bit itself, just like a real touch.
-            list.setItemChecked(0,true);assertTrue(list.isItemChecked(0));
-            list.performItemClick(null,0,0);
-            assertFalse(list.isItemChecked(0));
-            assertEquals("Direction disabled",0,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",31)&1);
-            list.performItemClick(null,0,0);
-            assertTrue(list.isItemChecked(0));
-            assertEquals("Direction re-enabled",1,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",0)&1);
-            list.performItemClick(null,0,0);
-            assertFalse(list.isItemChecked(0));
-            assertEquals("Direction disabled again",0,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",31)&1);
-            // The display-only menu must not request capture, a document or a service.
+            list.setItemChecked(0,true);
+            list.performItemClick(null,0,0);assertFalse(list.isItemChecked(0));
+            assertEquals(0,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",31)&1);
+            list.performItemClick(null,0,0);assertTrue(list.isItemChecked(0));
+            assertEquals(1,c.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",0)&1);
+            list.performItemClick(null,0,0);assertFalse(list.isItemChecked(0));
             assertNull(Shadows.shadowOf(c.get()).getNextStartedService());
             assertNull(Shadows.shadowOf(c.get()).getNextStartedActivity());
         }finally{c.destroy();}
-        // Preferences must survive Activity recreation without enabling a GPX capture.
+        ActivityController<MainActivity> next=Robolectric.buildActivity(MainActivity.class).create();
+        try{assertEquals(0,next.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",31)&1);}
+        finally{next.destroy();}
+    }
+    @Test public void depthToggleSurvivesRecreationAndDoesNotEnableCapture(){
+        org.robolectric.RuntimeEnvironment.getApplication().getSharedPreferences("spatial_explorer",0)
+            .edit().putBoolean("gpx_depth_occlusion",false).commit();
+        ActivityController<MainActivity> c=Robolectric.buildActivity(MainActivity.class).create();
+        try{
+            AlertDialog gpx=openGpx(c);assertEquals("RAW DEPTH OCCLUSION · OFF",gpx.getListView().getAdapter().getItem(9));
+            gpx.getListView().performItemClick(null,9,9);
+            assertTrue(c.get().getSharedPreferences("spatial_explorer",0).getBoolean("gpx_depth_occlusion",false));
+            assertNull(Shadows.shadowOf(c.get()).getNextStartedService());
+        }finally{c.destroy();}
         ActivityController<MainActivity> next=Robolectric.buildActivity(MainActivity.class).create();
         try{
-            assertEquals(0,next.get().getSharedPreferences("spatial_explorer",0).getInt("gpx_display_flags",31)&1);
+            AlertDialog menu=openGpx(next);
+            assertEquals("RAW DEPTH OCCLUSION · ON",menu.getListView().getAdapter().getItem(9));
             assertNull(Shadows.shadowOf(next.get()).getNextStartedService());
-            assertNull(Shadows.shadowOf(next.get()).getNextStartedActivity());
         }finally{next.destroy();}
     }
-
+    @Test public void manualAdjustmentRequiresLiveArAndFreshAlignment(){
+        ActivityController<MainActivity> c=Robolectric.buildActivity(MainActivity.class).create();
+        try{
+            AlertDialog settings=openCategory(c,SettingsCatalog.Section.NAVIGATION);
+            assertTrue(settings.getListView().getAdapter().getItem(1).toString().startsWith("Adjust GPX on screen"));
+            settings.getListView().performItemClick(null,1,1);
+            assertNull("No camera or tracking is started",Shadows.shadowOf(c.get()).getNextStartedService());
+            assertNull(Shadows.shadowOf(c.get()).getNextStartedActivity());
+        }finally{c.destroy();}
+    }
 }

@@ -364,6 +364,96 @@
       "evidence": "",
       "owner": "gpx-ar-guidance",
       "optional": true
+    },
+    {
+      "id": "F06",
+      "phase": "Fusion géographique",
+      "title": "Multi-cercles : lissage GNSS↔VIO à corrélation et biais explicites",
+      "status": "MATHS_DOCUMENTE_NON_IMPLEMENTE",
+      "percent": 20,
+      "depends_on": [
+        "F03",
+        "F05",
+        "Q01"
+      ],
+      "acceptance": "Factor graph / EKF fixed-lag avec contraintes de pose relative, corrélation temporelle GNSS/FLP et biais commun; tenir métriques p50/p95, fausses confiances et aucune amélioration fictive quand biais commun. Vérifier par vérité indépendante et coût CPU/batterie avant branchement",
+      "evidence": "docs/GPX_AR_MULTI_CIRCLE_FUSION.md (recherche+plan seulement); aucun filtrage nouveau intégré; [tâche seule, pas d'algorithme injecté dans l'app]; literature check docs/GPX_AR_SOTA_FUSION_RESEARCH.md (Pan et al. 2024, gnssFGO 2024, TSF-GINS 2025); not an implemented solver",
+      "owner": "gpx-visual-depth-fusion",
+      "optional": true
+    },
+    {
+      "id": "R05",
+      "phase": "Rendu 3D",
+      "title": "Occlusion Depth optionnelle sans dégrader les plans ARCore",
+      "status": "CI_VERTE_MOTEUR_ANDROID_TERRAIN_NON_TESTE",
+      "percent": 80,
+      "depends_on": [
+        "R02",
+        "Q01"
+      ],
+      "acceptance": "OFF par défaut, RAW_DEPTH_ONLY sur appareils supportés, acquisition bornée, confiance suffisante pour ne masquer que segments derrière obstacle mesuré; rollback automatique vers terrain par plans, tests source/UI/énergie S21",
+      "evidence": "GpxDepthOcclusion.java + GpxDepthOcclusionTest.java ; aucune métrologie S21; Android CI 39323905158 SUCCESS, 175 JUnit/0 échec, lint, debug/release, GPS et simulations; Three Campaigns 39323905280 SUCCESS. Absence de test physique S21.",
+      "owner": "gpx-visual-depth-fusion",
+      "optional": true
+    },
+    {
+      "id": "I03",
+      "phase": "Usage terrain",
+      "title": "Verrouillage écran et reprise GPX ponctuelle sans enregistrement",
+      "status": "CI_VERTE_MOTEUR_ANDROID_TERRAIN_NON_TESTE",
+      "percent": 80,
+      "depends_on": [
+        "I01",
+        "F05"
+      ],
+      "acceptance": "Après verrouillage écran : ni caméra ni GPS background; réouverture GPX stocké et acquisition GPS/VIO fraîche même odomètre PAUSE; vieux ancrage non restauré; comportement process kill = activation manuelle explicitée; test Android et terrain",
+      "evidence": "MainActivity.java GPX independent of odometer.isRecording() + onPause/onResume; test S21/permissions restant; Android CI 39323905158 SUCCESS, 175 JUnit/0 échec, lint, debug/release, GPS et simulations; Three Campaigns 39323905280 SUCCESS. Absence de test physique S21.",
+      "owner": "gpx-visual-depth-fusion",
+      "optional": false
+    },
+    {
+      "id": "U01",
+      "phase": "Interface",
+      "title": "Centre de contrôle en six catégories et dispatch sémantique",
+      "status": "CODE_CI_EN_COURS",
+      "percent": 80,
+      "depends_on": [
+        "I01"
+      ],
+      "acceptance": "Navigation, localisation, vue, capture, cartes, avancé ; entrées anciennes GPS/FLP/replay/collect/maps/export accessibles via IDs stables, état affiché, 2 clics max, tests UI Robolectric, vérification accessibilité/S21",
+      "evidence": "SettingsCatalog.java, SettingsCatalogTest.java, MainActivity.java, GpxArAndroidTest.java; PR #26",
+      "owner": "settings-categories-ui",
+      "optional": false
+    },
+    {
+      "id": "R06",
+      "phase": "Navigation",
+      "title": "Recalage visuel manuel du ruban GPX par glisser",
+      "status": "CODE_CI_EN_COURS",
+      "percent": 65,
+      "depends_on": [
+        "R02",
+        "I01"
+      ],
+      "acceptance": "Activation volontaire uniquement après alignement; déplacement horizontal local et borné du ruban, options RESET/DONE, indication MANUAL non GPS; aucun changement raw fix, odomètre, GPX; réinitialisation segment/lock; tests engine/UI/terrain inclinaison",
+      "evidence": "ArRouteGuide.shiftVisual + MainActivity.cameraTouch + tests, PR #26; vraie caméra S21 non testée",
+      "owner": "settings-categories-ui",
+      "optional": true
+    },
+    {
+      "id": "F07",
+      "phase": "Navigation",
+      "title": "Continuité VIO-only au-delà des 30 secondes et simulation GPS coupé",
+      "status": "CODE_CI_EN_COURS",
+      "percent": 70,
+      "depends_on": [
+        "F06",
+        "R02"
+      ],
+      "acceptance": "GPS AID MUTED explicite et réversible; après alignement candidat, ruban sans limite de temps tant que frames VIO du même segment fraîches, sinon fail closed; incertitude grandissante, pas de cap GPS ancien; vérification terrain multi-minutes et métriques dérive/p95",
+      "evidence": "ArRouteGuide.snapshot VIO_HOLD no elapsed cutoff; MainActivity GPS aid mute in GPX menu; tests 300s, PR #26",
+      "owner": "settings-categories-ui",
+      "optional": false
     }
   ],
   "implementation_snapshot": "Itération ancres GPX, WGS84 et rejeu ZIP implémentée; CI Android du nouveau code en attente. Qualification physique absente.",

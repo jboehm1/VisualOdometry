@@ -39,7 +39,9 @@ final class SceneMapper {
     dev.jboehm.vectorvio.gpxar.ArRouteGuide.Snapshot gpxRoute;
     int gpxDisplayFlags=dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.ALL;
     boolean gpxMode;
+    boolean gpxDepthOcclusion;
     Pose gpxWorldFromMetric;
+    private final GpxDepthOcclusion depthOcclusion=new GpxDepthOcclusion();
     private final GpxRibbonAnchors gpxAnchors=new GpxRibbonAnchors();
     volatile int gpxGroundEdges,gpxAnchorCount;
     boolean worldRendering;
@@ -47,7 +49,7 @@ final class SceneMapper {
     private final ArrayList<Anchor> trail=new ArrayList<>();
     private final LinkedHashMap<Long,MapPoint> mapPoints=new LinkedHashMap<>();
     private final float[] view=new float[16],projection=new float[16],vp=new float[16];
-    void clear() { for(Anchor a:trail) a.detach(); trail.clear();mapPoints.clear();gpxAnchors.clear();gpxAnchorCount=0; }
+    void clear() { for(Anchor a:trail) a.detach(); trail.clear();mapPoints.clear();gpxAnchors.clear();depthOcclusion.reset();gpxAnchorCount=0; }
     Snapshot update(Session session,Frame frame,Odometer.Result result,int width,int height,int segment,List<MapArchive.Poi> pois,float pointConfidence,List<Odometer.Point> history) {
         Camera camera=frame.getCamera();
         if(camera.getTrackingState()!=TrackingState.TRACKING) {
@@ -128,7 +130,13 @@ final class SceneMapper {
         List<float[]> anchored=gpxAnchors.update(session,gpxWorldFromMetric,projected,gpxRoute==null?0:gpxRoute.segment,
             gpxRoute==null?0:gpxRoute.alignmentRevision,android.os.SystemClock.elapsedRealtimeNanos(),camera.getPose().tx(),camera.getPose().tz());
         gpxAnchorCount=gpxAnchors.size();
-        for(float[] edge:anchored){
+        // Depth never decides terrain height: it may only hide a segment
+        // definitely behind a confidently measured foreground surface.
+        List<float[]> visible=gpxDepthOcclusion
+            ?depthOcclusion.apply(frame,camera,vp,anchored,android.os.SystemClock.elapsedRealtimeNanos())
+            :anchored;
+        if(!gpxDepthOcclusion)depthOcclusion.reset();
+        for(float[] edge:visible){
             float[] xy=worldRendering?EMPTY:Projection.line(vp,new float[]{edge[0],edge[1],edge[2]},new float[]{edge[3],edge[4],edge[5]});
             if(xy!=null)shapes.add(new Shape(xy,5,"",worldRendering?edge:null));
             gpxGroundEdges++;

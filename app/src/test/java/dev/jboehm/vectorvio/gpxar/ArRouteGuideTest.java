@@ -117,4 +117,66 @@ public class ArRouteGuideTest {
         assertEquals(samples,g.snapshot(now).samples);
     }
 
+    @Test public void gpsOnlyQuickViewAfterUnlockDoesNotFalsifyArAlignment(){
+        ArRouteGuide guide=engine();long t=1_000_000_000L;
+        assertTrue(guide.onFix(fix(t,0,0,LocationSample.Source.GPS_PROVIDER,false)));
+        ArRouteGuide.Snapshot snap=guide.snapshot(t+10_000_000L);
+        assertEquals(ArRouteGuide.State.WAITING_POSES,snap.state);
+        assertEquals(0,snap.samples);
+        assertTrue(snap.edges.isEmpty());
+        assertTrue(Double.isFinite(snap.remainingMeters));
+        assertTrue(Double.isNaN(snap.targetX));
+        // Locked screen/tracking loss clears the transient nav & AR state.
+        guide.trackingLost();
+        ArRouteGuide.Snapshot resumed=guide.snapshot(t+20_000_000L);
+        assertEquals(ArRouteGuide.State.WAITING_POSES,resumed.state);
+        assertTrue(resumed.edges.isEmpty());
+    }
+
+    @Test public void gnssOutageKeepsRibbonWhenTrackingGoodButStopsOnReferenceBreak(){
+        ArRouteGuide g=engine();long t=feed(g,0,false,0);
+        ArRouteGuide.Snapshot initial=g.snapshot(t);
+        assertEquals(ArRouteGuide.State.CANDIDATE,initial.state);
+        assertFalse(initial.edges.isEmpty());
+        // Camera keeps moving / tracking for FIVE MINUTES with NO GPS.
+        for(int i=0;i<3000;i++){t+=100_000_000L;g.onPose(1,t,t,20,0);}
+        ArRouteGuide.Snapshot hold=g.snapshot(t);
+        assertEquals(ArRouteGuide.State.VIO_HOLD,hold.state);
+        assertTrue(hold.holdSeconds>280);
+        assertTrue(hold.horizontalAllowanceMeters>initial.horizontalAllowanceMeters);
+        assertFalse(hold.edges.isEmpty());
+        assertTrue(Double.isNaN(hold.targetX)); // stale heading cannot be used
+        // No new camera frame for >700 ms => fail-closed even in VIO-only mode.
+        assertEquals(ArRouteGuide.State.STALE,g.snapshot(t+800_000_000L).state);
+        assertTrue(g.snapshot(t+800_000_000L).edges.isEmpty());
+        g.trackingLost();
+        assertFalse(g.visualShifted());
+        assertTrue(g.snapshot(t).edges.isEmpty());
+    }
+    @Test public void userVisualCorrectionMovesOnlyOverlayAndResetsAfterTrackingLoss(){
+        ArRouteGuide g=engine();long now=feed(g,0,false,0);
+        ArRouteGuide.Snapshot before=g.snapshot(now);
+        assertEquals(ArRouteGuide.State.CANDIDATE,before.state);
+        assertFalse(before.edges.isEmpty());
+        double[] old=before.edges.get(0);
+        assertTrue(g.shiftVisual(1.5,-.75));
+        ArRouteGuide.Snapshot after=g.snapshot(now);
+        assertTrue(after.manualAdjusted);assertTrue(g.visualShifted());
+        assertEquals(old[0]+1.5,after.edges.get(0)[0],1e-5);
+        // The route window may reclip its first edge when the visual offset
+        // changes, so compare a fixed GPX marker instead of edge index zero.
+        assertFalse(before.markers.isEmpty());assertFalse(after.markers.isEmpty());
+        assertEquals(before.markers.get(0).x+1.5,after.markers.get(0).x,1e-5);
+        assertEquals(before.markers.get(0).z-.75,after.markers.get(0).z,1e-5);
+        assertEquals(before.samples,after.samples);
+        assertEquals(before.residualMeters,after.residualMeters,1e-10);
+        assertFalse(g.shiftVisual(100,0));assertFalse(g.shiftVisual(Double.NaN,0));
+        g.clearVisualShift();assertFalse(g.visualShifted());
+        assertEquals(old[0],g.snapshot(now).edges.get(0)[0],1e-5);
+        assertTrue(g.shiftVisual(.5,0));
+        g.trackingLost();
+        assertFalse(g.visualShifted());
+        assertTrue(g.snapshot(now).edges.isEmpty());
+    }
+
 }
