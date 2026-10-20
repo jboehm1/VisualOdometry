@@ -24,7 +24,7 @@ final class SceneMapper {
         final int horizontal,vertical,points,anchors,segment;
         final float confidence;
         float heading,pitch,targetMeters=-1,gpxDirectionRadians=Float.NaN,gpxDistanceMeters=Float.NaN;
-        boolean gpxPreviewEstimated;
+        boolean gpxPreviewEstimated,gpxRecoveryCue;
         float cameraX,cameraZ;
         boolean groundEstimated,groundMissing,cameraPoseValid;
         int groundPoints;
@@ -190,14 +190,17 @@ final class SceneMapper {
         if((gpxDisplayFlags&dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.DIRECTION)!=0
            &&gpxRoute!=null&&gpxWorldFromMetric!=null){
             float[] target=null;
-            if(Double.isFinite(gpxRoute.targetX)&&Double.isFinite(gpxRoute.targetZ))
+            boolean isOffRoute=gpxRoute.navigationStatus==dev.jboehm.vectorvio.gps.GpsNavigator.Status.OFF_ROUTE;
+            boolean needsRejoin=Double.isFinite(gpxRoute.nearestMeters) &&
+                (isOffRoute || gpxRoute.nearestMeters>5);
+            if(needsRejoin && Double.isFinite(gpxRoute.nearestX)&&Double.isFinite(gpxRoute.nearestZ)){
+                target=gpxWorldFromMetric.transformPoint(new float[]{(float)gpxRoute.nearestX,0,(float)gpxRoute.nearestZ});
+                snapshot.gpxRecoveryCue=true;
+            }else if(Double.isFinite(gpxRoute.targetX)&&Double.isFinite(gpxRoute.targetZ)){
                 target=gpxWorldFromMetric.transformPoint(new float[]{(float)gpxRoute.targetX,0,(float)gpxRoute.targetZ});
-            else {
-                // GPS fix may go stale while the local AR pose stays tracked:
-                // point towards the nearest visible GPX section, never a
-                // fabricated global north or hidden GPS correction.
-                double[] nearest=GpxWorldCue.nearest(worldEdges,snapshot.cameraX,snapshot.cameraZ);
-                if(nearest!=null&&nearest[2]>2)target=new float[]{(float)nearest[0],0,(float)nearest[1]};
+            }else if(Double.isFinite(gpxRoute.nearestMeters)&&gpxRoute.nearestMeters>2){
+                target=gpxWorldFromMetric.transformPoint(new float[]{(float)gpxRoute.nearestX,0,(float)gpxRoute.nearestZ});
+                snapshot.gpxRecoveryCue=true;
             }
             if(target!=null){
             double dx=target[0]-snapshot.cameraX,dz=target[2]-snapshot.cameraZ;

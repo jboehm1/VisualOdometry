@@ -34,6 +34,8 @@ public final class ArRouteGuide {
         public final List<double[]> edges;
         public final GpsNavigator.Status navigationStatus;
         public final double remainingMeters,offRouteMeters,targetX,targetZ,latitude,longitude;
+        /** Approximate nearest route, even beyond the local 90 m 3D overlay. */
+        public double nearestX=Double.NaN,nearestZ=Double.NaN,nearestMeters=Double.NaN;
         Snapshot(State state,String name,int segment,GeoAlignment.Result fit,List<double[]> edges,GpsNavigator navigator,double[] target,double x,double z,double holdSeconds,boolean manualAdjusted){
             this.state=state;routeName=name;this.segment=segment;this.edges=Collections.unmodifiableList(edges);
             this.holdSeconds=holdSeconds;this.manualAdjusted=manualAdjusted;
@@ -186,6 +188,16 @@ public final class ArRouteGuide {
         }
         double hold=shown==State.VIO_HOLD?Math.max(0,(nowNs-lastFixNs)*1e-9):0;
         Snapshot snapshot=new Snapshot(shown,route==null?"":route.name,segment,fit,edges,navigator,target==null?null:new double[]{target[0]+manualShiftX,target[1]-manualShiftZ},x,z,hold,visualShifted());snapshot.alignmentRevision=alignmentRevision;
+        if(fit!=null&&(shown==State.CANDIDATE||shown==State.VIO_HOLD)){
+            double[] geo=fit.project(x-manualShiftX,-z+manualShiftZ);
+            double[] closest=geo==null?null:index.closest(geo[0],geo[1]);
+            double[] coord=closest==null?null:fit.unproject(closest[0],closest[1]);
+            if(coord!=null){
+                snapshot.nearestX=coord[0]+manualShiftX;
+                snapshot.nearestZ=-coord[1]+manualShiftZ;
+                snapshot.nearestMeters=Math.hypot(snapshot.nearestX-x,snapshot.nearestZ-z);
+            }
+        }
         if(shown==State.CANDIDATE&&fit!=null&&target!=null){
             List<Marker> markers=new ArrayList<>();
             double progress=navigator.progress;

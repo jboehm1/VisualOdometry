@@ -207,8 +207,8 @@ public final class HudView extends View {
             Path arrow=new Path();arrow.moveTo(x,y-d(13));arrow.lineTo(x-d(8),y+d(8));arrow.lineTo(x,y+d(4));arrow.lineTo(x+d(8),y+d(8));arrow.close();
             resetPaint();p.setColor(0xCC59B8FF);c.drawPath(arrow,p);c.restore();
             String cue=Float.isFinite(scene.gpxDistanceMeters)
-                ?String.format(Locale.US,"GPX • %.0f m • CALAGE APPROX.",scene.gpxDistanceMeters)
-                :"GPX • CALAGE APPROX.";
+                ?String.format(Locale.US,scene.gpxRecoveryCue?"REJOINDRE GPX • %.0f m":"GPX • %.0f m",scene.gpxDistanceMeters)
+                :scene.gpxRecoveryCue?"REJOINDRE GPX · APPROX.":"GPX • CALAGE APPROX.";
             box(c,x-d(91),y+d(11),x+d(91),y+d(37),9,0xDB091F32,0xAA588DB5);
             label(c,cue,x-d(86),y+d(28),10,0xFF95D0FF,true);
         }

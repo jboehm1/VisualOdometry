@@ -37,6 +37,30 @@ public final class RouteIndex {
         }
     }
     private double[] coordinate(double e,double n){return frame.toGeographic(e,n);}
+    /** Returns {lat,lon,distanceMeters} to the closest segment of the WHOLE GPX.
+     * Never modifies sensor positions, navigation state or camera poses. */
+    public double[] closest(double lat,double lon){
+        if(!Double.isFinite(lat)||!Double.isFinite(lon)||Math.abs(lat)>85||Math.abs(lon)>180)return null;
+        double[] query=frame.toLocal(lat,lon);
+        double x=query[0],z=query[1],best=Double.POSITIVE_INFINITY,nearestX=0,nearestZ=0;
+        for(int c=0;c<boxes.length;c++){
+            double[] b=boxes[c];
+            double bx=Math.max(Math.max(b[0]-x,0),x-b[2]);
+            double bz=Math.max(Math.max(b[1]-z,0),z-b[3]);
+            if(bx*bx+bz*bz>=best)continue;
+            for(int i=c*CHUNK;i<Math.min(east.length-1,(c+1)*CHUNK);i++){
+                double ax=east[i],az=north[i],dx=east[i+1]-ax,dz=north[i+1]-az;
+                double sq=dx*dx+dz*dz;if(sq<1e-12)continue;
+                double t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/sq));
+                double px=ax+t*dx,pz=az+t*dz;
+                double ds=(px-x)*(px-x)+(pz-z)*(pz-z);
+                if(ds<best){best=ds;nearestX=px;nearestZ=pz;}
+            }
+        }
+        if(!Double.isFinite(best))return null;
+        double[] ll=coordinate(nearestX,nearestZ);
+        return ll==null?null:new double[]{ll[0],ll[1],Math.sqrt(best)};
+    }
     /** lat/lon endpoints of nearby clipped edges. Caps work for extremely dense or overlapping GPX. */
     private static final class Candidate {
         final int index;final double distance;final double[] coords;
