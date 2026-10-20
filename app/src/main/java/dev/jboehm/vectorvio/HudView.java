@@ -32,6 +32,12 @@ public final class HudView extends View {
     private String notice = "Move slowly and scan a textured environment";
     private int markers = 0;
     private String guideText="";
+    private String appVersion="unknown";
+    private boolean bikeHints=true;
+    private GpsSpeedStatus.Reading gpsReading=GpsSpeedStatus.unavailable("GPS WAIT");
+    public void setVersion(String version){appVersion=version;invalidate();}
+    public void setBikeHints(boolean enabled){bikeHints=enabled;invalidate();}
+    public void updateGps(GpsSpeedStatus.Reading reading){gpsReading=reading;invalidate();}
     public void updateGuide(String text){guideText=text;invalidate();}
     private int keyframes=0,photos=0,poiCount=0;
     private boolean mapFull=false;
@@ -122,9 +128,10 @@ public final class HudView extends View {
         drawScene(c,w,h);
         drawReticle(c,w,h);
         box(c,0,0,w,d(64),0,0x8507121D,0);
-        label(c,"VECTOR",d(14),d(28),17,INK,true);
+        label(c,"VECTOR",d(14),d(27),17,INK,true);
+        label(c,"v"+appVersion,d(14),d(39),9,CYAN,true);
         label(c,trackingText,w-d(125),d(27),10,s!=null&&s.tracking?CYAN:AMBER,true);
-        label(c,gpsStatus+" · "+captureStatus,d(14),d(49),9,MUTED,false);
+        label(c,gpsStatus+" · "+captureStatus,d(14),d(58),9,MUTED,false);
         label(c,String.format(Locale.US,"%d KF · %d POI · %s · POSE %.0f Hz",keyframes,poiCount,rendererLabel,cameraHz),d(14),d(130),9,MUTED,false);
         if(scene!=null)label(c,"PATH · "+(scene.groundEstimated?"FLOOR EST.":scene.groundMissing?(scene.groundPoints>0?"FLOOR PARTIAL":"NO FLOOR"):"FLOOR"),w-d(135),d(130),9,0xFFFFAB57,true);
         if(expandedMap)drawLiveMap(c,d(12),d(143),w-d(24),Math.max(d(80),h-d(315)),s);
@@ -303,7 +310,7 @@ public final class HudView extends View {
     }
 
     private void drawDataPanel(Canvas c,int w,int h,Odometer.Snapshot s) {
-        float left=d(12),right=w-d(12),top=h-d(158),bottom=h-d(64);
+        float left=d(12),right=w-d(12),top=h-d(195),bottom=h-d(64);
         box(c,left,top,right,bottom,12,0xB0071925,0);
         label(c,s!=null&&s.recording?"● REC":"Ⅱ PAUSED",left+d(10),top+d(17),9,s!=null&&s.recording?CYAN:AMBER,true);
         if(s==null)return;
@@ -317,7 +324,13 @@ public final class HudView extends View {
             label(c,guideText,left+d(9),top-d(12),9,AMBER,true);
         }
         long seconds=s.elapsedMilliseconds/1000;
-        label(c,String.format(Locale.US,"%02d:%02d · Δh %+.2f m · gaps %d",seconds/60,seconds%60,s.verticalMeters,s.gaps),left+d(10),top+d(83),9,MUTED,false);
+        label(c,"GPS "+gpsReading.speedLabel,second,top+d(89),14,gpsReading.warning?0xFFFF7878:CYAN,true);
+        label(c,gpsReading.detail,second,top+d(106),8,gpsReading.warning?0xFFFF9F9F:MUTED,false);
+        if(bikeHints&&scene!=null){
+            String advisory=BikeViewAdvisor.hint(scene.cameraPoseValid,scene.pitch,scene.horizontal);
+            if(!advisory.isEmpty())label(c,advisory,left+d(10),top+d(101),8,AMBER,true);
+        }
+        label(c,String.format(Locale.US,"%02d:%02d · Δh %+.2f m · gaps %d",seconds/60,seconds%60,s.verticalMeters,s.gaps),left+d(10),top+d(123),9,MUTED,false);
 
     }
 }

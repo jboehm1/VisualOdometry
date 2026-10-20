@@ -26,6 +26,8 @@ public final class StoreMenuIntegrationTest {
             root.getListView().performItemClick(null,SettingsCatalog.Section.NAVIGATION.ordinal(),
                 SettingsCatalog.Section.NAVIGATION.ordinal());
             AlertDialog category=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+            assertNotNull("The category should display a real clickable ListView",category.getListView());
+            assertEquals(SettingsCatalog.count(SettingsCatalog.Section.NAVIGATION),category.getListView().getCount());
             java.util.List<SettingsCatalog.Item> actions=SettingsCatalog.items(SettingsCatalog.Section.NAVIGATION);
             int course=-1,pdr=-1,gpx=-1;
             for(int i=0;i<actions.size();i++){

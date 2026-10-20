@@ -149,6 +149,15 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile String message="Tap START for AR tracking, or SIM for offline replay";
     private volatile String trackingLabel="SIM READY";
     private long lastHudUpdateMs=0,lastLoggedFrameNs=0;
+    // GPS badge freshness must expire even while the camera/renderer is stopped.
+    private final android.os.Handler gpsBadgeHandler=new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable gpsBadgeRefresh=new Runnable(){
+        @Override public void run(){
+            if(!foreground)return;
+            if(hud!=null&&gps!=null)hud.updateGps(gps.reading(SystemClock.elapsedRealtimeNanos()));
+            gpsBadgeHandler.postDelayed(this,1000L);
+        }
+    };
     private boolean installRequested=false,needsNewFile=true,liveModeRequested=false;
     private int markerCount=0;
     private File exportFile;
@@ -216,6 +225,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         });
         mapIo.execute(()->{try{dev.jboehm.vectorvio.gps.GpsRoute route=gpxRouteStore.load();if(route!=null)installGpxArRoute(route);}catch(Exception e){runOnUiThread(()->Toast.makeText(this,"Saved AR GPX unavailable; import again",Toast.LENGTH_LONG).show());}});
         SharedPreferences preferences=getSharedPreferences("spatial_explorer",MODE_PRIVATE);
+        gps.enabled=preferences.getBoolean("gps_speed_enabled",true);
         gpxDisplayFlags=preferences.getInt("gpx_display_flags",dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.ALL);
         gpxDepthEnabled=preferences.getBoolean("gpx_depth_occlusion",false);
         estimatedGround=preferences.getBoolean("estimated_ground",false);
@@ -243,6 +253,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
 
         hud=new HudView(this);
         hud.setLayers(preferences.getInt("overlay_layers",0));
+        hud.setBikeHints(preferences.getBoolean("bike_view_hints",true));
+        try{hud.setVersion(getPackageManager().getPackageInfo(getPackageName(),0).versionName);}
+        catch(PackageManager.NameNotFoundException ignored){hud.setVersion("unknown");}
         root.addView(hud,new FrameLayout.LayoutParams(-1,-1));
 
         LinearLayout actions=new LinearLayout(this);
@@ -267,7 +280,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         TextView layers=action("LAYERS",0xCC102D39,Color.WHITE);
         TextView sensors=action("MENU",0xCC102D39,Color.WHITE);
         TextView map=action("MAPS",0xCC102D39,Color.WHITE);
-        TextView simulation=action("SIM",0xCC102D39,Color.WHITE);
+        TextView simulation=action("GPX",0xCC102D39,Color.WHITE);
         torchButton=action("FLASH OFF",0xCC102D39,Color.WHITE);
         modes.addView(layers,weighted());modes.addView(sensors,weighted());modes.addView(map,weighted());modes.addView(simulation,weighted());modes.addView(torchButton,weighted());
         FrameLayout.LayoutParams modeLayout=new FrameLayout.LayoutParams(-1,dp(40),Gravity.TOP);
@@ -302,7 +315,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         });
         sensors.setOnClickListener(v->dataMenu());
         map.setOnClickListener(v->mapMenu());
-        simulation.setOnClickListener(v->startActivity(new Intent(this,SimulationActivity.class)));
+        simulation.setOnClickListener(v->gpxArMenu());
         torchButton.setOnClickListener(v->toggleTorch());
         torchButton.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle("Camera torch")
             .setMessage("The torch is available during live AR tracking when the active ARCore camera configuration supports a flash. It can improve visibility in dim rooms, but may cause glare on reflective surfaces and can increase heat and battery use. SIM uses generated images and does not activate the phone LED.")
@@ -320,6 +333,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         reset.setOnClickListener(v->askReset());
         export.setOnClickListener(v->pickExport());
         hud.update(odometer.snapshot(SystemClock.elapsedRealtime()),trackingLabel,message,markerCount);
+        refreshHud();
     }
     private LinearLayout.LayoutParams weighted() {
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(40),1);
@@ -520,12 +534,15 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
      * GPS ↔ FUSED — Android location A/B (experimental); LocationComparisonActivity.class
      * ARCORE REPLAY — evaluate saved video with same odometer; playbackPicker();
      */
+    private String getVersionLabel(){
+        try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}
+        catch(PackageManager.NameNotFoundException ignored){return "unknown";}
+    }
     private void dataMenu(){
         SettingsCatalog.Section[] sections=SettingsCatalog.Section.values();
         String[] choices=new String[sections.length];
         for(int i=0;i<sections.length;i++)choices[i]=sections[i].title+"\n"+sections[i].subtitle;
-        new AlertDialog.Builder(this).setTitle("VECTOR VIO · SETTINGS & TOOLS")
-            .setMessage("Choose a category. Live measurement, geographic location, recording and visual effects are separate.")
+        new AlertDialog.Builder(this).setTitle("VECTOR VIO · SETTINGS · v"+getVersionLabel())
             .setItems(choices,(d,index)->showSettingsCategory(sections[index]))
             .setNegativeButton("CLOSE",null).show();
     }
@@ -538,7 +555,6 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             titles[i]=entry.title+(state.isEmpty()?"":"  ["+state+"]")+"\n"+entry.description;
         }
         new AlertDialog.Builder(this).setTitle(category.title)
-            .setMessage(category.subtitle+" · tap an item to configure it")
             .setItems(titles,(d,index)->performSettingsAction(items.get(index).action))
             .setNeutralButton("CATEGORIES",(d,w)->dataMenu())
             .setNegativeButton("CLOSE",null).show();
@@ -549,6 +565,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             case GPS_MANUAL_ALIGN:return gpxManualMode?"DRAGGING":gpxAr.visualShifted()?"MANUAL":"OFF";
             case RETURN_TRACE:return returnTraceRequested?"ON":"OFF";
             case GPS_TOGGLE:return gps.enabled?"ON":"OFF";
+            case BIKE_VIEW_HINTS:return getSharedPreferences("spatial_explorer",MODE_PRIVATE).getBoolean("bike_view_hints",true)?"ON":"OFF";
             case UNKNOWN_GROUND:return estimatedGround?"ON":"OFF";
             case VIDEO_TRAINING:return trainingEnabled?"ARMED":"OFF";
             case POWER:return frameScheduler.mode().id.toUpperCase(Locale.US);
@@ -571,11 +588,13 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 else returnTraceRequested=!returnTraceRequested;
                 break;
             case GPS_TOGGLE:
-                if(gps.enabled)gps.disable();
-                else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED ||
-                    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED){
+                boolean locationPermitted=checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED ||
+                    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED;
+                if(gps.enabled&&locationPermitted)gps.disable();
+                else if(locationPermitted){
                     gps.enabled=true;gps.start();
-                }else requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_REQUEST);
+                }else{gps.enabled=true;requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_REQUEST);}
+                getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("gps_speed_enabled",gps.enabled).apply();
                 refreshHud();break;
             case GPS_COMPARISON:
                 if(odometer.isRecording()){
@@ -586,6 +605,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             case LAYERS:
                 hud.cycleLayers();getSharedPreferences("spatial_explorer",MODE_PRIVATE)
                     .edit().putInt("overlay_layers",hud.layers()).apply();break;
+            case BIKE_VIEW_HINTS:
+                boolean bikeHints=!getSharedPreferences("spatial_explorer",MODE_PRIVATE).getBoolean("bike_view_hints",true);
+                getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("bike_view_hints",bikeHints).apply();
+                hud.setBikeHints(bikeHints);break;
             case UNKNOWN_GROUND:
                 estimatedGround=!estimatedGround;
                 getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit()
@@ -632,7 +655,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private void postGpxUi(Runnable task){runOnUiThread(()->{if(!isFinishing()&&!isDestroyed())task.run();});}
     private void gpxArMenu(){
         String[] actions={gpxArEnabled?"PAUSE AR GPX":"ENABLE AR GPX", "IMPORT GPX", "LOCATION SOURCE", "REVERSE SELECTED ROUTE", "RESET ALIGNMENT", "REMOVE SELECTED ROUTE", "HELP / ACCURACY", "DISPLAY OPTIONS", "ADD ALTITUDE · EU-DEM (ONLINE)", gpxDepthEnabled?"RAW DEPTH OCCLUSION · ON":"RAW DEPTH OCCLUSION · OFF", "MANUAL GPX SLIDE · match the path", gpxLocationMuted?"GPS AID · MUTED (TEST)":"GPS AID · ON"};
-        new AlertDialog.Builder(this).setTitle("GPX AR · experimental").setItems(actions,(d,i)->{
+        new AlertDialog.Builder(this).setTitle("GPX AR · import / follow / options").setItems(actions,(d,i)->{
             if(i==0){if(gpxArEnabled)setGpxArEnabled(false);else if(!gpxAr.hasRoute())Toast.makeText(this,"Import a GPX first",Toast.LENGTH_LONG).show();
                 else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},GPX_AR_LOCATION_REQUEST);
                 else setGpxArEnabled(true);}
@@ -787,8 +810,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         options[0]="Import an ARCore MP4 (Files / Drive offline copy)";
         for(int j=1;j<options.length;j++)
             options[j]=existing[j-1].getName()+" · "+(existing[j-1].length()/1024/1024)+" MiB";
-        new AlertDialog.Builder(this).setTitle("REAL PHONE · ARCore replay")
-            .setMessage("Play only MP4 datasets recorded by ARCore Recording API. The same tracking and odometer will run on the original sensor sequence. Replays are not independent ground truth; playback may produce different poses. Current camera/IMU capture will stop when the replay activity restarts.")
+        new AlertDialog.Builder(this).setTitle("ARCore MP4 only · not ordinary videos")
             .setItems(options,(d,index)->{
                 if(index==0){
                     Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -1142,7 +1164,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
 
     private void refreshHud() {
         hud.update(odometer.snapshot(SystemClock.elapsedRealtime()),trackingLabel,message,markerCount);
-        hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gpxArEnabled?gpxLocationStatus:gps.status);
+        hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);
+        hud.updateGps(gps.reading(SystemClock.elapsedRealtimeNanos()));
     }
     @Override protected void onNewIntent(Intent intent){
         super.onNewIntent(intent);setIntent(intent);
@@ -1157,6 +1180,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             return;
         }
         if(!playbackMode){imu.start();gps.start();if(gpxArEnabled&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);}
+        refreshHud();
+        gpsBadgeHandler.removeCallbacks(gpsBadgeRefresh);
+        gpsBadgeHandler.post(gpsBadgeRefresh);
         if(liveModeRequested)startAr();
     }
     private void startAr() {
@@ -1240,7 +1266,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
         if(request==LOCATION_REQUEST){
             boolean allowed=checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED;
-            if(allowed){gps.enabled=true;gps.start();}else gps.disable();refreshHud();return;
+            if(allowed){gps.enabled=true;gps.start();}else gps.disable();
+            getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit().putBoolean("gps_speed_enabled",gps.enabled).apply();
+            refreshHud();return;
         }
         if(request==CAMERA_REQUEST) {
             if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED) startAr();
@@ -1256,7 +1284,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
     }
     @Override protected void onPause() {
-        foreground=false;gpxLocation.stop();gpxAr.trackingLost();gpxGeneration++;
+        foreground=false;gpsBadgeHandler.removeCallbacks(gpsBadgeRefresh);gpxLocation.stop();gpxAr.trackingLost();gpxGeneration++;
         endGpxManualMode();
         frameScheduler.stop();boostPointer=-1;updatePowerLabel();
         imu.stop();
@@ -1521,7 +1549,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 Odometer.Snapshot snap=odometer.snapshot(now);
                 String currentTracking=trackingLabel,currentMessage=message;
                 int marks=markerCount;
-                runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(gpxArEnabled?gpxArText:guideText);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gpxArEnabled?gpxLocationStatus:gps.status);});
+                runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(gpxArEnabled?gpxArText:guideText);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);hud.updateGps(gps.reading(SystemClock.elapsedRealtimeNanos()));});
             }
         } catch(Exception ex) {
             trackingLabel="TRACK LOST";

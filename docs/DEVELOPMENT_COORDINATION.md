@@ -1,5 +1,7 @@
 # VECTOR VIO — coordination des développements parallèles
 
+> **ACTUALISATION 20/10/2026 :** PR #3/#5/#24–29 fusionnées sur `feature/slam-explorer` (SHA `7c804eca6a242114b9be2467ae75dc8e5a2f60dd`). Nouvelle PR isolée `feature/release-v011-ui-gps-bike` pour modifications partagées `MainActivity.java`, `HudView.java`, `GpsMonitor.java`, `SettingsCatalog.java`, `app/build.gradle` et tests/docs. Sans écrasement du manifeste, PDR, GPX ou smoke. [Spécification](BIKE_GPS_UI_V011.md). Les tableaux 18–19/10 ci-dessous constituent des archives, pas la situation Git en direct.
+
 > **ACTUALISATION 19/10/2026 — LIRE EN PREMIER :** [audit Git / consolidation et 3 PR actives](coordination/git-consolidation-20261019.md) et [roadmap centrale](ROADMAP_CENTRAL.md). Les états ci-dessous datent du 18/10 et ne constituent **pas** un verrou Git actuel. Depuis : PR **#11 GPS↔FLP fusionnée** dans `feature/slam-explorer` (9ff7d3a), PR **#1/#2 closes comme historiques**, PR **#18 testenv V3 fusionnée**, restent **#3 B1–B8 / #5 PDR / #17 fumée-R&D** en chantier parallèle. **Ne fusionnez pas de `MainActivity` ni de manifeste Android par écrasement.** Vérifier la tête Git et les CI du dernier SHA avant toute action.
 
 État contrôlé le 18 octobre 2026. **Point d’entrée commun pour les chats travaillant sur ce dépôt.** Les SHA ci-dessous définissent l’instantané audité ; une nouvelle poussée nécessite un nouveau contrôle. Les travaux non poussés dans les autres environnements ne sont pas visibles ici.
