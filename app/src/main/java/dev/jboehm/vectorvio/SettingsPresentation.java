@@ -29,6 +29,8 @@ final class SettingsPresentation {
             case UNKNOWN_GROUND:return "Estimer les zones de sol inconnues";
             case BIKE_VIEW_HINTS:return "Alertes caméra inclinée / vélo";
             case OVERLAY_RENDER:return "Moteur d'affichage";
+            case CAMERA_CAPTURE_PROFILE:return "Profil caméra AR";
+            case CAMERA2_MANUAL_LAB:return "Camera2 : shutter et ISO manuels";
             case VIDEO_TRAINING:return "Enregistrer les données caméra + IMU";
             case COLLECT_ONLY:return "Collecte sans affichage";
             case ARCORE_REPLAY:return "Rejouer un enregistrement ARCore";
@@ -60,6 +62,8 @@ final class SettingsPresentation {
             case UNKNOWN_GROUND:return "Si aucun sol n'est détecté, dessiner une surface approximative sous la caméra. Ne corrige pas l'odométrie.";
             case BIKE_VIEW_HINTS:return "Afficher une alerte quand la caméra voit surtout vers le bas. Ne masque pas les pièces mobiles du vélo.";
             case OVERLAY_RENDER:return "Choisir le rendu graphique automatique ou de secours. N'affecte pas l'estimation des poses.";
+            case CAMERA_CAPTURE_PROFILE:return "Profil caméra AR";
+            case CAMERA2_MANUAL_LAB:return "Camera2 : shutter et ISO manuels";
             case VIDEO_TRAINING:return "Enregistrer explicitement une séquence ARCore pour améliorer les tests. Consomme de l'espace et de la batterie.";
             case COLLECT_ONLY:return "Collecter les mesures avec moins d'affichage. Le service et les autorisations sont gérés séparément.";
             case ARCORE_REPLAY:return "Rejouer une capture MP4 produite par l'API ARCore. Une vidéo MP4 classique n'est pas compatible.";
