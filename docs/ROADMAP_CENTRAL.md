@@ -1,3 +1,7 @@
+## Native VIO v0.15: staged commercial-safe R&D
+
+**New isolated implementation branch:** `feature/v015-commercial-nativevio-contracts` stacked on PR #42. Status: Java camera/IMU input timing/calibration guard **coded; CI pending**, a structural third-party release gate and docs, no C++ VIO engine and no direct GPX integration. Priorities: (1) pin & compile permissive engine + audit *every* redistributed dependency; (2) real camera+IMU benchmark with independent GT; (3) calibrated Android Camera2 YUV + SensorManager + native JNI and truthful tracking flags; (4) benchmark shutter A/B and GPX, test S21 and fallback devices; (5) product-grade privacy/ARCore terms/license/release process. ARCore stays default, and native VIO stays disabled until full gates. Details: [Native VIO engine v0.15](NATIVE_VIO_ENGINE_V015.md), [Commercial release](COMMERCIAL_RELEASE_GATES.md), [Atlas v5](VECTOR_VIO_ATLAS_INTERACTIF_v5.html).
+
 # VECTOR VIO — Feuille de route CENTRALE (tous chantiers)
 
 > **20/10/2026 — v0.13 global GPX fin de chantier (PR à valider).** La branche `feature/v013-full-gpx-global-lod` prolonge la PR #34 (90 m) par un index complet, un échantillonnage par bandes jusqu'à **50 km**, un clipping frustum, un budget de rendu borné, et l'import GPX >50k points. Le rendu violet distant reste **virtuel et approximatif**; la carte 2D donne accès au GPX complet. Limites configurées et nécessité des essais S21 dans [doc technique](GPX_AR_WORLD_GUIDE_V013.md). Ni succès CI ni coordonnées de plan virtuel ne certifient l'alignement réel.
