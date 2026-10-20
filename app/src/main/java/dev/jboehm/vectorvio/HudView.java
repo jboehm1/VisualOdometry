@@ -178,7 +178,13 @@ public final class HudView extends View {
                 line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xFF70BFFF,stroke);continue;
             }
             if(shape.kind==7){
-                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xDDCA9EFF,2.2f);continue;
+                float distance=Float.NaN;
+                if(shape.world!=null&&shape.world.length==6)
+                    distance=(float)Math.hypot((shape.world[0]+shape.world[3])*.5f-scene.cameraX,
+                                               (shape.world[2]+shape.world[5])*.5f-scene.cameraZ);
+                float width=Float.isFinite(distance)?
+                    Math.max(1f,Math.min(3.8f,GpxStrokePolicy.dpWidth(distance)*.6f)):2.2f;
+                line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0xDDCA9EFF,width);continue;
             }
             if(shape.kind==3){
                 line(c,xy[0]*w,xy[1]*h,xy[2]*w,xy[3]*h,0x50FF922B,8);
