@@ -87,12 +87,25 @@ public final class CameraExposureOptimizer {
         double budgetMax=(double)shutterLimit*isoCeiling;
         double budgetMin=(double)limits.minExposureNs*limits.minIso;
         exposureBudget=Math.max(budgetMin,Math.min(budgetMax,exposureBudget));
-        if(lastAdjustmentNs!=Long.MIN_VALUE&&nowNs-lastAdjustmentNs<MIN_UPDATE_NS)
+        if(lastAdjustmentNs!=Long.MIN_VALUE&&nowNs-lastAdjustmentNs<MIN_UPDATE_NS){
+            // Blur is irreversible. If motion suddenly increases, don't wait for
+            // the next 650ms brightness cycle before cutting the shutter.
+            if(actualExposure>shutterLimit*1.15){
+                int maxIsoNow=clamp((int)Math.round(exposureBudget/shutterLimit),
+                    limits.minIso,isoCeiling);
+                lastAdjustmentNs=nowNs;
+                return new Decision(shutterLimit,maxIsoNow,image.dark(),
+                    image.clippedFraction>.08,image.lacksTexture(),true,
+                    "MOTION PRIORITY · EXPOSURE CUT",
+                    shutterLimit,Double.isFinite(speed)?
+                        Math.toDegrees(speed*shutterLimit/1e9):Double.NaN,true);
+            }
             return new Decision(actualExposure,actualGain,image.dark(),
                 image.clippedFraction>.08,image.lacksTexture(),false,"SETTLING",
-                shutterLimit,Math.toDegrees(
-                    Double.isFinite(speed)?speed*actualExposure/1e9:0),
+                shutterLimit,Double.isFinite(speed)?
+                    Math.toDegrees(speed*actualExposure/1e9):Double.NaN,
                 actualExposure>shutterLimit);
+        }
 
         double value=Math.max(3,image.p50);
         // Preview is gamma/tone mapped. This is only a bounded feedback heuristic.
