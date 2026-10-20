@@ -284,6 +284,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private String selectManualCamera() throws CameraAccessException {
         if(manager==null)return null;
         String fallback=null;
+        StreamConfigurationMap fallbackStream=null;
         for(String id:manager.getCameraIdList()){
             CameraCharacteristics c=manager.getCameraCharacteristics(id);
             Integer facing=c.get(CameraCharacteristics.LENS_FACING);
@@ -296,7 +297,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             Range<Integer> gain=c.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
             StreamConfigurationMap stream=c.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             if(stream==null)continue;
-            if(fallback==null)fallback=id;
+            if(fallback==null){fallback=id;fallbackStream=stream;}
             if(!manual||e==null||gain==null)continue;
             manualCapable=true;shutterRange=e;isoRange=gain;
             Long maxFrame=c.get(CameraCharacteristics.SENSOR_INFO_MAX_FRAME_DURATION);
@@ -317,6 +318,19 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         }
         // LIMITED/LEGACY phones can still preview using Android auto exposure.
         manualCapable=false;shutterRange=null;isoRange=null;
+        if(fallbackStream!=null){
+            Size[] sizes=fallbackStream.getOutputSizes(SurfaceTexture.class);
+            if(sizes!=null&&sizes.length>0){
+                Size nearest=sizes[0];double score=Double.POSITIVE_INFINITY;
+                for(Size candidate:sizes){
+                    if((long)candidate.getWidth()*candidate.getHeight()>2_100_000L)continue;
+                    double cost=Math.abs((double)candidate.getWidth()/candidate.getHeight()-16.0/9)
+                        +Math.abs(candidate.getWidth()-1280)/1280.0;
+                    if(cost<score){score=cost;nearest=candidate;}
+                }
+                actualWidth=nearest.getWidth();actualHeight=nearest.getHeight();
+            }
+        }
         return fallback;
     }
     private void openIfReady(){
@@ -416,7 +430,17 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 }
             },work);
         }catch(CameraAccessException|IllegalStateException exception){
-            fail("Camera2 request rejected: "+exception.getClass().getSimpleName());
+            if(manualCapable){
+                // Some phones falsely advertise manual control or reject requests
+                // at runtime. Keep preview usable with native system AE.
+                manualCapable=false;optimizer.reset();
+                runOnUiThread(()->{
+                    configureAdaptiveControls();
+                    if(diagnostics!=null)diagnostics.setText(
+                        "Manual request unsupported; automatic Camera2 AE fallback");
+                });
+                submitRequest();
+            }else fail("Camera2 AE failed: "+exception.getClass().getSimpleName());
         }
     }
     private void fail(String message){runOnUiThread(()->{if(diagnostics!=null)diagnostics.setText(message);});}
