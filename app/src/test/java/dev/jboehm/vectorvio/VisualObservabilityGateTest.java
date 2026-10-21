@@ -16,7 +16,7 @@ public final class VisualObservabilityGateTest {
         g.update(1_000_000_000L,1,true,true,ok,false);
         g.update(1_010_000_000L,2,true,true,ok,false);
         VisualObservabilityGate.Decision d=g.update(1_500_000_000L,3,false,true,ok,false);
-        assertEquals(VisualObservabilityGate.State.ORIENTATION_ONLY,d.state);
+        assertEquals(VisualObservabilityGate.State.IMU_ONLY_NO_POSITION,d.state);
         assertFalse(d.arcorePoseAvailable);assertFalse(d.translationFromInertial);
         assertEquals(VisualObservabilityGate.State.POSITION_UNKNOWN,g.update(
             2_520_000_000L,4,false,true,ok,false).state);
