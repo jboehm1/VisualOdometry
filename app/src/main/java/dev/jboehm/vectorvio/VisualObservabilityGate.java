@@ -3,7 +3,7 @@ package dev.jboehm.vectorvio;
 /**
  * Fail-closed VISUAL OBSERVABILITY diagnostic (not a learned trajectory estimator).
  *
- * A gyroscope may propagate an orientation for a short interval; acceleration
+ * A gyroscope provides angular-rate input for a short interval; acceleration
  * integration alone cannot produce a reliable translation, especially on a bike.
  * No state here licenses evacuation or automatic location-based decisions.
  *
@@ -12,7 +12,7 @@ package dev.jboehm.vectorvio;
  */
 public final class VisualObservabilityGate {
     public enum State {
-        VISUAL_OBSERVED, VISUAL_CAUTION, ORIENTATION_ONLY, POSITION_UNKNOWN
+        VISUAL_OBSERVED, VISUAL_CAUTION, IMU_ONLY_NO_POSITION, POSITION_UNKNOWN
     }
     public static final class Decision {
         public final State state;
@@ -80,8 +80,8 @@ public final class VisualObservabilityGate {
         consecutiveGood=0;
         long age=lastObservedNs<0?Long.MAX_VALUE:nowNs-lastObservedNs;
         if(imuFresh && age>=0 && age<=ORIENTATION_HORIZON_NS){
-            lastState=State.ORIENTATION_ONLY;
-            return new Decision(State.ORIENTATION_ONLY,false,age/1_000_000,"NO_TRANSLATION_FROM_IMU");
+            lastState=State.IMU_ONLY_NO_POSITION;
+            return new Decision(State.IMU_ONLY_NO_POSITION,false,age/1_000_000,"INERTIAL_INPUT_ONLY_NO_POSE");
         }
         lastState=State.POSITION_UNKNOWN;
         return new Decision(State.POSITION_UNKNOWN,false,age==Long.MAX_VALUE?Long.MAX_VALUE:Math.max(0,age/1_000_000),
