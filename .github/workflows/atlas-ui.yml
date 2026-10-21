@@ -34,5 +34,6 @@ jobs:
           path: |
             atlas-desktop.png
             atlas-mobile.png
+            atlas-mobile-decision.png
           retention-days: 14
           if-no-files-found: ignore
