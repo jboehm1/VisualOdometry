@@ -143,11 +143,14 @@ public final class GeoAlignment {
         // Count compatible fixes, but preserve raw RMS for diagnostics.
         int inliers=0;
         double inlierSquares=0;
-        for(Sample s:samples){
+        boolean[] compatible=new boolean[count];
+        for(int i=0;i<count;i++){
+            Sample s=samples.get(i);
             double e=Math.cos(theta)*s.x-Math.sin(theta)*s.z+tx;
             double n=Math.sin(theta)*s.x+Math.cos(theta)*s.z+ty;
             double residual=Math.hypot(e-s.e,n-s.n);
             if(residual<=Math.max(8,3*s.accuracy)){
+                compatible[i]=true;
                 inliers++;inlierSquares+=residual*residual;
             }
         }
@@ -155,7 +158,33 @@ public final class GeoAlignment {
         // Heuristic only. Persistent GPS bias is not observable from these fixes.
         State state=inliers<Math.max(4,(int)Math.ceil(count*.75)) ||
                 inlierRms>Math.max(8,2*acc)?State.INCONSISTENT:State.CANDIDATE;
-        return result(state,theta,tx,ty,baseline,rms,acc,inliers);
+        // Outliers must not provide the motion needed to observe yaw. A moving
+        // VIO path against a frozen GPS position can have small residuals and
+        // many inliers, yet its rotation is entirely unobservable. Require a
+        // sufficient baseline in BOTH sources, using only compatible pairs.
+        double supportedBaseline=0;
+        for(int i=0;i<count;i++){
+            if(!compatible[i])continue;
+            Sample a=samples.get(i);
+            for(int j=i+1;j<count;j++){
+                if(!compatible[j])continue;
+                Sample b=samples.get(j);
+                double pairSpan=Math.min(Math.hypot(a.x-b.x,a.z-b.z),
+                                         Math.hypot(a.e-b.e,a.n-b.n));
+                // A low-weight, high-uncertainty fix may still be an inlier.
+                // Its error cannot be diluted by many precise stationary fixes
+                // to manufacture an apparently well-observed heading.
+                double requiredSpan=Math.max(MIN_BASELINE_M,
+                                              4*Math.max(a.accuracy,b.accuracy));
+                if(pairSpan>=requiredSpan)supportedBaseline=Math.max(supportedBaseline,pairSpan);
+            }
+        }
+        // This conservative observed span also drives diagnostic heading
+        // allowance; never shrink it with an excluded high-leverage sample.
+        if(state==State.CANDIDATE && supportedBaseline==0){
+            state=State.NEED_BASELINE;
+        }
+        return result(state,theta,tx,ty,supportedBaseline,rms,acc,inliers);
     }
     private Result result(State state,double yaw,double east,double north,
                           double baseline,double rms,double accuracy,int inliers){

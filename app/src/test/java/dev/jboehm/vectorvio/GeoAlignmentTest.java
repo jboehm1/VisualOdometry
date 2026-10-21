@@ -73,4 +73,44 @@ public class GeoAlignmentTest {
         }
         return a;
     }
+
+    @Test public void frozenGpsCannotObserveYawDespiteMovingVioAndSmallResidual(){
+        GeoAlignment a=new GeoAlignment();
+        for(int i=0;i<10;i++)a.add(1,(i+1)*1_000_000_000L,i*2,0,lat(0),lon(0),3);
+        GeoAlignment.Result r=a.estimate();
+        assertEquals(GeoAlignment.State.NEED_BASELINE,r.state);
+        assertEquals(0,r.baselineMeters,1e-6);
+        assertNull(r.project(0,0));
+        assertNull(r.unproject(48,7));
+    }
+
+    @Test public void rejectedHighLeveragePairCannotSupplyBaseline(){
+        GeoAlignment a=new GeoAlignment();
+        for(int i=0;i<10;i++){
+            double x=i==9?100:i*.1;
+            a.add(1,(i+1)*1_000_000_000L,x,0,lat(0),lon(i*.1),3);
+        }
+        GeoAlignment.Result r=a.estimate();
+        assertEquals(9,r.inliers);
+        assertEquals(GeoAlignment.State.NEED_BASELINE,r.state);
+        assertTrue(r.baselineMeters<1);
+        assertTrue(r.residualRmsMeters>20); // Keep the rejected residual visible.
+    }
+
+    @Test public void tinyGpsJitterCannotSupplyBaseline(){
+        GeoAlignment a=new GeoAlignment();
+        for(int i=0;i<10;i++)a.add(1,(i+1)*1_000_000_000L,i*2,0,
+            lat(Math.sin(i)*.2),lon(Math.cos(i)*.2),3);
+        assertEquals(GeoAlignment.State.NEED_BASELINE,a.estimate().state);
+    }
+
+    @Test public void uncertainGpsInlierCannotBorrowAccuracyFromStationaryFixes(){
+        GeoAlignment a=new GeoAlignment();
+        for(int i=0;i<64;i++)a.add(1,(i+1)*1_000_000_000L,i*18.0/63,0,
+            lat(0),lon(i==63?20:0),i==63?50:3);
+        GeoAlignment.Result r=a.estimate();
+        assertEquals(64,r.inliers); // Residual compatibility alone is insufficient.
+        assertEquals(GeoAlignment.State.NEED_BASELINE,r.state);
+        assertNull(r.project(0,0));
+    }
 }

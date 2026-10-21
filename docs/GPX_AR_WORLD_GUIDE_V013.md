@@ -70,3 +70,6 @@ Verify CI at exact PR head SHA and again at merge SHA before distributing one AP
 On Samsung S21: rotate 180°/360°; test >90 m straight route and winding path,
 10/30 km GPX zoom, GPS outages, ARCore loss, fps/CPU/thermals and artifacts.
 Do not represent these automatic tests as a physical device qualification.
+
+### Observability rejection refinement (21 October 2026)
+Before a candidate can expose geographic projection, both GPS and VIO must have sufficient baseline among compatible pairs. A frozen GPS position, small jitter, or one excluded high-leverage VIO sample cannot supply heading. See [audit and limits](work/OBSERVABILITY_AUDIT_20261021.md).

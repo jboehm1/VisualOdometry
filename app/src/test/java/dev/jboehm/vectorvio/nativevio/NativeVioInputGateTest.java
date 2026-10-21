@@ -93,4 +93,41 @@ public final class NativeVioInputGateTest {
         assertEquals(NativeVioInputGate.Code.INVALID_CAPTURE,
             gate.accept(invalid,imu(t+6_000_000L)).code);
     }
+
+    @Test public void rejectedFutureFramesDoNotResetAcceptedWatermarkOrSegment() {
+        NativeVioInputGate gate=new NativeVioInputGate(calibration(true));
+        long t=10_000_000_000L;
+        assertTrue(gate.accept(frame(t),imu(t+6_000_000L)).accepted());
+        assertEquals(NativeVioInputGate.Code.INVALID_IMU_WINDOW,
+            gate.accept(frame(t+2_000_000_000L),null).code);
+        assertEquals(1,gate.segmentId());
+        assertEquals(NativeVioInputGate.Code.NON_MONOTONIC_FRAME,
+            gate.accept(frame(t-1),imu(t+6_000_000L)).code);
+        assertTrue(gate.accept(frame(t+33_000_000L),imu(t+39_000_000L)).accepted());
+        assertEquals(1,gate.segmentId());
+        assertTrue(gate.accept(frame(t+2_000_000_000L),imu(t+2_006_000_000L)).accepted());
+        assertEquals(2,gate.segmentId());
+    }
+
+    @Test public void overflowingFutureCaptureDoesNotConsumeSessionState() {
+        NativeVioInputGate gate=new NativeVioInputGate(calibration(true));
+        long t=10_000_000_000L;
+        assertTrue(gate.accept(frame(t),imu(t+6_000_000L)).accepted());
+        assertEquals(NativeVioInputGate.Code.INVALID_CAPTURE,
+            gate.accept(frame(Long.MAX_VALUE-1),imu(t+6_000_000L)).code);
+        assertEquals(1,gate.segmentId());
+        assertEquals(NativeVioInputGate.Code.NON_MONOTONIC_FRAME,
+            gate.accept(frame(t-1),imu(t+6_000_000L)).code);
+    }
+
+    @Test public void correctedMidExposureMustIncreaseAsWellAsFrameStart() {
+        NativeVioInputGate gate=new NativeVioInputGate(calibration(true));
+        long t=10_000_000_000L;
+        NativeVioInputGate.Frame longExposure=new NativeVioInputGate.Frame("rear0","calib-v1",
+            1280,720,t,80_000_000L,100_000_000L,NativeVioInputGate.CameraClock.REALTIME);
+        assertTrue(gate.accept(longExposure,imu(t+42_000_000L)).accepted());
+        assertEquals(NativeVioInputGate.Code.NON_MONOTONIC_FRAME,
+            gate.accept(frame(t+10_000_000L),imu(t+16_000_000L)).code);
+        assertTrue(gate.accept(frame(t+100_000_000L),imu(t+106_000_000L)).accepted());
+    }
 }
