@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VECTOR VIO · Atlas interactif V5.3 — bibliothèque de cas d’usage, faible lumière, GPS/VIO et modes adaptatifs</title><style>
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VECTOR VIO · Atlas interactif V5.4 — bibliothèque de cas d’usage, faible lumière, GPS/VIO et modes adaptatifs</title><style>
 :root{--bg:#08111e;--panel:#111f31;--panel2:#172940;--line:#30455c;--ink:#eaf4ff;--muted:#9fb3ca;--cyan:#54d9d2;--purple:#b3a0ff;--orange:#ffbb76;--green:#80dba9}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,Segoe UI,Arial,sans-serif}header{position:sticky;top:0;z-index:5;background:#08111ef2;border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}.top{max-width:1440px;margin:auto;padding:15px 25px;display:flex;align-items:center;gap:15px;justify-content:space-between;flex-wrap:wrap}.brand{font-size:20px;font-weight:850;letter-spacing:.07em}.brand span{color:var(--cyan)}.sub{font-size:12px;color:var(--muted);letter-spacing:.08em}.actions{display:flex;gap:7px;flex-wrap:wrap}button,.btn{background:#223750;border:1px solid #38516c;color:var(--ink);border-radius:9px;padding:9px 13px;cursor:pointer;font:inherit;font-size:13px}button:hover{background:#2e4865}.primary{background:#127f80;border-color:#36b7b5}main{max-width:1440px;margin:auto;padding:28px 25px 75px}h1{font-size:clamp(32px,4vw,55px);line-height:1.08;letter-spacing:-.045em;margin:0 0 12px}h2{font-size:23px;margin:0 0 17px;letter-spacing:-.02em}h3{margin:0 0 8px;font-size:16px}.muted{color:var(--muted)}.hero{display:grid;grid-template-columns:1.3fr .7fr;gap:22px;margin:14px 0 32px}.hero p{font-size:17px;color:var(--muted);max-width:780px}.tag{font-size:11px;letter-spacing:.14em;color:var(--cyan);font-weight:800}.metricrow{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:15px}.metric b{display:block;font-size:27px;color:var(--cyan)}.metric small{color:var(--muted)}section{margin:32px 0 42px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px}.sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:19px;position:relative}.card p{color:var(--muted);margin:0 0 13px}.card .icon{font-size:29px;margin-bottom:12px}.card .edit{position:absolute;right:12px;top:12px;padding:5px 9px}.pill{display:inline-block;padding:4px 9px;border-radius:99px;background:#203a4d;color:var(--cyan);font-size:11px;font-weight:700}.idea{border-top:3px solid var(--cyan)}.idea:nth-child(3n+2){border-top-color:var(--purple)}.idea:nth-child(3n){border-top-color:var(--orange)}.flow{overflow:auto;background:#0b1929;border:1px solid var(--line);border-radius:18px;padding:20px}.flow svg{display:block;width:100%;min-width:700px;height:auto}.flow text{font-family:Inter,Segoe UI,Arial,sans-serif;fill:#eaf4ff}.flow .small{font-size:13px;fill:#b7cbdf}.flow .title{font-size:17px;font-weight:750}.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:12px}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.twocol{display:grid;grid-template-columns:1fr 1fr;gap:14px}.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}.step{background:var(--panel);border:1px solid var(--line);padding:15px;border-radius:13px}.step b{font-size:14px;color:var(--cyan)}.step p{color:var(--muted);font-size:13px;margin:8px 0 0}.status{font-size:11px;color:var(--orange);margin:8px 0}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:750px}th,td{text-align:left;border-bottom:1px solid var(--line);padding:12px}th{color:var(--cyan);font-size:12px}td{font-size:13px}input,textarea,select{width:100%;padding:11px;background:#091727;color:var(--ink);border:1px solid var(--line);border-radius:8px;font:inherit}textarea{min-height:100px}label{display:block;font-size:12px;color:var(--muted);margin:12px 0 5px}dialog{border:1px solid #47617c;background:#112238;color:var(--ink);border-radius:16px;width:min(540px,94vw);padding:25px}dialog::backdrop{background:#000b}.dialogactions{display:flex;justify-content:flex-end;gap:9px;margin-top:20px}.note{border-left:3px solid var(--orange);padding:12px 15px;background:#30291e;color:#f6dbba;border-radius:0 8px 8px 0}.footer{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:20px}a{color:var(--cyan)}.empty{color:var(--muted);padding:15px}@media(max-width:900px){.hero,.twocol{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.grid,.metricrow,.steps{grid-template-columns:1fr}main{padding:22px 14px}.panel{padding:15px}}@media print{header .actions,.edit,.sectionhead button,.dialogactions{display:none!important}body{background:white;color:#182c42}.card,.panel,.metric,.step{background:white;color:#182c42;break-inside:avoid}.card p,.muted,.step p{color:#4b6278}header{position:static;background:white}.flow{background:#122033;print-color-adjust:exact}section{break-inside:avoid}}
 
 
@@ -30,7 +30,7 @@
 @media(max-width:750px){.marketFilters{grid-template-columns:1fr}.marketCard .catalogbtn{width:100%}}
 </style>
 <style>
-/* Atlas V5.3: overview-first, accessible theme navigation and responsive strategy dashboard. */
+/* Atlas V5.4: overview-first, accessible theme navigation and responsive strategy dashboard. */
 body{background:radial-gradient(ellipse 90vw 55vw at 68% -12%,#153a48 0%,transparent 68%),#08111e}
 header{border-bottom:1px solid #305065;box-shadow:0 4px 32px #0002}.top{padding:11px 25px}
 .brand{font-size:18px}.sub{letter-spacing:.04em;font-size:11px}
@@ -75,9 +75,26 @@ section[hidden]{display:none!important}
 @media(max-width:640px){.top{padding:11px 14px}.atlasEditorial{padding:19px;gap:21px;border-radius:16px}.atlasEditorial h1{font-size:clamp(32px,9vw,48px)}.atlasLead{font-size:14px}.atlasVisual{padding:10px}.atlasVisual svg{max-height:170px}.atlasFocus{padding:11px}.atlasFocusButtons{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.atlasFocusButtons button{padding:9px 5px}.atlasProofline{gap:8px}.marketSideBySide{grid-template-columns:1fr}main{padding-top:16px}}
 @media (prefers-reduced-motion:reduce){.valuecard,.card{transition:none!important}html{scroll-behavior:auto!important}}
 @media print{.atlasFocus,.atlasHistoricLinks,#marketSearch,#marketPriority,#marketDomain,.marketCompareActions{display:none!important}.atlasVisual{break-inside:avoid}section[hidden]{display:block!important}#marketComparison{display:none!important}}
-</style></head><body><header><div class="top"><div><div class="brand">VECTOR <span>VIO</span> <span style="font-weight:400;color:#9fb3ca">/ ATLAS</span></div><div class="sub">V5.3 · STRATEGY STUDIO · AUTO ADAPTATIF PROPOSÉ · HISTORIQUE V1→V4</div></div><div class="actions"><button onclick="setAtlasFocus('product',true);document.getElementById('ideas').scrollIntoView({behavior:'smooth'})">💡 Idées</button><button onclick="setAtlasFocus('engineering',true);document.getElementById('execution').scrollIntoView({behavior:'smooth'})">▥ Avancement</button><button onclick="addIdea()">＋ Ajouter une idée</button><button onclick="exportJSON()">⇩ Sauver JSON</button><button onclick="document.getElementById('importer').click()">⇧ Importer JSON</button><button onclick="window.print()">⎙ Imprimer / PDF</button></div></div></header><input id="importer" type="file" accept=".json,application/json" hidden onchange="importJSON(event)"><main>
+</style><style>
+/* Atlas V5.4 — qualitative decision laboratory; no invented success scores */
+#product-decision-lab{scroll-margin-top:88px}
+.atlasDecisionFlow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:18px 0}
+.atlasDecisionFlow>div{background:#122b3d;border:1px solid #35566a;border-radius:12px;padding:14px}
+.atlasDecisionFlow span{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:#23616b;color:#a9fff0;font-size:11px;font-weight:900}
+.atlasDecisionFlow b{display:block;margin-top:8px;font-size:13px}.atlasDecisionFlow small{color:#9cbac8;font-size:11px}
+.atlasDecisionGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 18px}
+.atlasDecisionGrid>div{min-width:0}.atlasDecisionResult{margin-top:18px;padding:17px;border:1px solid #579295;border-radius:14px;background:linear-gradient(110deg,#163848,#162536)}
+.atlasDecisionResult h3{font-size:19px;margin:6px 0}.atlasDecisionResult p{color:#c5dce8;margin:6px 0}
+.atlasDecisionWarnings{padding:0 0 0 18px;font-size:13px;color:#d5e5ed}.atlasDecisionWarnings li{margin:5px 0}
+.atlasPilotGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.atlasPilotGrid article{background:#112a3d;border:1px solid #385969;border-radius:13px;padding:15px}
+.atlasPilotGrid h4{font-size:15px;margin:8px 0}.atlasPilotGrid p{font-size:12px;color:#c5d8e2}
+.atlasPilotIndex{display:grid;place-items:center;border:1px solid #8d7b50;color:#f1d493;border-radius:8px;width:28px;height:28px;font-weight:900}
+@media(max-width:850px){.atlasDecisionFlow{grid-template-columns:repeat(2,minmax(0,1fr))}.atlasPilotGrid{grid-template-columns:1fr}}
+@media(max-width:650px){.atlasDecisionGrid{grid-template-columns:1fr}.atlasDecisionGrid label{margin-top:9px}}
+</style></head><body><header><div class="top"><div><div class="brand">VECTOR <span>VIO</span> <span style="font-weight:400;color:#9fb3ca">/ ATLAS</span></div><div class="sub">V5.4 · STRATEGY STUDIO · AUTO ADAPTATIF PROPOSÉ · HISTORIQUE V1→V4</div></div><div class="actions"><button onclick="setAtlasFocus('product',true);document.getElementById('ideas').scrollIntoView({behavior:'smooth'})">💡 Idées</button><button onclick="setAtlasFocus('engineering',true);document.getElementById('execution').scrollIntoView({behavior:'smooth'})">▥ Avancement</button><button onclick="addIdea()">＋ Ajouter une idée</button><button onclick="exportJSON()">⇩ Sauver JSON</button><button onclick="document.getElementById('importer').click()">⇧ Importer JSON</button><button onclick="window.print()">⎙ Imprimer / PDF</button></div></div></header><input id="importer" type="file" accept=".json,application/json" hidden onchange="importJSON(event)"><main>
 <div class="atlasEditorial">
-  <div class="atlasEditorialCopy"><div class="atlasEyebrow"><span class="atlasSignal"></span> VECTOR VIO / STRATEGY STUDIO <span class="atlasEdition">V5.3 · 21/10/2026</span></div>
+  <div class="atlasEditorialCopy"><div class="atlasEyebrow"><span class="atlasSignal"></span> VECTOR VIO / STRATEGY STUDIO <span class="atlasEdition">V5.4 · 21/10/2026</span></div>
   <h1>De la trajectoire à la <em>preuve terrain.</em></h1>
   <p class="atlasLead">Explorer les niches où la position relative d’un smartphone permet vraiment de mieux documenter, retrouver ou vérifier un objet. Chaque proposition reste une hypothèse à comparer aux méthodes les plus simples.</p>
   <div class="atlasHeroActions"><a class="atlasSolidLink" href="#opportunity-landscape">Explorer les opportunités <span aria-hidden="true">↗</span></a><a class="atlasQuietLink" href="OPPORTUNITY_DEEP_DIVE_20261021.md">Lire l’enquête concurrentielle →</a></div>
@@ -108,7 +125,7 @@ section[hidden]{display:none!important}
   <button type="button" data-atlas-focus="all" aria-pressed="false" onclick="setAtlasFocus('all')">☰ Tout voir</button>
  </div>
 </nav>
-<details class="atlasHistoricLinks"><summary>Index complet des anciennes sections <span>↘</span></summary><div class="navchips" aria-label="Sommaire rapide"><a href="#ideas">Cas d’usage</a><a href="#terrain">Terrain difficile</a><a href="#fumee">Fumée / secours R&D</a><a href="#gpxfusion">GPS + VIO</a><a href="#segmentation">Sentiers / vision</a><a href="#positionnement">Stratégie initiale</a><a href="#branches">Branches</a><a href="#journal">Historique</a><a href="#usages">Matrice d’usage</a><a href="#execution">Avancement</a><a href="#androidbaseline">GPS ↔ FLP</a><a href="#adaptive">Modes adaptatifs</a><a href="#precisioncases">14 cas métier</a><a href="#precisionlab">Objectif 10 cm</a><a href="#opportunity-landscape">35 niches</a><a href="#market-deep-dives">Nouvelles niches 2026</a><a href="#experiences">Expériences</a><a href="#iteration4">V4 technique</a><a href="#engineering-updates">Notes d'intégration</a></div></details><section id="opportunity-landscape" data-module="opportunity-research-20261021" aria-labelledby="opportunityHeading">
+<details class="atlasHistoricLinks"><summary>Index complet des anciennes sections <span>↘</span></summary><div class="navchips" aria-label="Sommaire rapide"><a href="#ideas">Cas d’usage</a><a href="#terrain">Terrain difficile</a><a href="#fumee">Fumée / secours R&D</a><a href="#gpxfusion">GPS + VIO</a><a href="#segmentation">Sentiers / vision</a><a href="#positionnement">Stratégie initiale</a><a href="#branches">Branches</a><a href="#journal">Historique</a><a href="#usages">Matrice d’usage</a><a href="#execution">Avancement</a><a href="#androidbaseline">GPS ↔ FLP</a><a href="#adaptive">Modes adaptatifs</a><a href="#precisioncases">14 cas métier</a><a href="#precisionlab">Objectif 10 cm</a><a href="#opportunity-landscape">35 niches</a><a href="#market-deep-dives">Nouvelles niches 2026</a><a href="#product-decision-lab">Décider si VIO utile</a><a href="#experiences">Expériences</a><a href="#iteration4">V4 technique</a><a href="#engineering-updates">Notes d'intégration</a></div></details><section id="opportunity-landscape" data-module="opportunity-research-20261021" aria-labelledby="opportunityHeading">
   <div class="sectionhead"><div><div class="tag">RECHERCHE MARCHÉ · 21 OCT 2026 · SOURCES PRIMAIRES + HYPOTHÈSES</div><h2 id="opportunityHeading">23 / Où VECTOR VIO peut créer une véritable valeur ?</h2></div><span class="pill">35 pistes · priorités hypothétiques · sans clients validés</span></div>
   <div class="panel">
     <h3>Thèse produit : journal spatial de visite, pas « SLAM plus précis »</h3>
@@ -170,6 +187,42 @@ section[hidden]{display:none!important}
     </div>
     <p><strong>Documentation détaillée et références :</strong> <a href="USE_CASE_OPPORTUNITY_LANDSCAPE_20261021.md">Panorama concurrentiel, 24+ usages et protocole d'entretiens</a>. Voir aussi <a href="COMMERCIAL_RELEASE_GATES.md">limites de commercialisation</a> et <a href="#precisioncases">les 14 fiches métier historiques (§21)</a>. <strong>Cette section recense des possibilités, pas des modules déjà développés.</strong></p>
   </div>
+</section>
+
+<section id="product-decision-lab" data-module="discovery-before-engineering" aria-labelledby="decisionHeading">
+<div class="sectionhead"><div><div class="tag">STRATÉGIE PRODUIT · ANALYSE CONDITIONNELLE</div><h2 id="decisionHeading">25 / Laboratoire de décision : faut-il réellement utiliser la VIO ?</h2></div><span class="pill">Hypothèses, pas résultats clients</span></div>
+<div class="panel"><p>Le vrai produit doit résoudre une <strong>erreur métier</strong> ; le SLAM n'est utile que s'il bat une méthode plus simple. Sélectionner des contraintes réalistes : le résultat est une recommandation d'expérience, jamais un avis de conformité ni une mesure d'exactitude.</p>
+<div class="atlasDecisionFlow"><div><span>01</span><b>Identifier l'objet</b><small>Quel défaut corriger ?</small></div><div><span>02</span><b>Tester M0</b><small>QR, NFC, plan, photo</small></div><div><span>03</span><b>Ajouter M1</b><small>VIO relative facultative</small></div><div><span>04</span><b>Décider</b><small>Erreurs + temps + énergie</small></div></div>
+<div class="atlasDecisionGrid">
+<div><label for="decisionCapture">Caméra autorisée ?</label><select id="decisionCapture" onchange="updateProductDecision()"><option value="yes">Oui, avec autorisation</option><option value="no">Non, capture interdite</option></select></div>
+<div><label for="decisionView">Scène exploitable, téléphone orienté vers l'environnement ?</label><select id="decisionView" onchange="updateProductDecision()"><option value="yes">Oui</option><option value="no">Non : poche, reflets, mains prises…</option></select></div>
+<div><label for="decisionAbsolute">Cote certifiée ou coordonnées absolues nécessaires ?</label><select id="decisionAbsolute" onchange="updateProductDecision()"><option value="no">Non, repères locaux</option><option value="yes">Oui, position contractuelle</option></select></div>
+<div><label for="decisionId">ID d'équipement connu ?</label><select id="decisionId" onchange="updateProductDecision()"><option value="yes">Oui, code/numéro/QR/NFC</option><option value="no">Non, objets visuellement similaires</option></select></div>
+<div><label for="decisionRevisit">Retrouver le point après fermeture de l'app ?</label><select id="decisionRevisit" onchange="updateProductDecision()"><option value="no">Non, visite unique</option><option value="yes">Oui, revisite J+1</option></select></div>
+</div>
+<div class="atlasDecisionResult" id="decisionResult" aria-live="polite" role="status"><div class="tag">TEST PAR DÉFAUT</div><h3>Commencer par QR, photo et checklist.</h3><p>Ajouter le mouvement relatif seulement s'il réduit une erreur ou du temps de travail.</p></div>
+</div>
+<div class="grid" style="margin-top:15px">
+<article class="card"><div class="tag">M0 · ALTERNATIVE SIMPLE</div><h3>Identité et observation</h3><p>Code stable de pièce, checklist, photos autorisées et export. Un passage ne prouve jamais un contrôle technique.</p><span class="pill">Baseline obligatoire</span></article>
+<article class="card"><div class="tag">M1 · VIO FACULTATIVE</div><h3>Trajectoire ARCore relative</h3><p>Continuité du trajet, qualité de tracking, zones supposées et correction manuelle. Jamais d'identité d'objet déduite automatiquement d'une distance ambiguë.</p><span class="pill">À mesurer contre M0</span></article>
+<article class="card"><div class="tag">M2 · RELOCALISATION</div><h3>Ancres physiques pérennes</h3><p>Repères QR/AprilTag, retours le lendemain et taux de fausses correspondances. Basalt reste expérimental sans validation S21.</p><span class="pill">Recherche non qualifiée</span></article>
+</div>
+<div class="panel" style="margin-top:14px">
+<h3>Trois expériences qui peuvent réfuter notre idée</h3>
+<div class="atlasPilotGrid">
+<article><div class="atlasPilotIndex">A</div><h4>Pinces et rails PV</h4><p>20 pièces presque identiques ; QR/plan puis QR + ARCore. Mesurer erreurs de rattachement, corrections, temps jusqu'au rapport.</p><p><b>Ne jamais</b> considérer la photo comme preuve du couple de serrage.</p></article>
+<article><div class="atlasPilotIndex">B</div><h4>Réseaux avant fermeture</h4><p>15 éléments cachés simulés. Faire retrouver le cliché exact depuis repères/plan seuls, puis avec parcours relatif.</p><p>Une trajectoire n'est pas une cote as-built certifiée.</p></article>
+<article><div class="atlasPilotIndex">C</div><h4>Local technique sans BIM</h4><p>20 actifs, visites répétées, application fermée entre J0 et J+1. Mesurer faux appariements, temps total, corrections et abstentions.</p><p>Sans recalage vérifié, les POI restent limités à une session.</p></article>
+</div>
+<p class="muted">Tailles proposées pour des POC, <strong>non suffisantes pour certifier un taux d'erreur faible</strong>. Seuils go/no-go à pré-déclarer avec les utilisateurs avant tests. <a href="PRODUCT_DISCOVERY_DECISION_LAB_20261021.md">Étude complète, modèles de données et guide d'entretiens →</a></p></div>
+<div class="panel" style="margin-top:14px"><h3>Barrières concurrentielles qui changent nos choix</h3>
+<div class="tablewrap"><table class="worktable"><thead><tr><th>Fonction existante</th><th>Exemple sourcé</th><th>Conséquence pratique</th></tr></thead><tbody>
+<tr><td>Notes automatiquement localisées sur un plan indoor</td><td><a href="https://www.openspace.ai/products/field/" target="_blank" rel="noopener noreferrer">OpenSpace Field (2026)</a></td><td>La capture chantier généraliste n'est pas un marché libre.</td></tr>
+<tr><td>Notes PV, numéros de série, fonctionnement offline</td><td><a href="https://raptormaps.com/solar-tech-docs/mobile-app-overview" target="_blank" rel="noopener noreferrer">Raptor Maps</a></td><td>Étudier plutôt l'assemblage mécanique et ses références produit.</td></tr>
+<tr><td>Rondes avec preuves QR/NFC</td><td><a href="https://litelog.de/en/solutions/guard-tour-system" target="_blank" rel="noopener noreferrer">LiteLog</a></td><td>VIO n'est pas nécessaire pour vérifier un checkpoint.</td></tr>
+<tr><td>Positionnement indoor sans plan par inertiel/radio</td><td><a href="https://navenio.com/our-technology/" target="_blank" rel="noopener noreferrer">Navenio</a></td><td>« Sans infrastructure » ne différencie pas suffisamment.</td></tr>
+<tr><td>Ancres AR locales limitées à la session et ancres cloud connectées</td><td><a href="https://developers.google.com/ar/develop/anchors" target="_blank" rel="noopener noreferrer">ARCore</a> / <a href="https://developers.google.com/ar/develop/cloud-anchors" target="_blank" rel="noopener noreferrer">Cloud Anchors</a></td><td>Recalage inter-visites explicite et validé.</td></tr>
+</tbody></table></div></div>
 </section>
 <section id="market-deep-dives" data-module="market-deep-dive-20261021" aria-labelledby="deepDiveHeading">
  <div class="sectionhead"><div><div class="tag">ÉTUDE CONCURRENTIELLE · INCOMPARABLE AUX SCORES DE PERFORMANCE</div><h2 id="deepDiveHeading">24 / Niches plus fines : là où le SLAM a encore une chance</h2></div><span class="pill">Nouvelles pistes et concurrents 2026</span></div>
@@ -598,7 +651,7 @@ filterMarketOpportunities();renderMarketComparison();
 const main=document.querySelector('main'), nav=document.getElementById('atlasFocusNav');
 if(!main||!nav)return;
 const groups={
-  market:new Set(['opportunity-landscape','market-deep-dives','precisioncases','usages','positionnement']),
+  market:new Set(['opportunity-landscape','product-decision-lab','market-deep-dives','precisioncases','usages','positionnement']),
   product:new Set(['ideas','precisioncases','gpxfusion','usages','branches']),
   science:new Set(['terrain','fumee','gpxfusion','segmentation','adaptive','precisionlab','experiences']),
   engineering:new Set(['dataset-determinism-v016','nativevio-commercial-v015','gpx-world-v013',
@@ -637,5 +690,28 @@ if(hashId){
 }
 setAtlasFocus(initial,true);
 })();
+</script>
+<script>
+/* Conservative decision gates; no field performance or compliance assertion. */
+function updateProductDecision(){
+ const v=id=>document.getElementById(id).value;
+ const cam=v('decisionCapture'),scene=v('decisionView'),absolute=v('decisionAbsolute'),asset=v('decisionId'),revisit=v('decisionRevisit');
+ let status='COMPARAISON M0 ↔ M1 À FAIRE';
+ let title='Démarrer sans VIO, puis ajouter ARCore seulement si cela aide.';
+ let desc='Mesurer bons objets, erreurs non détectées, durée totale du rapport et énergie.';
+ if(cam==='no'){status='CAMÉRA INTERDITE';title='Choisir NFC ou identité manuelle; exclure VIO et photos.';desc='Vérifier les règles du site. Un QR nécessitant l’appareil photo est également exclu.';}
+ else if(absolute==='yes'){status='MESURE INDÉPENDANTE REQUISE';title='Utiliser un relevé instrumenté, pas une trajectoire VIO comme cote.';desc='RTK, métrologie ou géomètre selon tolérance. Le journal numérique peut documenter mais pas certifier.';}
+ else if(scene==='no'){status='VIO NON EXPLOITABLE';title='Caméra en poche, reflets ou faible texture : garder M0 autonome.';desc='Ne pas suggérer de position non observée; demander une identification explicite.';}
+ else if(asset==='no'){status='IDENTITÉ AMBIGUË';title='Créer un ID de pièce ou de zone avant tout suivi automatique.';desc='Des objets semblables ne deviennent pas identifiables simplement parce qu’une trajectoire est continue.';}
+ const caveats=[];
+ if(cam==='yes'&&asset==='yes')caveats.push('Comparer à QR/numéro/plan seuls, sans avantage supposé de la VIO.');
+ if(cam==='yes'&&scene==='yes')caveats.push('Répéter de jour, faible luminosité, reflets, vibrations et pertes de tracking.');
+ if(revisit==='yes'&&cam==='yes')caveats.push('À J+1, recalage sur QR/AprilTag et mesures de fausses correspondances obligatoires.');
+ if(absolute==='yes')caveats.push('Aucune promesse de 10 cm absolus ni de documentation contractuelle par ARCore/Basalt.');
+ const safe=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ document.getElementById('decisionResult').innerHTML='<div class="tag">'+safe(status)+'</div><h3>'+safe(title)+'</h3><p>'+safe(desc)+'</p>'+
+ (caveats.length?'<ul class="atlasDecisionWarnings">'+caveats.map(s=>'<li>'+safe(s)+'</li>').join('')+'</ul>':'');
+}
+updateProductDecision();
 </script>
 </body></html>
