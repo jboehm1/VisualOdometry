@@ -120,3 +120,5 @@ Thresholds are heuristics, not calibrated confidence bounds. For a real validati
 `GeoAlignment` checks minimum supported motion in both local VIO and GPS coordinates after robust inlier selection. Its `baselineMeters` is the strongest jointly supported pair span, gated by both endpoint accuracies, used conservatively for diagnostic heading allowance. Raw residual RMS still includes rejected fixes. This is a fail-closed geometry check, not a covariance estimate or common-bias detector.
 
 Measured comparison and cache identity: protocol/report digests and explicit truth declarations are mandatory in scoreboard schema 2; repeated-route cohorts retain individual raw dataset identities. Testenv fingerprints runtime converters, evaluators and registry configuration before reusing reports. See [contract](work/MEASURED_REPORT_CONTRACT_V2.md).
+
+Native input state is transactional: validate calibration, frame clock, overflow and IMU bracket before committing watermark/segment. Require increasing corrected mid-exposure as well as capture start. Invalid future captures cannot authorize older samples. This remains an unconnected acquisition contract.

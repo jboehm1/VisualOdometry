@@ -23,3 +23,6 @@
 ## Further iterations
 
 Added a fourth geometry regression for one compatible GPS fix with 50 m uncertainty, plus public ArRouteGuide route-hiding/recovery coverage. The 3000-case synthetic audit is now an automatic host regression. Also modified `tools/vio/compare_measured_runs.py`, its tests, `tools/testenv/runner.py` and its tests to reject invalid evidence and stale resume identities. See docs/work/MEASURED_REPORT_CONTRACT_V2.md. No runtime PDR/Camera2/MainActivity or workflow mutation.
+
+## Native acquisition contract iteration
+`nativevio/NativeVioInputGate.java` and its existing JUnit file now preserve state on rejected future captures and require increasing corrected mid-exposure. Exact Java probe showed stale 9 s frame accepted after invalid 12 s capture before the fix, rejected afterwards. Scope remains unconnected native gate; no camera/JNI/ARCore/GPX/PDR runtime wiring.

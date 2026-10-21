@@ -164,3 +164,6 @@ completed legal license review.
 ### Measured comparison integrity refinement
 
 The offline scoreboard now emits schema 2, requires explicit truth-access declarations and full report/protocol hashes, preserves CPU tradeoffs and distinguishes identical-raw grouping from explicitly paired repeated-route cohorts. It validates declarations, not actual source bytes or scientific truth. See [v2 contract](work/MEASURED_REPORT_CONTRACT_V2.md). No native VIO engine or JNI has been added by this work.
+
+### Input session-state correction
+Rejected captures no longer mutate segmentation or erase the last accepted timestamp. Both capture start and corrected mid-exposure must be monotonic. Three new JUnit cases and a compiled exact-Java before/after probe reproduce the fix. See [audit](work/NATIVE_INPUT_STATE_AUDIT_20261021.md). The guard remains disconnected from acquisition and produces no VIO poses.

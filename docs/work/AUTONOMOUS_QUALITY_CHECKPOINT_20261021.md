@@ -53,3 +53,6 @@ No merge, force-push, PDR algorithm, Camera2, menu, manifest or settings change.
 
 Do not integrate #44 ahead of ancestors #38–43. Continue the same small-change,
 test/measure/refine loop; do not label unresolved physical gates 100% complete.
+
+## Native gate follow-up iteration
+Three JUnit regressions added for rejected-future/overflow state preservation and corrected-midpoint monotonicity. See [native input audit](NATIVE_INPUT_STATE_AUDIT_20261021.md). Previous iteration SHA `e97c2d2e6b1107602daa5d1a20847e3d7adb4134` is a checkpoint, not the current HEAD; refresh exact-SHA CI after this push.

@@ -138,6 +138,7 @@ public final class NativeVioInputGate {
     private static final long MAX_TIMESTAMP_STEP_NS = 1_000_000_000L;
     private final Calibration calibration;
     private long lastFrameNs = -1;
+    private long lastImuMidNs = -1;
     private long acquisitionSegment = 1;
 
     public NativeVioInputGate(Calibration calibration) {
@@ -147,6 +148,7 @@ public final class NativeVioInputGate {
     /** Start a new acquisition segment; no implicit pose continuity is allowed. */
     public void reset() {
         lastFrameNs = -1;
+        lastImuMidNs = -1;
         acquisitionSegment++;
     }
 
@@ -169,10 +171,6 @@ public final class NativeVioInputGate {
         if (lastFrameNs >= 0 && frame.startExposureNs <= lastFrameNs) {
             return reject(Code.NON_MONOTONIC_FRAME);
         }
-        if (lastFrameNs >= 0 && frame.startExposureNs - lastFrameNs > MAX_TIMESTAMP_STEP_NS) {
-            // Missing frames cannot be smoothly bridged by simply accepting a pose.
-            reset();
-        }
         if (imu == null || imu.firstGyroNs <= 0 || imu.firstAccelNs <= 0 ||
                 imu.firstGyroNs > imu.lastGyroNs || imu.firstAccelNs > imu.lastAccelNs) {
             return reject(Code.INVALID_IMU_WINDOW);
@@ -184,6 +182,9 @@ public final class NativeVioInputGate {
         } catch (ArithmeticException ex) {
             return reject(Code.INVALID_CAPTURE);
         }
+        if (lastImuMidNs >= 0 && midNs <= lastImuMidNs) {
+            return reject(Code.NON_MONOTONIC_FRAME);
+        }
         if (imu.firstGyroNs > midNs || imu.lastGyroNs < midNs ||
                 imu.firstAccelNs > midNs || imu.lastAccelNs < midNs) {
             return reject(Code.NO_BRACKETING_IMU);
@@ -192,7 +193,13 @@ public final class NativeVioInputGate {
                 imu.lastAccelNs - imu.firstAccelNs > MAX_IMU_BRACKET_SPAN_NS) {
             return reject(Code.IMU_GAP);
         }
+        // Commit state only after all validations. A rejected future timestamp
+        // must not erase the accepted watermark or let an older frame through.
+        if (lastFrameNs >= 0 && frame.startExposureNs - lastFrameNs > MAX_TIMESTAMP_STEP_NS) {
+            reset();
+        }
         lastFrameNs = frame.startExposureNs;
+        lastImuMidNs = midNs;
         return new Decision(Code.ACCEPTED, midNs, acquisitionSegment);
     }
 

@@ -185,3 +185,5 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 
 - B1 evidence integrity: measured scoreboard v2 rejects incomplete declarations, impossible match counts and unversioned identities; CPU included in Pareto. Same-raw and repeated-route grouping are explicit.
 - D1 reproducibility: runtime converters/evaluators/registry source now invalidate resume caches even before commit. Two regression tests added. Physical accuracy and environment/toolchain locking remain open.
+
+- V2 acquisition guard: rejected future frame no longer resets accepted monotonic watermark/segment; overflow and exposure-midpoint reversal regressions added. This is a contract correction, not a Camera2/JNI or native estimator implementation. See [audit](work/NATIVE_INPUT_STATE_AUDIT_20261021.md).
