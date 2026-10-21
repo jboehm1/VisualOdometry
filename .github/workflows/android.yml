@@ -82,6 +82,8 @@ jobs:
               'build_tree':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),
               'workflow_run_id':os.environ['GITHUB_RUN_ID']}))
           PYTHON
+      - name: Java unit tests and lint before native compilation
+        run: gradle :app:testDebugUnitTest :app:lintDebug --no-daemon --stacktrace
       - name: Native Android toolchain
         run: |
           "$SDKMANAGER" --install 'ndk;27.3.13750724'
@@ -92,8 +94,8 @@ jobs:
           restore-keys: vector-basalt-android-v1-ndk27-arm64-0f3b2b52-
       - name: Cross-compile pinned Basalt estimator for arm64 Android
         run: python3 tools/vio/android/build.py --work "$RUNNER_TEMP/vector-native-cache" --ndk "$ANDROID_HOME/ndk/27.3.13750724"
-      - name: Unit tests and installable APK
-        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
+      - name: Package native libraries into installable APK
+        run: gradle :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
       - name: Pure Java camera-free PDR replay and quality invariants
         run: |
           mkdir -p app/build/reports/pdr

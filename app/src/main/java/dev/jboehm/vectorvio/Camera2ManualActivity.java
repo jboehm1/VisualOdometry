@@ -39,6 +39,12 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import java.util.Arrays;
 import java.util.Locale;
+import android.media.ImageReader;
+import android.media.Image;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import dev.jboehm.vectorvio.nativevio.FactoryCameraCalibration;
+import dev.jboehm.vectorvio.nativevio.CustomVioSession;
 
 /**
  * Separate camera-only, manually controlled optical experiment.
@@ -47,9 +53,30 @@ import java.util.Locale;
  * released its Camera2 device via ARCore pause. Does not fake ARCore tracking,
  * does not change existing GPX/odometers and is stopped on activity pause.
  * This is the genuinely available Camera2 shutter/ISO control path, while
- * ARCore SharedCamera forbids app repeating requests during tracking.
+ * This exclusive session owns its repeating requests independently of ARCore.
  */
 public final class Camera2ManualActivity extends Activity implements TextureView.SurfaceTextureListener {
+    public static final String EXTRA_CUSTOM_VIO="custom_vio";
+    private boolean customMode;
+    private FactoryCameraCalibration factoryCalibration;
+    private ImageReader imageReader;
+    private volatile CustomVioSession customSession;
+    private volatile java.io.File lastCustomDirectory;
+    private TextView customStatus;
+    private Sensor accelSensor;
+    private static final int EXPORT_CUSTOM_ZIP=221;
+    private final SensorEventListener customImuListener=new SensorEventListener(){
+        @Override public void onSensorChanged(SensorEvent event){CustomVioSession s=customSession;if(s!=null)s.sensor(event);}
+        @Override public void onAccuracyChanged(Sensor sensor,int accuracy){}
+    };
+    private final Runnable updateCustomStatus=new Runnable(){
+        @Override public void run(){
+            if(!foreground||!customMode)return;
+            CustomVioSession s=customSession;
+            if(s!=null&&customStatus!=null)customStatus.setText(s.status());
+            ui.postDelayed(this,500);
+        }
+    };
     private final long[] exposureChoicesNs={
         33_333_333L,16_666_667L,8_333_333L,4_000_000L,
         2_000_000L,1_000_000L,500_000L};
@@ -250,11 +277,14 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     }
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
+        customMode=getIntent().getBooleanExtra(EXTRA_CUSTOM_VIO,false);
+        if(customMode)factoryCalibration=FactoryCameraCalibration.load(this);
         manager=(CameraManager)getSystemService(CAMERA_SERVICE);
         sensorManager=(SensorManager)getSystemService(SENSOR_SERVICE);
         if(sensorManager!=null){
             lightSensor=sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
             gyroSensor=sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+            accelSensor=sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         }
         android.content.SharedPreferences prefs=getSharedPreferences("camera2_optical_lab",MODE_PRIVATE);
         autoFast=prefs.getBoolean("auto_fast",true);
@@ -266,8 +296,34 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         ScrollView scroller=new ScrollView(this);scroller.setFillViewport(false);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(0xFF101820);
-        root.addView(text(this,"CAMERA2 · MANUAL SENSOR LAB (NOT ARCore)",17));
-        root.addView(text(this,"Shutter/ISO are controlled in this separate camera preview. ARCore / 3D GPX tracking is paused. No video, PDR pose or route data are modified.",12));
+        root.addView(text(this,customMode?"VIO CUSTOM · BASALT · EXPERIMENTAL":"CAMERA2 · MANUAL SENSOR LAB (NOT ARCore)",17));
+        root.addView(text(this,customMode?
+            "Independent image + IMU estimator. ARCore is paused. Factory calibration bootstrap is UNVERIFIED; distance is experimental. No images are saved.":
+            "Shutter/ISO are controlled in this separate camera preview. ARCore / 3D GPX tracking is paused. No video, PDR pose or route data are modified.",12));
+        if(customMode){
+            customStatus=text(this,factoryCalibration==null?
+                "No factory bootstrap. Return to ARCore, select a fixed-focus camera profile and wait for tracking. Optional metadata may be unavailable on this phone.":
+                "Ready to attempt Basalt using factory geometry. Keep phone still initially, then move slowly with visible texture. Calibration and accuracy remain unverified.",13);
+            root.addView(customStatus);
+            Button startCustom=new Button(this);startCustom.setText("START NEW BASALT RUN");root.addView(startCustom);
+            startCustom.setOnClickListener(v->{Handler h=handler;if(h==null)return;h.post(()->{
+                if(!foreground||customSession!=null)return;
+                if(factoryCalibration==null||capture==null||gyroSensor==null||accelSensor==null){runOnUiThread(()->customStatus.setText("Camera, bootstrap, gyroscope and accelerometer required"));return;}
+                try{CustomVioSession s=new CustomVioSession(this,factoryCalibration);customSession=s;lastCustomDirectory=s.directory;}
+                catch(Exception e){runOnUiThread(()->customStatus.setText("Basalt unavailable: "+e.getMessage()));}
+            });});
+            Button stopCustom=new Button(this);stopCustom.setText("STOP + EXPORT BASALT RUN (ZIP)");root.addView(stopCustom);
+            stopCustom.setOnClickListener(v->{Handler h=handler;if(h==null)return;h.post(()->{
+                closeCustomSession();java.io.File dir=lastCustomDirectory;
+                runOnUiThread(()->{
+                    if(dir==null){customStatus.setText("No Basalt recording yet");return;}
+                    customStatus.setText("Run stopped; ZIP includes poses, raw/interpolated IMU, capture metadata and resources.");
+                    Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/zip");
+                    intent.putExtra(Intent.EXTRA_TITLE,"vector-basalt-"+dir.getName()+".zip");
+                    startActivityForResult(intent,EXPORT_CUSTOM_ZIP);
+                });
+            });});
+        }
         preview=new TextureView(this);preview.setSurfaceTextureListener(this);
         // Keep preview visible even as diagnostics/ISO controls grow on small screens.
         root.addView(preview,new LinearLayout.LayoutParams(-1,Math.round(250*getResources().getDisplayMetrics().density)));
@@ -431,6 +487,11 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         super.onResume();foreground=true;optimizer.reset();gradientController.reset();
         lastCameraThumbnail=null;lastCameraThumbnailNs=0;
         worker=new HandlerThread("manual-camera2");worker.start();handler=new Handler(worker.getLooper());
+        if(customMode){
+            ui.post(updateCustomStatus);
+            if(accelSensor!=null)sensorManager.registerListener(customImuListener,accelSensor,5000,0,handler);
+            if(gyroSensor!=null)sensorManager.registerListener(customImuListener,gyroSensor,5000,0,handler);
+        }
         if(lightSensor!=null)try{
             sensorManager.registerListener(lightListener,lightSensor,SensorManager.SENSOR_DELAY_NORMAL);
         }catch(RuntimeException ignored){}
@@ -444,19 +505,42 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     @Override public void onPause(){
         foreground=false;
         ui.removeCallbacks(observePreview);
+        ui.removeCallbacks(updateCustomStatus);
         lastCameraThumbnail=null;lastCameraThumbnailNs=0;
         if(sensorManager!=null){
             sensorManager.unregisterListener(lightListener);
             sensorManager.unregisterListener(gyroListener);
+            sensorManager.unregisterListener(customImuListener);
         }
         synchronized(this){captureGeneration++;opening=false;if(capture!=null){capture.close();capture=null;}
             if(device!=null){device.close();device=null;}
             if(output!=null){output.release();output=null;}}
+        Handler h=handler;
+        if(h!=null)h.post(()->{closeCustomSession();if(imageReader!=null){imageReader.close();imageReader=null;}});
         if(worker!=null){worker.quitSafely();worker=null;handler=null;}
         super.onPause();
     }
     private String selectManualCamera() throws CameraAccessException {
         if(manager==null)return null;
+        if(customMode){
+            if(factoryCalibration==null)return null;
+            CameraCharacteristics c=manager.getCameraCharacteristics(factoryCalibration.cameraId);
+            Integer clock=c.get(CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE);
+            if(clock==null||clock!=CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME){fail("Basalt requires a REALTIME camera clock");return null;}
+            StreamConfigurationMap stream=c.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            Size expected=new Size(factoryCalibration.width,factoryCalibration.height);
+            if(stream==null||!Arrays.asList(stream.getOutputSizes(ImageFormat.YUV_420_888)).contains(expected)
+                ||!Arrays.asList(stream.getOutputSizes(SurfaceTexture.class)).contains(expected)){
+                fail("Factory CPU image dimensions are not available through Camera2");return null;
+            }
+            shutterRange=c.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+            isoRange=c.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+            int[] caps=c.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
+            manualCapable=false;if(caps!=null)for(int cap:caps)if(cap==CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)manualCapable=true;
+            manualCapable=manualCapable&&shutterRange!=null&&isoRange!=null;
+            actualWidth=expected.getWidth();actualHeight=expected.getHeight();
+            return factoryCalibration.cameraId;
+        }
         String fallback=null;
         StreamConfigurationMap fallbackStream=null;
         for(String id:manager.getCameraIdList()){
@@ -518,7 +602,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         try{
             cameraId=selectManualCamera();
             if(cameraId==null){
-                diagnostics.setText("No usable rear camera found.");return;
+                if(!customMode)diagnostics.setText("No usable rear camera found.");return;
             }
             if(manualCapable){
                 desiredIso=Camera2ExposurePolicy.clampIso(desiredIso,isoRange.getLower(),isoRange.getUpper());
@@ -555,7 +639,18 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         t.setDefaultBufferSize(actualWidth,actualHeight);
         Surface surface=new Surface(t);output=surface;
         try{
-            c.createCaptureSession(Arrays.asList(surface),new CameraCaptureSession.StateCallback(){
+            java.util.List<Surface> surfaces=new java.util.ArrayList<>();surfaces.add(surface);
+            if(customMode){
+                imageReader=ImageReader.newInstance(actualWidth,actualHeight,ImageFormat.YUV_420_888,3);
+                imageReader.setOnImageAvailableListener(reader->{
+                    try(Image image=reader.acquireLatestImage()){
+                        CustomVioSession s=customSession;
+                        if(image!=null&&s!=null&&foreground&&generation==captureGeneration)s.image(image);
+                    }catch(IllegalStateException|IllegalArgumentException error){fail("Raw image acquisition failed: "+error.getMessage());}
+                },handler);
+                surfaces.add(imageReader.getSurface());
+            }
+            c.createCaptureSession(surfaces,new CameraCaptureSession.StateCallback(){
                 @Override public void onConfigured(CameraCaptureSession session){
                     if(!foreground||generation!=captureGeneration){session.close();return;}
                     synchronized(Camera2ManualActivity.this){capture=session;}
@@ -577,6 +672,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         try{
             CaptureRequest.Builder req=camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             req.addTarget(target);
+            if(customMode&&imageReader!=null)req.addTarget(imageReader.getSurface());
             req.set(CaptureRequest.CONTROL_AE_MODE,manualCapable?
                 CaptureRequest.CONTROL_AE_MODE_OFF:CaptureRequest.CONTROL_AE_MODE_ON);
             if(manualCapable){
@@ -584,11 +680,20 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 req.set(CaptureRequest.SENSOR_SENSITIVITY,iso);
                 req.set(CaptureRequest.SENSOR_FRAME_DURATION,frameDuration);
             }
-            req.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
+            if(customMode){
+                req.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_OFF);
+                req.set(CaptureRequest.LENS_FOCUS_DISTANCE,factoryCalibration.focus);
+                req.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,factoryCalibration.ois);
+                req.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,factoryCalibration.videoStabilization);
+                int[] crop=factoryCalibration.crop;
+                req.set(CaptureRequest.SCALER_CROP_REGION,new Rect(crop[0],crop[1],crop[0]+crop[2],crop[1]+crop[3]));
+            }else req.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
             session.setRepeatingRequest(req.build(),new CameraCaptureSession.CaptureCallback(){
                 private long lastUiMs;
                 @Override public void onCaptureCompleted(CameraCaptureSession ses,
                     CaptureRequest request,TotalCaptureResult result){
+                    CustomVioSession nativeSession=customSession;
+                    if(nativeSession!=null&&foreground)nativeSession.result(result);
                     long now=android.os.SystemClock.elapsedRealtime();
                     if(now-lastUiMs<350)return;lastUiMs=now;
                     Long exposure=result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
@@ -621,6 +726,16 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
+        if(request==EXPORT_CUSTOM_ZIP&&result==RESULT_OK&&data!=null&&data.getData()!=null&&lastCustomDirectory!=null){
+            final java.io.File dir=lastCustomDirectory;final android.net.Uri uri=data.getData();final String optical=opticalCsv.toString();
+            new Thread(()->{
+                try(OutputStream stream=getContentResolver().openOutputStream(uri)){
+                    if(stream==null)throw new java.io.IOException("No output stream");
+                    CustomVioSession.export(dir,stream,optical);
+                    runOnUiThread(()->android.widget.Toast.makeText(this,"Basalt session exported",android.widget.Toast.LENGTH_LONG).show());
+                }catch(Exception e){fail("Basalt ZIP export failed: "+e.getMessage());}
+            },"basalt-export").start();return;
+        }
         if(request!=EXPORT_OPTICAL_CSV||result!=RESULT_OK||data==null||data.getData()==null)return;
         try(OutputStream stream=getContentResolver().openOutputStream(data.getData())){
             if(stream==null)throw new java.io.IOException("No output stream");
@@ -631,6 +746,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         }catch(Exception e){fail("Optical CSV export failed: "+e.getClass().getSimpleName());}
     }
     private void fail(String message){runOnUiThread(()->{if(diagnostics!=null)diagnostics.setText(message);});}
+    private void closeCustomSession(){CustomVioSession s=customSession;customSession=null;if(s!=null)s.close();}
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
         super.onRequestPermissionsResult(request,permissions,results);
         if(request==209&&results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED)openIfReady();

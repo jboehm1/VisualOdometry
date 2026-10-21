@@ -26,6 +26,9 @@ public final class AppIdentity {
     }
     public static String buildLabel(Context context) {
         String sha=sourceCommit(context);
-        return "Build "+(sha.equals("UNKNOWN")?"LOCAL / NON IDENTIFIÉ":sha.substring(0,8))+" · ARCore / PDR";
+        String engines="ARCore / PDR";
+        try(InputStream nativeReceipt=context.getAssets().open("native_build.json")){engines+=" / Basalt expérimental";}
+        catch(Exception unavailable){/* A Java-only developer build has no native backend. */}
+        return "Build "+(sha.equals("UNKNOWN")?"LOCAL / NON IDENTIFIÉ":sha.substring(0,8))+" · "+engines;
     }
 }

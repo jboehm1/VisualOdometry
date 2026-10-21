@@ -31,3 +31,39 @@ The 2025 publication full text is still unavailable via the publisher endpoint
 of abstract principles, not verified equation-exact reproduction. Never erase
 that limitation or describe the current TextureView feedback as calibrated raw
 camera frames. Device data may be required for calibration/clock qualification.
+
+
+## Live adapter implementation (not yet cross-build or device validated)
+
+The Android acquisition path now has JNI ingestion of owned grayscale images,
+actual capture timestamps/exposure/skew and synchronized accelerometer/gyroscope.
+Timestamp join buffers are bounded; missing geometry/timing rejects a frame.
+Acceleration is interpolated only between real brackets, maximum gap 30 ms.
+A larger paired-IMU gap stops inference instead of hiding missing motion.
+Native output retains absolute pose timestamps; an availability heuristic based
+on feature/landmark counts is not covariance or an accuracy certificate.
+Teardown runs on the acquisition worker, with camera EOS preceding IMU EOS to
+avoid blocking against a full IMU queue before the first image.
+
+One app retains the previous ARCore/PDR/GPX path and adds Settings > Camera &
+overlays > VIO custom · Basalt (experimental). Custom recording is explicit;
+stop/export creates a ZIP with derived poses, raw sensor events, interpolated
+pairs, actual matched capture metadata, common resources, optical quality and
+calibration provenance. No images or ARCore trajectory are fed into custom VIO.
+
+The initial field path is explicitly UNVERIFIED SDK factory geometry bootstrap:
+ARCore CPU-image intrinsics plus relative camera/Android-sensor transform, only
+with fixed focus and actual crop/focus/stabilization metadata. Camera2 must
+match camera ID, dimensions, focus, crop, stabilization and REALTIME clock.
+Camera/IMU offset is assumed zero, IMU noise uses upstream defaults, the model
+is pinhole without measured distortion, and rolling shutter is timestamped at
+its middle row without motion compensation. This is an experimental path,
+not a bypass claiming NativeVioInputGate.verified=true. That original production
+contract remains fail-closed. Optional metadata absence blocks this bootstrap.
+An externally measured calibration/import path remains future work.
+
+Version advanced to 0.15.0-alpha1 / 16 to distinguish this combined candidate
+from alpha2 / 15. Do not distribute until combined Java/lint/native/package
+checks pass, native dependencies/notices are inspected, and identity matches.
+Even a successful cross-build does not establish physical Android inference or
+reliable metric accuracy. The Android first-run test remains explicit.

@@ -21,7 +21,7 @@ final class SettingsCatalog {
     enum Action {
         GPX_AR, GPS_MANUAL_ALIGN, GPS_ROUTES, PDR, COURSES, RETURN_TRACE, GPX_EXTENDED_PREVIEW,
         GPS_TOGGLE, GPS_COMPARISON, IMU_TOGGLE,
-        LAYERS, UNKNOWN_GROUND, BIKE_VIEW_HINTS, OVERLAY_RENDER, CAMERA_CAPTURE_PROFILE, CAMERA2_MANUAL_LAB,
+        LAYERS, UNKNOWN_GROUND, BIKE_VIEW_HINTS, OVERLAY_RENDER, CAMERA_CAPTURE_PROFILE, CAMERA2_MANUAL_LAB, CUSTOM_VIO,
         VIDEO_TRAINING, COLLECT_ONLY, ARCORE_REPLAY, EXPORT, CAPTURE_INFO,
         MAP_VIEW, MAP_SETTINGS, MAP_SAVED, MAP_PLACE_POI,
         POWER, SIMULATION, HELP
@@ -51,6 +51,7 @@ final class SettingsCatalog {
         new Item(Section.DISPLAY,Action.OVERLAY_RENDER,"Overlay renderer","Automatic GPU/Canvas and GPU recovery"),
         new Item(Section.DISPLAY,Action.CAMERA_CAPTURE_PROFILE,"AR camera · 30/60 FPS profile","Low light / balanced / fast motion; applies on next ARCore session"),
         new Item(Section.DISPLAY,Action.CAMERA2_MANUAL_LAB,"Camera2 · shutter + ISO LAB","Manual shutter and ISO with real hardware feedback · ARCore paused"),
+        new Item(Section.DISPLAY,Action.CUSTOM_VIO,"VIO custom · Basalt (experimental)","Independent camera + IMU · factory bootstrap unverified · compare with ARCore"),
 
         new Item(Section.CAPTURE,Action.VIDEO_TRAINING,"Training video","Opt-in camera/IMU dataset recording"),
         new Item(Section.CAPTURE,Action.COLLECT_ONLY,"Collect only · screen off","Dedicated capture mode without live mapping"),

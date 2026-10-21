@@ -641,6 +641,14 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             case CAMERA_CAPTURE_PROFILE:cameraCaptureProfileMenu();break;
             case CAMERA2_MANUAL_LAB:
                 startActivity(new Intent(this,Camera2ManualActivity.class));break;
+            case CUSTOM_VIO:
+                if(odometer.isRecording()){
+                    Toast.makeText(this,"Pause the ARCore recording before switching estimators",Toast.LENGTH_LONG).show();break;
+                }
+                new AlertDialog.Builder(this).setTitle("Basalt custom · experimental")
+                    .setMessage("Runs independently from ARCore with the same shutter/ISO optimization controls as Camera2 Lab. Uses SDK factory camera geometry; timing, distortion and IMU noise are not calibrated for this phone. Accuracy is unverified. Record ARCore first, then the same measured route with Basalt. Basalt uses no ARCore trajectory. Raw IMU, poses, camera metadata and resource metrics are saved; images are not saved.")
+                    .setPositiveButton("Open Basalt",(dialog,which)->startActivity(new Intent(this,Camera2ManualActivity.class).putExtra(Camera2ManualActivity.EXTRA_CUSTOM_VIO,true)))
+                    .setNegativeButton("Cancel",null).show();break;
             case VIDEO_TRAINING:
                 if(odometer.isRecording()){
                     Toast.makeText(this,"Pause before changing video capture",Toast.LENGTH_LONG).show();break;
@@ -1511,6 +1519,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             long qualityMs=SystemClock.elapsedRealtime();
             if(qualityMs-lastCameraExposureDiagnosticMs>=1000L && !playbackMode){
                 lastCameraExposureDiagnosticMs=qualityMs;
+                dev.jboehm.vectorvio.nativevio.FactoryCameraCalibration.observe(this,s,frame);
                 long exposureNs=0;int iso=0;
                 try{
                     com.google.ar.core.ImageMetadata metadata=frame.getImageMetadata();

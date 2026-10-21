@@ -42,4 +42,10 @@ public class SettingsCatalogTest {
         assertTrue(SettingsCatalog.byId(SettingsCatalog.Action.GPS_TOGGLE).description.contains("active"));
         assertTrue(SettingsCatalog.byId(SettingsCatalog.Action.VIDEO_TRAINING).description.contains("Opt-in"));
     }
+    @Test public void customVioAndCameraLabAreDistinctActions(){
+        SettingsCatalog.Item custom=SettingsCatalog.byId(SettingsCatalog.Action.CUSTOM_VIO);
+        SettingsCatalog.Item lab=SettingsCatalog.byId(SettingsCatalog.Action.CAMERA2_MANUAL_LAB);
+        assertNotEquals(custom.action,lab.action);assertTrue(custom.title.contains("Basalt"));
+        assertTrue(custom.description.contains("unverified"));assertEquals(SettingsCatalog.Section.DISPLAY,custom.section);
+    }
 }
