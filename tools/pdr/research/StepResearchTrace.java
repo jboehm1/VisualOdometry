@@ -13,6 +13,9 @@ public final class StepResearchTrace {
         PdrEngine current = new PdrEngine();
         PeakCandidate smooth = new PeakCandidate(false), adaptive = new PeakCandidate(true);
         CausalArbitration arbitration=new CausalArbitration();
+        CausalArbitration[] conservative={new CausalArbitration(1.2),new CausalArbitration(1.25),new CausalArbitration(1.3)};
+        List<List<Long>> cautious=new ArrayList<>();
+        for(int i=0;i<conservative.length;i++)cautious.add(new ArrayList<>());
         List<Long> a = new ArrayList<>(), b = new ArrayList<>(), c = new ArrayList<>(), events=new ArrayList<>(), delays=new ArrayList<>(), combined=new ArrayList<>();
         long previous = -1; int samples = 0;
         try (BufferedReader in = Files.newBufferedReader(Path.of(args[0]))) {
@@ -36,11 +39,15 @@ public final class StepResearchTrace {
                     delays.add(t-adaptive.eventTimestampNs());
                 }
                 if(arbitration.accept(t,base,candidate))combined.add(t);
+                for(int i=0;i<conservative.length;i++)
+                    if(conservative[i].accept(t,base,candidate))cautious.get(i).add(t);
             }
         }
         if(samples<500)throw new IllegalArgumentException("too few samples");
         System.out.println("{\"current\":"+a+",\"smooth\":"+b+",\"adaptive\":"+c+
             ",\"adaptive_event_time\":"+events+",\"event_confirmation_delay_ns\":"+delays+
-            ",\"consensus\":"+combined+",\"consensus_switches\":"+arbitration.switches()+"}");
+            ",\"consensus\":"+combined+",\"consensus_switches\":"+arbitration.switches()+
+            ",\"consensus_120\":"+cautious.get(0)+",\"consensus_125\":"+cautious.get(1)+
+            ",\"consensus_130\":"+cautious.get(2)+"}");
     }
 }

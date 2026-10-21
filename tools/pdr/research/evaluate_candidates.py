@@ -17,7 +17,7 @@ PDR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PDR))
 import simul_compare as data
 
-MODES = ("current", "smooth", "adaptive", "adaptive_event_time", "consensus")
+MODES = ("current", "smooth", "adaptive", "adaptive_event_time", "consensus", "consensus_120", "consensus_125", "consensus_130")
 RESERVED = {
     "15": "data/by-person/15/awindaRecording_20230418131221.csv",
     "16": "data/by-person/16/awindaRecording_20230501202002.csv",

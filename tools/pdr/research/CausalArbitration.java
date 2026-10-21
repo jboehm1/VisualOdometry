@@ -4,6 +4,13 @@ import java.util.ArrayDeque;
 
 /** Research arbitration using only past emitted peaks, never placement or labels. */
 public final class CausalArbitration {
+    private final double enterRatio;
+    public CausalArbitration() { this(1.15); }
+    public CausalArbitration(double enterRatio) {
+        if(!Double.isFinite(enterRatio) || enterRatio<1.15 || enterRatio>1.5)
+            throw new IllegalArgumentException("ratio outside prespecified research grid");
+        this.enterRatio=enterRatio;
+    }
     private final ArrayDeque<Long> baseline=new ArrayDeque<>(), filtered=new ArrayDeque<>();
     private long last=-1, emitted=-1, evidenceSince=-1;
     private boolean useFiltered;
@@ -26,7 +33,7 @@ public final class CausalArbitration {
         while(!filtered.isEmpty() && filtered.peekFirst()<t-8_000_000_000L)filtered.remove();
         boolean supported=baseline.size()>=8 && filtered.size()>=8;
         double ratio=filtered.isEmpty()?1.:(double)baseline.size()/filtered.size();
-        boolean change=supported && (useFiltered ? ratio<=1.05 : ratio>=1.15);
+        boolean change=supported && (useFiltered ? ratio<=1.05 : ratio>=enterRatio);
         if(change) {
             if(evidenceSince<0)evidenceSince=t;
             long duration=useFiltered?2_000_000_000L:1_000_000_000L;
