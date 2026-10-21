@@ -196,7 +196,14 @@ public final class SensorLabActivity extends Activity implements SensorEventList
             for(int type:SENSOR_TYPES){
                 Sensor sensor=manager.getDefaultSensor(type);
                 // High-rate permission is not requested; measured actual rate is logged.
-                if(sensor!=null && manager.registerListener(this,sensor,10_000,0,worker))registered++;
+                int requestUs=(type==Sensor.TYPE_ACCELEROMETER||type==Sensor.TYPE_GYROSCOPE)?
+                    5_000:(type==Sensor.TYPE_ACCELEROMETER_UNCALIBRATED||
+                    type==Sensor.TYPE_GYROSCOPE_UNCALIBRATED)?10_000:
+                    (type==Sensor.TYPE_MAGNETIC_FIELD||
+                    type==Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED)?50_000:100_000;
+                // Approx. 200Hz for primary VIO IMU if actually supported by
+                // device/OS; never assume requested == delivered sample rate.
+                if(sensor!=null && manager.registerListener(this,sensor,requestUs,0,worker))registered++;
             }
             if(registered==0)throw new IOException("No sensors registered");
             outcome="RECORDING · "+registered+" available sensor types; timestamps are hardware-reported.";
