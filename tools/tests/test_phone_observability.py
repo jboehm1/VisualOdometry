@@ -19,7 +19,7 @@ class TrackingAvailabilityTests(unittest.TestCase):
     def test_counts_intervals_but_never_reports_ate(self):
         data=HEADER+row(1,1_000_000_000,True,"VISUAL_CAUTION")+row(
             2,2_000_000_000,True,"VISUAL_OBSERVED")+row(
-            3,3_000_000_000,False,"ORIENTATION_ONLY",600)+row(
+            3,3_000_000_000,False,"IMU_ONLY_NO_POSITION",600)+row(
             4,4_000_000_000,False,"POSITION_UNKNOWN",1700)
         result=self.analyze_text(data)
         self.assertEqual(4,result["sample_count"])
@@ -35,12 +35,12 @@ class TrackingAvailabilityTests(unittest.TestCase):
         self.assertIsNone(result["visual_observed_fraction_of_covered_time"])
 
     def test_forbids_inertial_translation_and_inconsistent_pose(self):
-        text=HEADER+row(1,100,False,"ORIENTATION_ONLY",300)
+        text=HEADER+row(1,100,False,"IMU_ONLY_NO_POSITION",300)
         self.assertEqual(1,self.analyze_text(text)["sample_count"])
         with self.assertRaises(InputError):
             self.analyze_text(text.replace(",false,300,TEST",",true,300,TEST"))
         with self.assertRaises(InputError):
-            self.analyze_text(text.replace("ORIENTATION_ONLY,false,false","ORIENTATION_ONLY,true,false"))
+            self.analyze_text(text.replace("IMU_ONLY_NO_POSITION,false,false","IMU_ONLY_NO_POSITION,true,false"))
 
     def test_rejects_nonmonotonic_and_invalid_provenance(self):
         text=HEADER+row(2,101,True,"VISUAL_OBSERVED")+row(1,100,True,"VISUAL_OBSERVED")
