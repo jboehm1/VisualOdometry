@@ -38,3 +38,5 @@ Scope now includes PdrEngine/StepPeakDetector/PdrTraceWriter and PdrEngineTest/S
 Also reproduced PDR resume stale callbacks producing an older path timestamp and a third false step; keep per-stream/step watermarks, add explicit resume(timeNs), reject paused observations, and reset cadence independently. No PdrActivity, MainActivity, menu, manifest, Camera2, native activation, GPX or stride/heading policy change. Combined exact-head CI required after these app changes.
 
 Publication correction: first draft tree accidentally omitted the verified base; forward repair restores all 522 files at c88b01ef4dd60055b86be0ad7c54e503334932fb. Local/remote full tree identity and zero removed files relative to integration were checked before further work. No integration merge occurred.
+
+Final CI maintenance: the real fixed-candidate workflow now also triggers when canonical PdrEngine/StepPeakDetector sources change. Its name explicitly identifies IDs 15/16 as an already consumed reserved cohort, so repeated verification cannot be mistaken for fresh held-out selection.

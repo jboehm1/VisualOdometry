@@ -1,13 +1,17 @@
-name: PDR real subject-disjoint challenger selection (no APK promotion)
+name: PDR real fixed-candidate verification (reserved cohort already consumed)
 on:
   push:
     branches: [work/pdr-vio-timing-probe-20261021]
     paths:
       - 'tools/pdr/research/**'
+      - 'app/src/main/java/dev/jboehm/vectorvio/pdr/PdrEngine.java'
+      - 'app/src/main/java/dev/jboehm/vectorvio/pdr/StepPeakDetector.java'
       - '.github/workflows/pdr-research-selection.yml'
   pull_request:
     paths:
       - 'tools/pdr/research/**'
+      - 'app/src/main/java/dev/jboehm/vectorvio/pdr/PdrEngine.java'
+      - 'app/src/main/java/dev/jboehm/vectorvio/pdr/StepPeakDetector.java'
       - '.github/workflows/pdr-research-selection.yml'
   workflow_dispatch:
 permissions:
