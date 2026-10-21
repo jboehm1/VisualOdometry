@@ -1,0 +1,38 @@
+name: Atlas · browser UX regression
+
+on:
+  pull_request:
+    paths:
+      - 'docs/VECTOR_VIO_ATLAS_INTERACTIF_v5.html'
+      - 'tools/atlas/**'
+      - '.github/workflows/atlas-ui.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  atlas-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install headless browser
+        run: |
+          python -m pip install --disable-pip-version-check 'playwright==1.56.0'
+          python -m playwright install --with-deps chromium
+      - name: Exercise HTML navigation, market comparison and mobile rendering
+        run: python tools/atlas/test_atlas_ui.py
+      - name: Save screenshots for PR visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vector-atlas-desktop-mobile
+          path: |
+            atlas-desktop.png
+            atlas-mobile.png
+          retention-days: 14
+          if-no-files-found: ignore
