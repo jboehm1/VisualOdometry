@@ -1,29 +1,29 @@
 # Session resources and the two user-facing candidates
 
-## Decision
+## Comparison scope updated during native integration
 
-Only two modes are selected for user field tests: **ARCore with camera** and
-**Java PDR without camera**. They solve different availability conditions;
-PDR is not an interchangeable visual-inertial SLAM engine. No automatic
-ARCore/PDR switching or new native Android engine is introduced here.
+ARCore with camera remains the established app path; Java PDR without camera
+remains available and is a different estimator. At the user's request PR47 now
+also consolidates an **experimental Basalt phone comparison path** with the
+Camera2 exposure controls. This is an integration candidate, not a claim that
+Basalt is better or that the native APK has passed device qualification.
 
-Basalt is an existing open-source C++ visual-inertial odometry/mapping library.
-Our pinned build actually inferred poses on a short EuRoC stereo window.
-The VO/VIO ABBA comparison establishes the effect of its IMU switch, **not**
-an advantage against ARCore, a mono rolling-shutter phone result, or an S21
-resource qualification. It remains an internal research challenger.
+The pinned Basalt host build actually inferred poses on a short EuRoC stereo
+window. Its VO/VIO ABBA result establishes the effect of its IMU switch, not
+an advantage against ARCore or an S21 result. The Android path is monocular,
+with an explicitly unverified factory-geometry bootstrap. Timing offset,
+distortion, sensor noise, OIS and rolling-shutter compensation remain limits.
+An APK is only deliverable after combined Java/lint/native/package checks.
 
-Do not send the user ten estimators. Before proposing a third field-test mode:
-require a reproducible arm64 build, sensor/calibration compatibility, multiple
-untuned phone sequences with independent reference, an ARCore comparison with
-matched inputs or paired controlled runs, and credible device resource costs.
-Freeze the acceptance rule before those trials. Promotion needs a useful
-precision/robustness/resource or camera-control advantage, not a small gain
-on one stereo dataset. No evidence currently establishes a globally best engine.
+Compare only the established ARCore path and the single Basalt challenger for
+the present VIO experiment. No additional estimators are proposed. Promotion
+requires untuned phone sequences, independent reference, controlled paired runs
+and measured resource costs. The experimental mode does not satisfy those
+promotion gates merely by compiling or showing a distance.
 
 ## What is recorded
 
-Both selected modes share `SessionTelemetry` and the same 62-column CSV.
+ARCore, PDR and the experimental custom recording share `SessionTelemetry` and the same 62-column CSV.
 Resources are sampled at 1 Hz on a dedicated worker, PSS at 5 s, and thermal
 headroom at no more than one probe per 10 s. GL and sensor callbacks update
 atomic counters and fixed-size histograms; resource probes never run on GL.
@@ -58,15 +58,16 @@ last bucket is overflow and cannot be converted to a finite latency.
   resource files. ZIP includes `<session>_resources.csv` and metadata JSON.
 - PDR: stop and export its ZIP; it includes `resources.csv` and
   `resources_metadata.json` alongside unchanged replayable events/raw/path.
+- Basalt custom: Settings > Camera & overlays > VIO custom; START NEW BASALT RUN, then STOP + EXPORT BASALT RUN (ZIP). Its separate ZIP contains the common resources, poses, raw/interpolated IMU, matched capture metadata, optical diagnostics and bootstrap provenance. No images are saved. Missing factory geometry/metadata blocks the mode.
 - No user sensor/image data is uploaded automatically. Resource files remain
   inside the session's existing app-private storage and chosen export ZIP.
 - Session settings are recorded at segment creation, alongside existing event
   logs for later changes. Match display/video/torch/GNSS settings during tests.
 
-Offline report (accepts either complete ZIP format):
+Offline report (accepts these complete ZIP formats):
 
 ```sh
-python tools/telemetry/report.py arcore.zip pdr.zip --out comparison.json
+python tools/telemetry/report.py arcore.zip basalt.zip --out comparison.json
 ```
 
 The report excludes pause gaps, calculates process CPU from deltas, exposes
@@ -77,7 +78,7 @@ coverage is reported. Missing/charging intervals are excluded, never assigned
 zero energy. There is no automatic overall winner or accuracy score.
 
 Use one measured route and one fixed phone mount, screen settings, video/torch
-configuration and similar start temperature. Repeat ARCore/PDR/PDR/ARCore,
+configuration and similar start temperature. For VIO repeat ARCore/Basalt/Basalt/ARCore,
 export after each, and label the true route distance and relevant incidents.
 Keep uncalibrated fallback-stride or heading assumptions visible. A measured
 distance validates distance error; full trajectory ATE needs independent,

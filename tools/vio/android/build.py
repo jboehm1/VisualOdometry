@@ -48,7 +48,7 @@ def build(work,abi,ndk):
     (triplets/(triple+'.cmake')).write_text('set(VCPKG_TARGET_ARCHITECTURE '+('arm64' if abi=='arm64-v8a' else 'x64')+')\n'
         'set(VCPKG_CMAKE_SYSTEM_NAME Android)\nset(VCPKG_CRT_LINKAGE dynamic)\nset(VCPKG_LIBRARY_LINKAGE static)\nset(VCPKG_BUILD_TYPE release)\nset(VCPKG_CMAKE_SYSTEM_VERSION 26)\n'
         'set(VCPKG_CMAKE_CONFIGURE_OPTIONS -DANDROID_ABI='+abi+')\n'
-        'set(VCPKG_CXX_FLAGS_RELEASE "-O1 -g0")\n')
+        'set(VCPKG_C_FLAGS_RELEASE "-O1 -g0")\nset(VCPKG_CXX_FLAGS_RELEASE "-O1 -g0")\n')
     sdk=work/'opencv';archive=work/'opencv.zip'
     if not (sdk/'OpenCV-android-sdk/sdk/native/jni/OpenCVConfig.cmake').is_file():
         urllib.request.urlretrieve(f'https://github.com/opencv/opencv/releases/download/{OPENCV}/opencv-{OPENCV}-android-sdk.zip',archive)
@@ -75,7 +75,12 @@ def build(work,abi,ndk):
     for p in out.glob('vcpkg_installed/*/share/*/copyright'):
         shutil.copy2(p,notices/(p.parent.name+'-copyright.txt'))
     shutil.copy2(source/'LICENSE',notices/'basalt-LICENSE.txt')
-    for p in (sdk/'OpenCV-android-sdk').glob('*LICENSE*'):shutil.copy2(p,notices/p.name)
+    for p in (sdk/'OpenCV-android-sdk').rglob('*'):
+        if p.is_file() and any(word in p.name.lower() for word in ('license','notice','copyright','copying')):
+            name='opencv-'+str(p.relative_to(sdk/'OpenCV-android-sdk')).replace('/','-')
+            shutil.copy2(p,notices/name)
+    for p in [ndk/'NOTICE',ndk/'NOTICE.toolchain',ndk/'toolchains/llvm/prebuilt/linux-x86_64/NOTICE']:
+        if p.is_file():shutil.copy2(p,notices/('ndk-'+p.name))
     receipt={'basalt_sha':BASALT,'vcpkg_sha':VCPKG,'registry_baseline':BASELINE,'opencv_version':OPENCV,
         'opencv_archive_sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),
         'abi':abi,'libraries_sha256':hashes,'ndk':str(ndk),'status':'CROSS_COMPILED_NOT_DEVICE_QUALIFIED'}

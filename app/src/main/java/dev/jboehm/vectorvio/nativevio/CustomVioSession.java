@@ -39,6 +39,7 @@ public final class CustomVioSession implements AutoCloseable {
     private final ArrayList<BufferedWriter> ownedWriters=new ArrayList<>();
     private final JSONObject metadata;
     private long lastPair,lastPose,firstPair,frames,drops,poseRows;
+    private int lastQuality;
     private boolean closed,failed;
     private volatile String status="Waiting for synchronized camera + IMU";
     private final long started=SystemClock.elapsedRealtimeNanos();
@@ -99,6 +100,7 @@ public final class CustomVioSession implements AutoCloseable {
     /** Copies only the actual Y plane with row/pixel strides; caller always closes Image. */
     public void image(Image image){
         if(closed||failed)return;
+        metrics.count("camera_y_images_received");
         if(image.getWidth()!=calibration.width||image.getHeight()!=calibration.height){fail("Image dimensions differ from factory bootstrap");return;}
         Rect crop=image.getCropRect();
         if(crop.left!=0||crop.top!=0||crop.width()!=calibration.width||crop.height()!=calibration.height){fail("Unexpected image crop");return;}
@@ -109,6 +111,10 @@ public final class CustomVioSession implements AutoCloseable {
     public void result(CaptureResult result){
         if(closed||failed)return;
         Long time=result.get(CaptureResult.SENSOR_TIMESTAMP);if(time==null)return;
+        metrics.count("camera_capture_results_received");
+        // Denominator includes results whose pixels/IMU will be dropped later,
+        // just as baseline telemetry includes every distinct ARCore frame.
+        metrics.frame(time,lastQuality==2&&lastPose>0&&time>=lastPose&&time-lastPose<500_000_000L,"INITIALIZING_OR_STALE");
         results.put(time,result);join();
     }
     private void join(){
@@ -140,20 +146,21 @@ public final class CustomVioSession implements AutoCloseable {
             if(p.mid<=firstPair||lastPair-p.mid>100_000_000L){drops++;continue;}
             long start=SystemClock.elapsedRealtimeNanos();
             if(!bridge.frame(p.mid,p.pixels.y,p.exposure)){drops++;metrics.count("native_image_queue_dropped");continue;}
-            frames++;metrics.duration("native_frame_enqueue",SystemClock.elapsedRealtimeNanos()-start);
+            frames++;metrics.count("native_frames_enqueued");metrics.duration("native_frame_enqueue",SystemClock.elapsedRealtimeNanos()-start);
             poll(p.mid);
             if(start-started>1_800_000_000_000L){fail("30 minute recording limit; reopen to start a fresh run");return;}
         }
     }
     private void poll(long frameTime){
         long[] time=new long[1];double[] values=new double[9];int quality=bridge.poll(time,values);
+        lastQuality=quality;
         boolean fresh=quality==2&&time[0]<=frameTime&&frameTime-time[0]<500_000_000L;
-        metrics.frame(frameTime,fresh,"INITIALIZING_OR_STALE");
         if(!fresh)odometer.lostTracking();
         if(time[0]>lastPose){
             lastPose=time[0];Odometer.Result result=fresh?odometer.onPose(values[0],values[1],values[2],time[0]):Odometer.Result.INACTIVE;
             try{poses.write(time[0]+","+SystemClock.elapsedRealtimeNanos()+csv(values)+","+quality+","+odometer.snapshot(SystemClock.elapsedRealtime()).totalMeters+","+result+"\n");poseRows++;}
             catch(IOException e){fail("Pose storage failed");return;}
+            metrics.count("pose_exports");
         }
         status=String.format(Locale.US,"BASALT · %s · %.2f m\n%d frames · %d poses · %d drops · %d IMU pairs\nFactory bootstrap UNVERIFIED · features %.0f · landmarks %.0f",
             fresh?"visual state available":"initializing / weak or stale vision",odometer.snapshot(SystemClock.elapsedRealtime()).totalMeters,frames,poseRows,drops,sync.paired,values[7],values[8]);
