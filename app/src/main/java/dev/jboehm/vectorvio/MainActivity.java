@@ -1601,8 +1601,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     latestLowTexture:null);
             visualGateLabel=visualDecision.state==VisualObservabilityGate.State.VISUAL_OBSERVED?
                 " · VISUAL OBSERVED":visualDecision.state==VisualObservabilityGate.State.VISUAL_CAUTION?
-                " · VISUAL CAUTION":visualDecision.state==VisualObservabilityGate.State.ORIENTATION_ONLY?
-                " · ORIENTATION ONLY":" · POSITION UNKNOWN";
+                " · VISUAL CAUTION":visualDecision.state==VisualObservabilityGate.State.IMU_ONLY_NO_POSITION?
+                " · IMU ONLY · NO POSE":" · POSITION UNKNOWN";
             if(odometer.isRecording()&&recorder.currentFile()!=null&&
                     qualityMs-lastVisualGateReportMs>=1_000L){
                 lastVisualGateReportMs=qualityMs;
