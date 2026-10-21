@@ -68,6 +68,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     /** v0.14 exposure telemetry only; ARCore still owns its AE/shutter settings. */
     private long lastCameraExposureDiagnosticMs;
     private volatile String cameraQualityLabel="";
+    /** Diagnostic only; not part of ARCore's internal filter or odometry. */
+    private final VisualObservabilityGate visualObservability=new VisualObservabilityGate();
+    private CameraCaptureQuality.State latestOpticalState;
+    private Boolean latestLowTexture;
+    private volatile String visualGateLabel=" · POSITION UNKNOWN";
+    private long lastVisualGateReportMs;
     private final AnchoredOdometry anchoredOdometry=new AnchoredOdometry();
     private final TraceGuide traceGuide=new TraceGuide();
     private volatile boolean returnTraceRequested;
@@ -84,6 +90,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private TextView powerButton;
     private int boostPointer=-1;
     private ImuMonitor imu;
+    private AuxSensorMonitor environmental;
+    private long lastEnvironmentReportMs;
     private final SceneMapper mapper=new SceneMapper();
     private volatile boolean estimatedGround;
     private WorldOverlayRenderer worldOverlay;
@@ -247,6 +255,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         keyframeMinRotation=preferences.getFloat("keyframe_rotation",20f);
         pointConfidenceThreshold=preferences.getFloat("point_confidence",.2f);
         imu=new ImuMonitor(this);
+        environmental=new AuxSensorMonitor(this);
         imu.setListener((type,t,x,y,z)->{
             if(odometer.isRecording()){
                 recorder.imu(type,t,x,y,z);
@@ -626,6 +635,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 }else startActivity(new Intent(this,LocationComparisonActivity.class));
                 break;
             case IMU_TOGGLE:hud.toggleSensors();break;
+            case SENSOR_LAB:
+                startActivity(new Intent(this,SensorLabActivity.class));break;
             case LAYERS:
                 hud.cycleLayers();getSharedPreferences("spatial_explorer",MODE_PRIVATE)
                     .edit().putInt("overlay_layers",hud.layers()).apply();break;
@@ -1257,7 +1268,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         gpxExtendedPreview=currentSettings.getBoolean("gpx_extended_preview",true);
         hud.setLayers(currentSettings.getInt("overlay_layers",0));
         hud.setSensors(currentSettings.getBoolean("imu_overlay_enabled",false));
-        if(!playbackMode){imu.start();gps.start();if(gpxArEnabled&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);}
+        if(!playbackMode){
+            imu.start();environmental.start();gps.start();
+            if(gpxArEnabled&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);
+        }
         refreshHud();
         gpsBadgeHandler.removeCallbacks(gpsBadgeRefresh);
         gpsBadgeHandler.post(gpsBadgeRefresh);
@@ -1383,6 +1397,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         endGpxManualMode();
         frameScheduler.stop();boostPointer=-1;updatePowerLabel();
         imu.stop();
+        if(environmental!=null)environmental.stop();
         gps.stopUpdates();
         long now=SystemClock.elapsedRealtime();
         if(odometer.snapshot(now).recording){
@@ -1418,6 +1433,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
         if(arSession!=null) arSession.pause();
         odometer.lostTracking();
+        visualObservability.reset();latestOpticalState=null;latestLowTexture=null;
+        visualGateLabel=" · POSITION UNKNOWN";
         super.onPause();
     }
     @Override protected void onDestroy() {
@@ -1475,6 +1492,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config) {
         GLES20.glClearColor(.025f,.07f,.105f,1);
         latestFrame=null;poseRate.reset();lastSceneMs=0;lastPoseReceivedMs=0;cameraHz=0;
+        visualObservability.reset();latestOpticalState=null;latestLowTexture=null;
+        visualGateLabel=" · POSITION UNKNOWN";
         background=new CameraBackground();background.initialize();
         // Previous handles belong to a lost EGL context; never delete them in this new one.
         worldOverlay=null;configureWorldOverlay();textureAssigned=false;
@@ -1532,6 +1551,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 CameraCaptureQuality.Assessment quality=CameraCaptureQuality.classify(
                     exposureNs,iso,angularSpeed,
                     frame.getCamera().getTrackingState()==TrackingState.TRACKING);
+                latestOpticalState=quality.state;
+                latestLowTexture=null; // do not reuse a stale low-light image after CPU acquisition fails.
                 cameraQualityLabel=quality.state==CameraCaptureQuality.State.NORMAL ||
                     quality.state==CameraCaptureQuality.State.UNKNOWN ||
                     quality.state==CameraCaptureQuality.State.TRACKING_LOST?"":" · "+quality.label();
@@ -1551,6 +1572,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                         cameraImage=frame.acquireCameraImage();
                         CameraImageQuality.Metrics m=ArCoreFrameLuma.measure(cameraImage);
                         if(m!=null){
+                            latestLowTexture=m.lacksTexture();
                             String reason=frame.getCamera().getTrackingState()==TrackingState.TRACKING?
                                 "NONE":frame.getCamera().getTrackingFailureReason().name();
                             recorder.sidecar(recorder.currentFile(),"_arcore_luma.csv",
@@ -1568,6 +1590,43 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             Odometer.Result poseResult=Odometer.Result.INACTIVE;
 
             Camera camera=frame.getCamera();
+            float[] freshness=imu.snapshot();
+            boolean freshImu=freshness[6]>0 && freshness[7]>0;
+            VisualObservabilityGate.Decision visualDecision=visualObservability.update(
+                SystemClock.elapsedRealtimeNanos(),frame.getTimestamp(),
+                camera.getTrackingState()==TrackingState.TRACKING,freshImu,
+                !playbackMode && qualityMs-lastCameraExposureDiagnosticMs<2_000L?
+                    latestOpticalState:null,
+                !playbackMode && qualityMs-lastCameraExposureDiagnosticMs<2_000L?
+                    latestLowTexture:null);
+            visualGateLabel=visualDecision.state==VisualObservabilityGate.State.VISUAL_OBSERVED?
+                " · VISUAL OBSERVED":visualDecision.state==VisualObservabilityGate.State.VISUAL_CAUTION?
+                " · VISUAL CAUTION":visualDecision.state==VisualObservabilityGate.State.IMU_ONLY_NO_POSITION?
+                " · IMU ONLY · NO POSE":" · POSITION UNKNOWN";
+            if(odometer.isRecording()&&recorder.currentFile()!=null&&
+                    qualityMs-lastVisualGateReportMs>=1_000L){
+                lastVisualGateReportMs=qualityMs;
+                recorder.sidecar(recorder.currentFile(),"_visual_observability.csv",
+                    "frame_time_ns,elapsed_ns,arcore_tracking,arcore_failure,imu_fresh,camera_quality,low_texture_known,low_texture,gate_state,arcore_pose_available,inertial_translation,visual_age_ms,reason",
+                    String.format(Locale.US,"%d,%d,%b,%s,%b,%s,%b,%b,%s,%b,%b,%d,%s",
+                        frame.getTimestamp(),SystemClock.elapsedRealtimeNanos(),
+                        camera.getTrackingState()==TrackingState.TRACKING,
+                        camera.getTrackingFailureReason(),freshImu,
+                        latestOpticalState==null?"UNKNOWN":latestOpticalState,
+                        latestLowTexture!=null,Boolean.TRUE.equals(latestLowTexture),
+                        visualDecision.state,visualDecision.arcorePoseAvailable,
+                        visualDecision.translationFromInertial,visualDecision.visualAgeMs,visualDecision.reason));
+            }
+            // Raw environmental sensors are observed alongside ARCore, never
+            // used as independent position fixes or as a false smoke detector.
+            if(!playbackMode&&environmental!=null&&odometer.isRecording()&&
+                    recorder.currentFile()!=null&&qualityMs-lastEnvironmentReportMs>=1_000L){
+                lastEnvironmentReportMs=qualityMs;
+                AuxSensorMonitor.Sample aux=environmental.snapshot();
+                long elapsedNs=SystemClock.elapsedRealtimeNanos();
+                recorder.sidecar(recorder.currentFile(),"_phone_environment.csv",
+                    AuxSensorMonitor.CSV_HEADER,aux.csv(elapsedNs));
+            }
             if(camera.getTrackingState()==TrackingState.TRACKING && frame.getTimestamp()>0) {
                 if (!"TRACKING".equals(trackingLabel))
                     message="Tracking active — slow, textured motion is best";
@@ -1700,7 +1759,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 lastHudUpdateMs=now;
                 if(recorder.problem()!=null) message="CSV ERROR: check Android logcat";
                 Odometer.Snapshot snap=odometer.snapshot(now);
-                String currentTracking=trackingLabel+cameraQualityLabel,currentMessage=message;
+                String currentTracking=trackingLabel+cameraQualityLabel+visualGateLabel,currentMessage=message;
                 int marks=markerCount;
                 runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(gpxArEnabled?gpxArText:guideText);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);hud.updateGps(gps.reading(SystemClock.elapsedRealtimeNanos()));});
             }
