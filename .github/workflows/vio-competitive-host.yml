@@ -42,7 +42,7 @@ jobs:
           python -m unittest tools.vio.tests.test_compare_euroc_engine_runs -v
       - name: Acquire identical real EuRoC sensors and stage 1200 stereo frames
         run: |
-          mkdir -p "$RUNNER_TEMP/euroc" "$RUNNER_TEMP/results"
+          mkdir -p "$RUNNER_TEMP/results"
           python tools/vio/basalt/fetch_euroc.py --out "$RUNNER_TEMP/euroc"
           cp "$RUNNER_TEMP/euroc/source.json" "$RUNNER_TEMP/results/dataset-source.json"
           python tools/vio/basalt/euroc_adapter.py stage --source "$RUNNER_TEMP/euroc/raw" --target "$RUNNER_TEMP/sensors" --max-frames 1200 --out "$RUNNER_TEMP/results/staged.json"
@@ -153,6 +153,7 @@ jobs:
           python tools/vio/basalt/euroc_adapter.py score --reference "$reference" --trajectory "$RUNNER_TEMP/native-basalt/trajectory.txt" --staged "$RUNNER_TEMP/results/staged.json" --runtime "$RUNNER_TEMP/native-basalt/runtime.json" --engine-name 'actual upstream Basalt C++ visual-inertial estimator' --engine-source-sha "$BASALT_SHA" --engine-config-sha256 "$basalt_config_sha" --out "$RUNNER_TEMP/results/basalt/score.json"
           python tools/vio/basalt/euroc_adapter.py score --reference "$reference" --trajectory "$RUNNER_TEMP/results/orb_slam3/trajectory.tum" --staged "$RUNNER_TEMP/results/staged.json" --runtime "$RUNNER_TEMP/results/orb_slam3/runtime.json" --engine-name 'actual upstream ORB-SLAM3 stereo-inertial estimator' --engine-source-sha "$ORB_SLAM3_SHA" --engine-config-sha256 "$orb_config_sha" --out "$RUNNER_TEMP/results/orb_slam3/score.json"
           python tools/vio/basalt/euroc_adapter.py score --reference "$reference" --trajectory "$RUNNER_TEMP/results/openvins/trajectory.tum" --staged "$RUNNER_TEMP/results/staged.json" --runtime "$RUNNER_TEMP/results/openvins/runtime.json" --engine-name 'actual upstream OpenVINS stereo-inertial estimator' --engine-source-sha "$OPENVINS_SHA" --engine-config-sha256 "$ov_config_sha" --out "$RUNNER_TEMP/results/openvins/score.json"
+          rm -f "$RUNNER_TEMP/results/openvins/openvins_euroc.bag"
           python tools/vio/compare_euroc_engine_runs.py \
             "$RUNNER_TEMP/results/basalt/score.json" "$RUNNER_TEMP/results/orb_slam3/score.json" "$RUNNER_TEMP/results/openvins/score.json" \
             --out "$RUNNER_TEMP/results/engine-comparison.json"
