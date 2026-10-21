@@ -65,7 +65,23 @@ jobs:
           test "$booted" = true
           adb shell input keyevent 82
           gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.jboehm.vectorvio.nativevio.BasaltAndroidTest --no-daemon --stacktrace
-          adb pull /sdcard/Android/data/dev.jboehm.vectorvio/files/native-smoke.json app/build/reports/native-smoke/runtime.json
+          # UTP removes installed packages (and their external files) after tests.
+          # Preserve the same receipt from its captured per-test log instead.
+          python3 - <<'PYTHON'
+          import json
+          from pathlib import Path
+          receipts=[]
+          for p in Path('app/build/outputs/androidTest-results').rglob('logcat-*testRealMonocularImagesAndImuProducePoses.txt'):
+              for line in p.read_text(errors='replace').splitlines():
+                  if 'BASALT_ANDROID_REPLAY ' in line:
+                      receipts.append(json.loads(line.split('BASALT_ANDROID_REPLAY ',1)[1]))
+          if not receipts:raise ValueError('Actual Android inference receipt missing')
+          result=receipts[-1]
+          if result['poses_observed']<50 or result['truth_available_to_engine'] is not False:
+              raise ValueError('Invalid real Android execution receipt')
+          Path('app/build/reports/native-smoke/runtime.json').write_text(json.dumps(result,indent=2)+'\n')
+          print(json.dumps(result))
+          PYTHON
       - name: Capture diagnostics
         if: always()
         run: |

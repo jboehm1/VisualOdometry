@@ -23,6 +23,14 @@ fonctionnement précédent. Le PDR sans caméra reste disponible séparément.
 5. Appuyer sur **STOP + EXPORT BASALT RUN (ZIP)**. Revenir à ARCore avec la flèche
    de retour. Chaque enregistrement possède son moteur et sa provenance.
 
+Le bouton **EXPORT PREVIOUS / INTERRUPTED BASALT RUN** retrouve les sessions
+après une fermeture ou une recréation de l'écran. Les diagnostics optiques sont
+conservés avec leur propre session. Une session interrompue peut être récupérée,
+avec `failed=true` et `INTERRUPTED_NO_CLEAN_STOP` : aucun instant de fin propre
+n'est inventé. Le ZIP garde les métadonnées d'origine séparées des annotations
+de récupération. Les dernières données encore en mémoire lors d'un arrêt
+brutal peuvent manquer ; ce ZIP est partiel et ne valide pas un essai.
+
 Si les informations usine sont absentes, si la caméra/les dimensions/le focus/
 le recadrage/la stabilisation ne correspondent pas, ou si l'horloge caméra
 n'est pas REALTIME, le test est bloqué ou ses images sont rejetées. Le message
