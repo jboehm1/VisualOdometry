@@ -35,6 +35,14 @@ PROVENANCE_CODE = tuple(ROOT / name for name in (
     "tools/testenv/contracts.py", "tools/testenv/runner.py",
     "tools/testenv/presentation.py", "tools/testenv/cli.py"))
 
+# Conservatively fingerprint local execution dependencies, including dynamically
+# imported converters and the dataset registry. A Git SHA alone misses edits in
+# the working tree, and a hand-maintained entrypoint list missed evaluators.
+# Dataset bytes remain separately fingerprinted by input_identity/repro_manifest.
+PROVENANCE_SOURCE_ROOTS = ("tools/campaigns", "tools/benchmark", "tools/pdr",
+                           "tools/eval", "tools/testenv")
+PROVENANCE_SUFFIXES = {".py", ".java", ".sh", ".json", ".txt"}
+
 
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
@@ -52,7 +60,15 @@ def write_json(path: Path, value: dict) -> None:
 
 
 def code_identity() -> dict:
-    code = {str(p.relative_to(ROOT)): sha256(p) for p in PROVENANCE_CODE}
+    sources=set(PROVENANCE_CODE)
+    for directory in PROVENANCE_SOURCE_ROOTS:
+        for path in (ROOT / directory).rglob("*"):
+            if (path.suffix in PROVENANCE_SUFFIXES and path.is_file()
+                    and not {"tests", "__pycache__"}.intersection(path.relative_to(ROOT).parts)):
+                sources.add(path)
+    entry=ROOT / "testenv.py"
+    if entry.is_file(): sources.add(entry)
+    code = {str(p.relative_to(ROOT)): sha256(p) for p in sorted(sources)}
     git = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
                          text=True, check=False)
     return {"git_sha": git.stdout.strip() if git.returncode == 0 else None,

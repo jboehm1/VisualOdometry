@@ -29,6 +29,27 @@ class SuiteContracts(unittest.TestCase):
         self.suite.write_text(json.dumps(value), encoding="utf-8")
         return self.suite
 
+    def test_identity_covers_runtime_converters_catalog_and_evaluators(self):
+        sources=runner.code_identity()["source_sha256"]
+        for name in ("tools/pdr/datasets.py", "tools/pdr/evaluate.py",
+                     "tools/benchmark/catalog.json", "tools/benchmark/fetch.py",
+                     "tools/eval/trajectory_metrics.py", "testenv.py"):
+            with self.subTest(name=name): self.assertIn(name,sources)
+
+    def test_new_or_changed_runtime_module_invalidates_fingerprint_before_commit(self):
+        dependency=self.root/"tools/pdr/converter.py"
+        dependency.parent.mkdir(parents=True)
+        dependency.write_text("VERSION=1\n")
+        entry=self.root/"entry.py";entry.write_text("# entry\n")
+        with patch.object(runner,"ROOT",self.root), patch.object(runner,"PROVENANCE_CODE",(entry,)):
+            first=runner.code_identity()
+            dependency.write_text("VERSION=2\n")
+            second=runner.code_identity()
+            self.assertNotEqual(runner._fingerprint({}, {}, first),runner._fingerprint({}, {}, second))
+            (dependency.parent/"new_converter.py").write_text("# added runtime dependency\n")
+            third=runner.code_identity()
+            self.assertNotEqual(second["source_sha256"],third["source_sha256"])
+
     def test_manifest_plan_and_registry_fail_closed(self):
         self.store()
         suite = contracts.load_suite(self.suite)

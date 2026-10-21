@@ -47,6 +47,27 @@ public class ArRouteGuideTest {
         for(int i=0;i<100;i++,ns+=100_000_000){g.onPose(1,ns,ns,0,0);if(i%10==0)g.onFix(fix(ns,i%3,0,LocationSample.Source.GPS_PROVIDER,false));}
         assertEquals(ArRouteGuide.State.NEED_BASELINE,g.snapshot(ns).state);assertTrue(g.snapshot(ns).edges.isEmpty());
     }
+    @Test public void frozenGpsHidesWorldRouteUntilFreshCoherentMotionSupportsHeading(){
+        ArRouteGuide g=engine();long ns=1_000_000_000L;
+        for(int i=0;i<=180;i++,ns+=100_000_000L){
+            g.onPose(1,ns,ns,i*.1,0);
+            if(i%10==0)g.onFix(fix(ns,0,0,LocationSample.Source.GPS_PROVIDER,false));
+        }
+        ArRouteGuide.Snapshot blocked=g.snapshot(ns-100_000_000L);
+        assertEquals(ArRouteGuide.State.NEED_BASELINE,blocked.state);
+        assertTrue(blocked.edges.isEmpty());assertTrue(blocked.worldEdges.isEmpty());
+        assertTrue(blocked.markers.isEmpty());assertTrue(Double.isNaN(blocked.latitude));
+        assertTrue(Double.isNaN(blocked.targetX));assertTrue(Double.isNaN(blocked.nearestX));
+        // New consistent measurements eventually replace the frozen window.
+        // They are simulated source fixes, never generated from the route.
+        for(int i=181;i<=1000;i++,ns+=100_000_000L){
+            g.onPose(1,ns,ns,i*.1,0);
+            if(i%10==0)g.onFix(fix(ns,(i-180)*.1,0,LocationSample.Source.GPS_PROVIDER,false));
+        }
+        ArRouteGuide.Snapshot recovered=g.snapshot(ns-100_000_000L);
+        assertEquals(ArRouteGuide.State.CANDIDATE,recovered.state);
+        assertFalse(recovered.edges.isEmpty());assertTrue(Double.isFinite(recovered.latitude));
+    }
     @Test public void commonBiasStaysUnobservableAndDoesNotClaimZeroUncertainty(){
         ArRouteGuide g=engine();long now=feed(g,.4,false,5);ArRouteGuide.Snapshot s=g.snapshot(now);
         assertEquals(ArRouteGuide.State.CANDIDATE,s.state);assertTrue(s.residualMeters<.01);

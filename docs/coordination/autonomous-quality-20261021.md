@@ -19,3 +19,7 @@
   tests passed. Full Android/JUnit pending CI at new commit, not presumed.
 - Next: publish reviewable isolated PR, inspect exact-SHA CI, harden invalid
   measured comparisons, continue useful fixes while preserving field gates.
+
+## Further iterations
+
+Added a fourth geometry regression for one compatible GPS fix with 50 m uncertainty, plus public ArRouteGuide route-hiding/recovery coverage. The 3000-case synthetic audit is now an automatic host regression. Also modified `tools/vio/compare_measured_runs.py`, its tests, `tools/testenv/runner.py` and its tests to reject invalid evidence and stale resume identities. See docs/work/MEASURED_REPORT_CONTRACT_V2.md. No runtime PDR/Camera2/MainActivity or workflow mutation.

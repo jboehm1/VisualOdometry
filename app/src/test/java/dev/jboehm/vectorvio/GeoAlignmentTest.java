@@ -103,4 +103,14 @@ public class GeoAlignmentTest {
             lat(Math.sin(i)*.2),lon(Math.cos(i)*.2),3);
         assertEquals(GeoAlignment.State.NEED_BASELINE,a.estimate().state);
     }
+
+    @Test public void uncertainGpsInlierCannotBorrowAccuracyFromStationaryFixes(){
+        GeoAlignment a=new GeoAlignment();
+        for(int i=0;i<64;i++)a.add(1,(i+1)*1_000_000_000L,i*18.0/63,0,
+            lat(0),lon(i==63?20:0),i==63?50:3);
+        GeoAlignment.Result r=a.estimate();
+        assertEquals(64,r.inliers); // Residual compatibility alone is insufficient.
+        assertEquals(GeoAlignment.State.NEED_BASELINE,r.state);
+        assertNull(r.project(0,0));
+    }
 }

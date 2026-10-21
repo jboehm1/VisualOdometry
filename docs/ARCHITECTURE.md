@@ -117,4 +117,6 @@ Thresholds are heuristics, not calibrated confidence bounds. For a real validati
 - EuRoC MAV dataset: https://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets
 
 ### Geographic heading observability
-`GeoAlignment` checks minimum supported motion in both local VIO and GPS coordinates after robust inlier selection. Its `baselineMeters` is the smaller compatible span, used conservatively for diagnostic heading allowance. Raw residual RMS still includes rejected fixes. This is a fail-closed geometry check, not a covariance estimate or common-bias detector.
+`GeoAlignment` checks minimum supported motion in both local VIO and GPS coordinates after robust inlier selection. Its `baselineMeters` is the strongest jointly supported pair span, gated by both endpoint accuracies, used conservatively for diagnostic heading allowance. Raw residual RMS still includes rejected fixes. This is a fail-closed geometry check, not a covariance estimate or common-bias detector.
+
+Measured comparison and cache identity: protocol/report digests and explicit truth declarations are mandatory in scoreboard schema 2; repeated-route cohorts retain individual raw dataset identities. Testenv fingerprints runtime converters, evaluators and registry configuration before reusing reports. See [contract](work/MEASURED_REPORT_CONTRACT_V2.md).

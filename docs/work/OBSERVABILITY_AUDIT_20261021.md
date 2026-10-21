@@ -13,10 +13,13 @@ pairs were effectively stationary (raw RMS 31.418 m). Both now return
 `NEED_BASELINE`; projection and inverse projection remain unavailable.
 
 After IRLS selection, require minimum motion in **both** coordinate systems on
-compatible pairs: `min(VIO span, GPS span) >= max(15 m, 4 × mean inlier accuracy)`.
+compatible pairs: `min(pair VIO span, pair GPS span) >= max(15 m, 4 × max(endpoint accuracies))`.
+The same pair must support both spans. A compatible low-weight GPS point with
+50 m uncertainty cannot borrow the precision of many stationary fixes. This
+additional case was found after the initial fix and rejected in a second iteration.
 No route geometry, truth data or scale fitting enters the estimator. Raw RMS is
 preserved; diagnostic baseline now uses the smaller compatible span. Added
-three JUnit regressions. Existing GPS-outlier tolerance must remain functional.
+four JUnit regressions. Existing GPS-outlier tolerance must remain functional.
 
 ## Before/after: synthetic contract experiment, not field accuracy
 
@@ -29,6 +32,7 @@ intervals or a held-out real-world evaluation.
 | Frozen GPS, VIO motion | 500 | 0 | Reject |
 | GPS jitter 0.2 m, VIO motion | 500 | 0 | Reject |
 | Baseline supplied by excluded VIO point | 500 | 0 | Reject |
+| One compatible 20 m GPS displacement with 50 m uncertainty | 500 | 0 | Reject |
 | Coherent curved path, 0.45 m GPS noise | 500 | 500 | Retain |
 | Coherent path with one 50/60 m GPS spike | 500 | 500 | Retain |
 
@@ -51,7 +55,7 @@ For the baseline compile the same harness against the original `GeoAlignment`
 from source SHA above in a separate output directory. Do not mix classpaths.
 Local runtime supplies the Java compiler module without a `javac` executable;
 `java -m jdk.compiler/com.sun.tools.javac.Main` is the equivalent used here.
-17 GPX replay tests passed locally against the changed exact Java source.
+18 GPX replay/audit tests passed locally against the changed exact Java source.
 Full Android/JUnit/lint/APK validation is tracked in the PR at its exact SHA.
 
 ## Remaining limits

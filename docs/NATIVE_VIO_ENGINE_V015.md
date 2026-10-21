@@ -160,3 +160,7 @@ subject to Google ARCore's terms and user disclosure obligations. Consult
 **Proof hygiene:** JUnit guard != live VIO. Image gradient/patch flow !=
 SLAM. Camera2 lab shutter != ARCore shutter. Proprietary-use planning != a
 completed legal license review.
+
+### Measured comparison integrity refinement
+
+The offline scoreboard now emits schema 2, requires explicit truth-access declarations and full report/protocol hashes, preserves CPU tradeoffs and distinguishes identical-raw grouping from explicitly paired repeated-route cohorts. It validates declarations, not actual source bytes or scientific truth. See [v2 contract](work/MEASURED_REPORT_CONTRACT_V2.md). No native VIO engine or JNI has been added by this work.

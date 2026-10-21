@@ -180,5 +180,8 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 > **Vigilance** : les SHA ci-dessus sont un instantané daté. Les autres chats peuvent pousser après cet audit. Une nouvelle fusion doit consulter à nouveau les branches, et une CI verte sur une branche ne prouve pas la validité de l'application combinée.
 
 ### Autonomous quality cycle — 21 October 2026
-- G2 observability: frozen-GPS and rejected-outlier baseline failure reproduced and fixed on isolated descendant of PR #43. Synthetic 500-seed audit per scenario: 1500/1500 false candidates before, 0/1500 after; coherent and single-GPS-spike scenarios retained 1000/1000 candidates. Real S21 GT gate remains open.
+- G2 observability: frozen-GPS and rejected-outlier baseline failure reproduced and fixed on isolated descendant of PR #43. Synthetic 500-seed audit per scenario, including low-weight uncertain fixes: 2000/2000 false candidates before, 0/2000 after; coherent and single-GPS-spike scenarios retained 1000/1000 candidates. Real S21 GT gate remains open.
 - Evidence and reproduction: [observability audit](work/OBSERVABILITY_AUDIT_20261021.md). Current branch: `work/autonomous-quality-20261021`; do not merge ahead of stacked ancestors.
+
+- B1 evidence integrity: measured scoreboard v2 rejects incomplete declarations, impossible match counts and unversioned identities; CPU included in Pareto. Same-raw and repeated-route grouping are explicit.
+- D1 reproducibility: runtime converters/evaluators/registry source now invalidate resume caches even before commit. Two regression tests added. Physical accuracy and environment/toolchain locking remain open.

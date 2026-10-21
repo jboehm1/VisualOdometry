@@ -91,3 +91,7 @@ PR #42 et de ses ancêtres : pas de merge aveugle.
 est volontairement l'état avant écriture de ce fichier ; il faut vérifier le
 HEAD réel. Voir `docs/HANDOVER_WORK_AUTONOMOUS_V016.md` pour objectifs,
 risques, métriques, boucle et limites de commercialisation.
+
+## Active descendant quality cycle · 21 October 2026
+
+PR #44 on `work/autonomous-quality-20261021` preserves this checkpoint and all ancestors. Read [current quality checkpoint](AUTONOMOUS_QUALITY_CHECKPOINT_20261021.md), [GPS/VIO audit](OBSERVABILITY_AUDIT_20261021.md), and [measured-report v2 contract](MEASURED_REPORT_CONTRACT_V2.md). Source/runtime changes must be tested at the new PR head; previous Android + external GPX replay CI passed at `ba4e3dccf9dc0ebbfd8235b55e2a52e5c1554253`.
