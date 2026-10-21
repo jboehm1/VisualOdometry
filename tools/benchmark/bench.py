@@ -340,7 +340,12 @@ def prepare_generic(root, config_path, target):
 
 def quat_matrix(q):
     x, y, z, w = np.asarray(q, dtype=float)
-    n = x*x + y*y + z*z + w*w
+    if not all(math.isfinite(v) for v in (x, y, z, w)):
+        raise ValueError("Nonfinite quaternion")
+    with np.errstate(over="ignore", invalid="ignore"):
+        n = x*x + y*y + z*z + w*w
+    if not math.isfinite(n):
+        raise ValueError("Nonfinite quaternion norm")
     if n < 1e-12:
         raise ValueError("Degenerate quaternion")
     s = 2.0 / n

@@ -16,3 +16,6 @@
   overlap #45 at EOF: retain both additions during any later integration.
 - Next: CI on exact-head PR; never use prior rotational RPE from this parser
   as authoritative without re-evaluating the raw recorded poses.
+- Follow-up: reproduced accepted VECTOR NaN orientation with zero position ATE
+  and invalid RPE. Reject nonfinite quaternion components/overflowing norms;
+  all 16 benchmark/fetch regressions pass locally. Recheck CI on the new head.

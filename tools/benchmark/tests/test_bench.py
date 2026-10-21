@@ -16,6 +16,17 @@ def write_tum(path, samples):
 
 
 class BenchmarkTests(unittest.TestCase):
+    def test_vector_nonfinite_orientation_cannot_produce_a_position_only_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'vector.csv'
+            for invalid in ('nan', 'inf', '-inf', '1e200'):
+                with self.subTest(quaternion_component=invalid):
+                    path.write_text('event,tracking,frame_time_ns,x_m,y_m,z_m,qx,qy,qz,qw,segments\n'+''.join(
+                        f'POSE,TRACKING,{1_000_000_000+i*100_000_000},0,0,0,{invalid},0,0,1,1\n'
+                        for i in range(3)))
+                    with self.assertRaisesRegex(ValueError, 'Invalid VECTOR pose'):
+                        bench.parse_poses(path, 'vector')
+
     def test_euroc_wxyz_and_tum_xyzw_describe_the_same_nontrivial_pose(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); euroc = root/'euroc.csv'; tum = root/'tum.txt'

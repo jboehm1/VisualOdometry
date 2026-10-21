@@ -11,7 +11,7 @@ xyzw and only checked elapsed time, so it failed to detect this defect.
 
 New regression compares equivalent EuRoC/TUM trajectories and explicitly checks
 rotation of the x-axis onto y. It failed before the fix and passes afterwards;
-all 15 benchmark/fetch tests pass locally. These are synthetic contract tests,
+all 16 benchmark/fetch tests pass locally. These are synthetic contract tests,
 not a new real-dataset accuracy result. Re-score existing EuRoC results with
 recorded raw poses before relying on their prior orientation/RPE figures.
 
@@ -20,3 +20,10 @@ its in-progress host build does not need to be restarted for this change.
 
 Canonical dataset schema: https://projects.asl.ethz.ch/datasets/euroc-mav/ .
 Isolated branch and shared-file risks are recorded in the coordination journal.
+
+Follow-up inspection reproduced a VECTOR CSV with `qx=nan`: it was accepted,
+reported zero position ATE and emitted NaN rotational/local-translation RPE.
+Quaternion conversion now rejects nonfinite components and overflowing norms
+before any metric calculation. Regression covers NaN, positive/negative infinity
+and a finite component whose squared norm overflows. Valid finite orientations
+retain the existing normalization and degenerate-quaternion checks.
