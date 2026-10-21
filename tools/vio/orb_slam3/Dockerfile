@@ -22,7 +22,9 @@ RUN git clone https://github.com/stevenlovegrove/Pangolin.git /opt/Pangolin \
 
 WORKDIR /opt/orb_slam3
 COPY . /opt/orb_slam3
-RUN for dep in Thirdparty/DBoW2 Thirdparty/g2o Thirdparty/Sophus; do \
+# Pangolin 0.9.2 installs sigslot headers requiring C++17; keep the pinned ORB source otherwise intact.
+RUN sed -i 's/-std=c++11/-std=c++17/g; s/-std=c++0x/-std=c++17/g' CMakeLists.txt \
+    && for dep in Thirdparty/DBoW2 Thirdparty/g2o Thirdparty/Sophus; do \
          cmake -S "$dep" -B "$dep/build" -DCMAKE_BUILD_TYPE=Release; \
          cmake --build "$dep/build" -j2; \
        done \
