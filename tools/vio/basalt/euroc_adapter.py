@@ -96,6 +96,8 @@ def stage(source, target, max_frames=1200):
 
 
 def score(reference, trajectory, staged, runtime):
+    mode = runtime.get('engine_mode', 'vio')
+    if mode not in ('vio', 'vo'): raise ValueError('Unknown engine mode receipt')
     if (runtime.get('exit_code') != 0 or runtime.get('truth_mount') is not False
             or runtime.get('network') != 'none'
             or not isinstance(runtime.get('binary_sha256'), str)
@@ -134,8 +136,9 @@ def score(reference, trajectory, staged, runtime):
         raise ValueError('Insufficient scored time coverage')
     if not math.isfinite(primary['ate_rmse_m']): raise ValueError('Nonfinite ATE')
     return {'schema': 'vector-basalt-host-real/1', 'status': 'MEASURED',
-            'engine': 'actual upstream Basalt C++ visual-inertial estimator',
-            'pose_frame': 'IMU/body', 'metric_scale': 'estimated_online; no reference scale fitted',
+            'engine': 'actual upstream Basalt C++ stereo '+('visual-inertial' if mode=='vio' else 'visual-only')+' estimator',
+            'engine_mode': mode,
+            'pose_frame': 'IMU/body', 'metric_scale': 'stereo calibrated; no reference scale fitted',
             'truth_available_to_engine': False,
             'reference_sha256': digest(reference), 'trajectory_sha256': digest(trajectory),
             'sensor_tree_sha256': staged['sensor_tree_sha256'], 'runtime': runtime,

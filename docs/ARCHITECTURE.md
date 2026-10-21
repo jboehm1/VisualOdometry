@@ -125,3 +125,7 @@ Native input state is transactional: validate calibration, frame clock, overflow
 
 ### Isolated native host replay
 Basalt host baseline separates source/toolchain build, predeclared sensor-only staging, network-disabled C++ inference and subsequent reference scoring. IMU poses retain metric scale; first-reference gauge and posthoc rigid SE3 diagnostics remain distinct. See [host baseline](NATIVE_VIO_HOST_BASELINE_V017.md). Actual upstream build/replay passed at `cf4e5194` with unmodified upstream source and 1200 exported body poses. Source/image/binary/input hashes and actual trajectory are retained with the report. No Android acquisition/JNI wiring.
+The generic benchmark pose parser distinguishes EuRoC wxyz from TUM xyzw before forming IMU/body rotations. Mixed-format RPE now has an explicit orientation regression; input clocks, frames and scale stay unchanged.
+
+### PDR/VIO comparison and conservative challenger selection
+See [actual engines, comparison protocols and experimental gates](PDR_VIO_COMPARISON_20261021.md). The host Basalt VO/VIO ablation and subject-disjoint Java PDR challengers are research experiments; neither proves ARCore superiority or changes Android PDR automatically.

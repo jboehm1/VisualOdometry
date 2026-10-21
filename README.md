@@ -180,3 +180,7 @@ The same quality cycle hardens measured-report provenance, CPU-aware comparisons
 
 ### Native host estimator baseline
 The isolated [Basalt host pipeline](docs/NATIVE_VIO_HOST_BASELINE_V017.md) builds actual pinned upstream C++ and replays sensor-only EuRoC input before independent scoring. Source build and real replay passed at `cf4e5194`: 1200 estimated body poses, 1179 reference matches, no scale fitting. ATE diagnostics are 0.22855 m with first-reference gauge and 0.036887 m after posthoc rigid alignment; original V1_01 attitude caveat applies. No Android native estimator is enabled.
+Benchmark correction: standard EuRoC state quaternions use wxyz; TUM uses xyzw. [Parser audit](docs/work/EUROC_QUATERNION_FIX_20261021.md). Previous rotational/RPE results need re-scoring.
+
+### PDR/VIO comparison and conservative challenger selection
+See [actual engines, comparison protocols and experimental gates](docs/PDR_VIO_COMPARISON_20261021.md). The host Basalt VO/VIO ablation and subject-disjoint Java PDR challengers are research experiments; neither proves ARCore superiority or changes Android PDR automatically.

@@ -190,3 +190,7 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 
 ### N1 build / N2 host execution proven; dependency audit still open
 New isolated Basalt source-build + EuRoC workflow, pinned source/vcpkg, sensor-only inference container and reused metric evaluator. Six local adapter regressions pass. Actual source build and isolated V1_01 replay passed in run 39555701592 at `cf4e5194`: 1200 poses, 1179 matches. Diagnostic ATE: 0.22855 m first-pose gauge / 0.036887 m posthoc rigid SE3, no scale fit. Original reference attitude caveat applies. Transitive review, NDK/JNI and physical-phone gates remain open; no native APK claim. [Contract and status](NATIVE_VIO_HOST_BASELINE_V017.md).
+- Benchmark evidence correction: EuRoC wxyz was interpreted as xyzw. Fixed parser and false fixture; 16 local benchmark/fetch tests pass. Re-score prior rotational/local-frame RPE. [Audit](work/EUROC_QUATERNION_FIX_20261021.md).
+
+### PDR/VIO comparison and conservative challenger selection
+See [actual engines, comparison protocols and experimental gates](PDR_VIO_COMPARISON_20261021.md). The host Basalt VO/VIO ablation and subject-disjoint Java PDR challengers are research experiments; neither proves ARCore superiority or changes Android PDR automatically.

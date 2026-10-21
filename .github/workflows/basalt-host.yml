@@ -89,19 +89,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/native-output"
-          docker run --rm --network none --read-only --tmpfs /tmp:rw,size=512m \
-            -v "$PWD/third_party/basalt:/engine:ro" \
-            -v "$RUNNER_TEMP/basalt-sensors:/sensors:ro" \
-            -v "$PWD/tools/vio/basalt/container_run.py:/runner.py:ro" \
-            -v "$RUNNER_TEMP/native-output:/out" \
-            -w /out "$BASALT_IMAGE" python3 /runner.py
-          cp "$RUNNER_TEMP/native-output/trajectory.txt" campaign_results/basalt_host/trajectory.tum
-          cp "$RUNNER_TEMP/native-output/runtime.json" campaign_results/basalt_host/runtime.json
+          index=0
+          for mode in vio vo vo vio; do
+            trial="trial_${index}_${mode}"
+            output="$RUNNER_TEMP/native-output/$trial"
+            mkdir -p "$output" "campaign_results/basalt_host/$trial"
+            status=0
+            docker run --rm --network none --read-only --tmpfs /tmp:rw,size=512m \
+              -v "$PWD/third_party/basalt:/engine:ro" \
+              -v "$RUNNER_TEMP/basalt-sensors:/sensors:ro" \
+              -v "$PWD/tools/vio/basalt/container_run.py:/runner.py:ro" \
+              -v "$output:/out" \
+              -w /out "$BASALT_IMAGE" python3 /runner.py --mode "$mode" || status=$?
+            cp "$output/"*.log "campaign_results/basalt_host/$trial/" || true
+            if test -f "$output/runtime.json"; then cp "$output/runtime.json" "campaign_results/basalt_host/$trial/"; fi
+            test "$status" = 0
+            cp "$output/trajectory.txt" "campaign_results/basalt_host/$trial/trajectory.tum"
+            index=$((index+1))
+          done
       - name: Only now read independent reference and measure metric poses
         run: |
-          python tools/vio/basalt/euroc_adapter.py score --reference "$RUNNER_TEMP/euroc/raw/mav0/state_groundtruth_estimate0/data.csv" --trajectory campaign_results/basalt_host/trajectory.tum --staged campaign_results/basalt_host/staged.json --runtime campaign_results/basalt_host/runtime.json --out campaign_results/basalt_host/score.json
-          cat campaign_results/basalt_host/score.json
+          for trial in campaign_results/basalt_host/trial_*; do
+            python tools/vio/basalt/euroc_adapter.py score --reference "$RUNNER_TEMP/euroc/raw/mav0/state_groundtruth_estimate0/data.csv" --trajectory "$trial/trajectory.tum" --staged campaign_results/basalt_host/staged.json --runtime "$trial/runtime.json" --out "$trial/score.json"
+          done
+          python tools/vio/basalt/ablation.py --root campaign_results/basalt_host --out campaign_results/basalt_host/ablation.json
       - name: Retain small research evidence only - no native binaries or source datasets
         if: always()
         uses: actions/upload-artifact@v4

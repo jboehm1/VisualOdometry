@@ -140,7 +140,7 @@ def report(data):
                         "This checks report structure, not source bytes, truth assertions or statistical significance.",
                         "Evaluation-protocol hash must pin interval, RPE horizons, coverage definition, scoring and resource methods.",
                         "Repeated-route cohort must pin surveyed section, device configuration and paired/randomized trial design.",
-                        "ARCore vs Camera2 cannot track one rear camera simultaneously; use separate paired runs."]}
+                        "Independent exclusive ARCore/Camera2 sessions need paired runs; a validated SharedCamera capture may instead supply common inputs without independent exposure control."]}
 
 
 def main():
