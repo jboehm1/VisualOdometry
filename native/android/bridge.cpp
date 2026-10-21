@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <cmath>
+#include <chrono>
 #include <tbb/global_control.h>
 #include <opencv2/core.hpp>
 
@@ -101,7 +102,10 @@ struct Engine {
     // for its first image. Blocking on IMU EOS first would deadlock teardown.
     if(vio->finished)vio->drain_input_queues();
     flow->input_queue.push(nullptr);
-    if(!vio->finished)vio->imu_data_queue.push(nullptr);
+    // The estimator can exit on camera EOS without consuming a full IMU queue.
+    // Never block an EOS push while its consumer is about to exit.
+    while(!vio->finished&&!vio->imu_data_queue.try_push(nullptr))
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
     vio->maybe_join();vio->drain_input_queues();flow.reset();vio->drain_input_queues();
     if(state_thread.joinable())state_thread.join();
     if(visual_thread.joinable())visual_thread.join();
