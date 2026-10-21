@@ -177,3 +177,6 @@ See [Three Campaigns — real external EuRoC evaluation, IMU-only PDR, and same-
 The experimental geographic alignment now requires motion supported by compatible pairs in both GPS and VIO. Frozen GPS and outlier-only baselines cannot authorize a geographic candidate. See [measured synthetic audit](docs/work/OBSERVABILITY_AUDIT_20261021.md); no physical-device accuracy is implied.
 
 The same quality cycle hardens measured-report provenance, CPU-aware comparisons, test cache dependency identity and native input timestamp state. See [checkpoint](docs/work/AUTONOMOUS_QUALITY_CHECKPOINT_20261021.md).
+
+### Native host estimator baseline
+The isolated [Basalt host pipeline](docs/NATIVE_VIO_HOST_BASELINE_V017.md) builds actual pinned upstream C++ and replays sensor-only EuRoC input before independent scoring. Actual build/run status must be checked in its PR; no Android native estimator is enabled.

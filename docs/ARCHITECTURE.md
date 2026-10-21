@@ -122,3 +122,6 @@ Thresholds are heuristics, not calibrated confidence bounds. For a real validati
 Measured comparison and cache identity: protocol/report digests and explicit truth declarations are mandatory in scoreboard schema 2; repeated-route cohorts retain individual raw dataset identities. Testenv fingerprints runtime converters, evaluators and registry configuration before reusing reports. See [contract](work/MEASURED_REPORT_CONTRACT_V2.md).
 
 Native input state is transactional: validate calibration, frame clock, overflow and IMU bracket before committing watermark/segment. Require increasing corrected mid-exposure as well as capture start. Invalid future captures cannot authorize older samples. This remains an unconnected acquisition contract.
+
+### Isolated native host replay
+Basalt host baseline separates source/toolchain build, predeclared sensor-only staging, network-disabled C++ inference and subsequent reference scoring. IMU poses retain metric scale; first-reference gauge and posthoc rigid SE3 diagnostics remain distinct. See [host baseline](NATIVE_VIO_HOST_BASELINE_V017.md). No Android acquisition/JNI wiring.

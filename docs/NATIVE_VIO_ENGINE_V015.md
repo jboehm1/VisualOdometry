@@ -167,3 +167,6 @@ The offline scoreboard now emits schema 2, requires explicit truth-access declar
 
 ### Input session-state correction
 Rejected captures no longer mutate segmentation or erase the last accepted timestamp. Both capture start and corrected mid-exposure must be monotonic. Three new JUnit cases and a compiled exact-Java before/after probe reproduce the fix. See [audit](work/NATIVE_INPUT_STATE_AUDIT_20261021.md). The guard remains disconnected from acquisition and produces no VIO poses.
+
+### v0.17 actual host-build workstream
+An isolated descendant of PR #44 now attempts the pinned Basalt source build and EuRoC V2_01 real stereo/IMU replay. Inference cannot access GT; scores are produced afterwards, with no scale fit. See [host baseline](NATIVE_VIO_HOST_BASELINE_V017.md). Update N1/N2 only from actual workflow evidence; JNI/Android and license release remain blocked.

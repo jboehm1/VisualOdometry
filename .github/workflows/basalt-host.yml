@@ -1,0 +1,107 @@
+name: Basalt actual host VIO - source build and isolated EuRoC replay
+on:
+  pull_request:
+    paths:
+      - 'tools/vio/basalt/**'
+      - '.github/workflows/basalt-host.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: basalt-host-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-real:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      BASALT_SHA: 0f3b2b52c807f70ff4e2973ce253c73329eea7bc
+      VCPKG_SHA: 1e199d32ad53aab1defda61ce41c380302e3f95c
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned metric dependency and validate adapters
+        run: |
+          python -m pip install numpy==2.2.6
+          python -m unittest discover -s tools/vio/basalt/tests -v
+      - name: Acquire real sensors before spending time on native dependencies
+        run: |
+          mkdir -p campaign_results/basalt_host
+          python tools/vio/basalt/fetch_euroc.py --out "$RUNNER_TEMP/euroc"
+          cp "$RUNNER_TEMP/euroc/source.json" campaign_results/basalt_host/dataset-source.json
+          python tools/vio/basalt/euroc_adapter.py stage --source "$RUNNER_TEMP/euroc/raw" --target "$RUNNER_TEMP/basalt-sensors" --max-frames 1200 --out campaign_results/basalt_host/staged.json
+      - uses: actions/checkout@v4
+        with:
+          repository: VladyslavUsenko/basalt
+          ref: 0f3b2b52c807f70ff4e2973ce253c73329eea7bc
+          path: third_party/basalt
+          submodules: recursive
+          persist-credentials: false
+      - name: Resolve upstream build image and pin this attempt to its digest
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C third_party/basalt rev-parse HEAD)" = "$BASALT_SHA"
+          test "$(git -C third_party/basalt/thirdparty/vcpkg rev-parse HEAD)" = "$VCPKG_SHA"
+          docker pull vladyslavusenko/basalt-ci:ubuntu22
+          resolved_image=$(docker image inspect vladyslavusenko/basalt-ci:ubuntu22 --format '{{index .RepoDigests 0}}')
+          test -n "$resolved_image"
+          echo "BASALT_IMAGE=$resolved_image" >> "$GITHUB_ENV"
+          echo "digest=${resolved_image##*@}" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$resolved_image" > campaign_results/basalt_host/host-image.txt
+          mkdir -p "$RUNNER_TEMP/basalt-cache/archives" "$RUNNER_TEMP/basalt-cache/downloads"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/basalt-cache
+          key: basalt-v1-${{ runner.os }}-${{ steps.image.outputs.digest }}-0f3b2b52-release-float
+      - name: Compile actual upstream C++ VIO (float, two jobs, no product packaging)
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD/third_party/basalt:/engine" \
+            -v "$PWD/tools/vio/basalt:/overlay:ro" \
+            -v "$RUNNER_TEMP/basalt-cache:/cache" \
+            -e VCPKG_DOWNLOADS=/cache/downloads \
+            -e 'VCPKG_BINARY_SOURCES=clear;files,/cache/archives,readwrite' \
+            -e VCPKG_MAX_CONCURRENCY=2 \
+            -w /engine "$BASALT_IMAGE" bash -lc '
+              set -euo pipefail
+              thirdparty/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+              cmake --preset release -DVCPKG_OVERLAY_TRIPLETS=/overlay -DVCPKG_TARGET_TRIPLET=x64-linux-release -DCXX_MARCH=x86-64 -DBASALT_FULLY_STATIC_BINARIES=OFF -DBASALT_INSTANTIATIONS_DOUBLE=OFF
+              cmake --build --preset release --target basalt_vio -j2
+              build/release/basalt_vio --help
+            '
+          python tools/vio/basalt/build_record.py --source third_party/basalt --image-file campaign_results/basalt_host/host-image.txt --out campaign_results/basalt_host/build.json
+      - name: Run real images and IMU with no reference or network accessible to engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/native-output"
+          docker run --rm --network none --read-only --tmpfs /tmp:rw,size=512m \
+            -v "$PWD/third_party/basalt:/engine:ro" \
+            -v "$RUNNER_TEMP/basalt-sensors:/sensors:ro" \
+            -v "$PWD/tools/vio/basalt/container_run.py:/runner.py:ro" \
+            -v "$RUNNER_TEMP/native-output:/out" \
+            -w /out "$BASALT_IMAGE" python3 /runner.py
+          cp "$RUNNER_TEMP/native-output/trajectory.txt" campaign_results/basalt_host/trajectory.tum
+          cp "$RUNNER_TEMP/native-output/runtime.json" campaign_results/basalt_host/runtime.json
+      - name: Only now read independent reference and measure metric poses
+        run: |
+          python tools/vio/basalt/euroc_adapter.py score --reference "$RUNNER_TEMP/euroc/raw/mav0/state_groundtruth_estimate0/data.csv" --trajectory campaign_results/basalt_host/trajectory.tum --staged campaign_results/basalt_host/staged.json --runtime campaign_results/basalt_host/runtime.json --out campaign_results/basalt_host/score.json
+          cat campaign_results/basalt_host/score.json
+      - name: Retain small research evidence only - no native binaries or source datasets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basalt-native-real-evidence
+          path: campaign_results/basalt_host/
+          if-no-files-found: ignore
+          retention-days: 14

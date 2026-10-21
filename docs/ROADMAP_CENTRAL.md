@@ -187,3 +187,6 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 - D1 reproducibility: runtime converters/evaluators/registry source now invalidate resume caches even before commit. Two regression tests added. Physical accuracy and environment/toolchain locking remain open.
 
 - V2 acquisition guard: rejected future frame no longer resets accepted monotonic watermark/segment; overflow and exposure-midpoint reversal regressions added. This is a contract correction, not a Camera2/JNI or native estimator implementation. See [audit](work/NATIVE_INPUT_STATE_AUDIT_20261021.md).
+
+### N1/N2 actual host build attempt
+New isolated Basalt source-build + EuRoC workflow, pinned source/vcpkg, sensor-only inference container and reused metric evaluator. Six local adapter regressions pass. Host compilation and real pose accuracy are pending actual workflow evidence; no native APK claim. [Contract and status](NATIVE_VIO_HOST_BASELINE_V017.md).
