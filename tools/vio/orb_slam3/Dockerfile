@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopencv-dev libeigen3-dev libboost-all-dev libssl-dev \
     libgl1-mesa-dev libglew-dev libepoxy-dev libwayland-dev libxkbcommon-dev \
     libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
-    libdc1394-dev libjpeg-dev libpng-dev libtiff-dev libopenexr-dev \
+    libjpeg-dev libpng-dev libtiff-dev libopenexr-dev \
     xvfb xauth ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
