@@ -1,3 +1,10 @@
+> Historical v0.15 plan below. Latest v0.17 evidence: **actual host build and real
+> sensor replay passed** at `cf4e5194`, run 39555701592. See
+> [host baseline](NATIVE_VIO_HOST_BASELINE_V017.md) and its retained reports.
+> N1 host compilation and N2 host execution now have evidence; N1 dependency
+> audit, NDK/JNI and phone validation remain open. Java/C++ interface contracts
+> have passed CI; they remain disconnected from Android acquisition.
+
 ## Additional completed contract work (same isolated branch)
 
 - Native `VioEngine.hpp` C++17 **interface** (not an engine): copied grayscale image buffer, raw per-sensor IMU samples, calibration struct, versioned source/segment/scale/quality pose contract with optional covariance. Its `test_vio_contract.cpp` proves memory ownership / conservative null pose on a dummy engine. CI `.github/workflows/native-vio-contracts.yml` builds/runs this smoke and independently checks commercial license inventory; a successful run does **not** imply EuRoC/TUM-VI accuracy.
@@ -167,3 +174,6 @@ The offline scoreboard now emits schema 2, requires explicit truth-access declar
 
 ### Input session-state correction
 Rejected captures no longer mutate segmentation or erase the last accepted timestamp. Both capture start and corrected mid-exposure must be monotonic. Three new JUnit cases and a compiled exact-Java before/after probe reproduce the fix. See [audit](work/NATIVE_INPUT_STATE_AUDIT_20261021.md). The guard remains disconnected from acquisition and produces no VIO poses.
+
+### v0.17 actual host-build workstream
+An isolated descendant of PR #44 now attempts the pinned Basalt source build and EuRoC V1_01 real stereo/IMU replay. Inference cannot access GT; scores are produced afterwards, with no scale fit. See [host baseline](NATIVE_VIO_HOST_BASELINE_V017.md). Host build and real replay passed at `cf4e5194` (run 39555701592); see the baseline report for exact metrics, caveats and input identity. JNI/Android and license release remain blocked.
