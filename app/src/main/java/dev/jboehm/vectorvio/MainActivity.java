@@ -626,6 +626,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 }else startActivity(new Intent(this,LocationComparisonActivity.class));
                 break;
             case IMU_TOGGLE:hud.toggleSensors();break;
+            case SENSOR_LAB:
+                startActivity(new Intent(this,SensorLabActivity.class));break;
             case LAYERS:
                 hud.cycleLayers();getSharedPreferences("spatial_explorer",MODE_PRIVATE)
                     .edit().putInt("overlay_layers",hud.layers()).apply();break;
