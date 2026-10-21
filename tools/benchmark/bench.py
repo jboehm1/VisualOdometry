@@ -368,7 +368,10 @@ def parse_poses(path, fmt):
                     raise ValueError("Nonfinite trajectory pose")
                 times.append(vals[0] * (1e-9 if fmt == "euroc" else 1.0))
                 coords.append(vals[1:4])
-                rots.append(quat_matrix(vals[4:8]))
+                # ASL/EuRoC state poses store qw,qx,qy,qz. TUM stores
+                # qx,qy,qz,qw. Positions alone cannot reveal this mismatch.
+                quaternion = vals[5:8] + [vals[4]] if fmt == 'euroc' else vals[4:8]
+                rots.append(quat_matrix(quaternion))
                 segments.append(1)
     elif fmt == "vector":
         with path.open(encoding="utf-8-sig", newline="") as f:

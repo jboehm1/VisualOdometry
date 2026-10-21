@@ -187,3 +187,5 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 - D1 reproducibility: runtime converters/evaluators/registry source now invalidate resume caches even before commit. Two regression tests added. Physical accuracy and environment/toolchain locking remain open.
 
 - V2 acquisition guard: rejected future frame no longer resets accepted monotonic watermark/segment; overflow and exposure-midpoint reversal regressions added. This is a contract correction, not a Camera2/JNI or native estimator implementation. See [audit](work/NATIVE_INPUT_STATE_AUDIT_20261021.md).
+
+- Benchmark evidence correction: EuRoC wxyz was interpreted as xyzw. Fixed parser and false fixture; 15 local benchmark/fetch tests pass. Re-score prior rotational/local-frame RPE. [Audit](work/EUROC_QUATERNION_FIX_20261021.md).

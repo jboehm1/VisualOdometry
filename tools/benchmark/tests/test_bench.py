@@ -16,6 +16,22 @@ def write_tum(path, samples):
 
 
 class BenchmarkTests(unittest.TestCase):
+    def test_euroc_wxyz_and_tum_xyzw_describe_the_same_nontrivial_pose(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); euroc = root/'euroc.csv'; tum = root/'tum.txt'
+            # +90 degree yaw: wxyz in EuRoC, xyzw in TUM. Identity alone
+            # cannot expose a mistaken ordering in translation-only metrics.
+            q = math.sqrt(.5)
+            euroc.write_text(''.join(f'{1_000_000_000+i*100_000_000},0,{i},0,{q},0,0,{q}\n' for i in range(20)))
+            tum.write_text(''.join(f'{1+i*.1:.9f} 0 {i} 0 0 0 {q} {q}\n' for i in range(20)))
+            a, b = bench.parse_poses(euroc,'euroc'), bench.parse_poses(tum,'tum')
+            import numpy as np
+            np.testing.assert_allclose(a[2],b[2],atol=1e-12)
+            np.testing.assert_allclose(a[2][0] @ np.array([1,0,0]),[0,1,0],atol=1e-12)
+            report = bench.measure(a,b,align='none',delta_seconds=.5)
+            self.assertLess(report['rpe_translation_rmse_m'],1e-10)
+            self.assertLess(report['rpe_rotation_rmse_deg'],1e-5)
+
     def test_perfect_rigid_alignment_and_metric_scale(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -121,8 +137,8 @@ class BenchmarkTests(unittest.TestCase):
     def test_euroc_timestamp_and_quaternion_are_parsed(self):
         with tempfile.TemporaryDirectory() as tmp:
             gt = Path(tmp)/"gt.csv"
-            gt.write_text("#timestamp,p_x,p_y,p_z,q_x,q_y,q_z,q_w,vx\n" +
-                          "\n".join(f"{1_000_000_000+i*100_000_000},{i},0,0,0,0,0,1,0"
+            gt.write_text("#timestamp,p_x,p_y,p_z,q_w,q_x,q_y,q_z,vx\n" +
+                          "\n".join(f"{1_000_000_000+i*100_000_000},{i},0,0,1,0,0,0,0"
                                     for i in range(4)))
             poses = bench.parse_poses(gt, "euroc")
             self.assertAlmostEqual(poses[0][-1]-poses[0][0], 0.3, places=6)
