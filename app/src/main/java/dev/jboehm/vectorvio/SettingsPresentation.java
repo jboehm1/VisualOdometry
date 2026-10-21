@@ -25,6 +25,7 @@ final class SettingsPresentation {
             case GPS_TOGGLE:return "Afficher la vitesse GPS";
             case GPS_COMPARISON:return "Comparer GPS et Google Fused";
             case IMU_TOGGLE:return "Afficher les capteurs IMU";
+            case SENSOR_LAB:return "Inventaire capteurs + mesure réelle S21";
             case LAYERS:return "Couches de la scène";
             case UNKNOWN_GROUND:return "Estimer les zones de sol inconnues";
             case BIKE_VIEW_HINTS:return "Alertes caméra inclinée / vélo";
@@ -59,6 +60,7 @@ final class SettingsPresentation {
             case GPS_TOGGLE:return "Affiche la vitesse GPS à côté de la vitesse VIO. ±m = précision horizontale estimée, pas la puissance du signal. Option désactivable.";
             case GPS_COMPARISON:return "Comparer localisation Android native et Google Fused. Deux mesures peuvent partager le même GPS et la même erreur.";
             case IMU_TOGGLE:return "Superposer les mesures brutes d'accélération et rotation du téléphone. Diagnostic, pas une vitesse.";
+            case SENSOR_LAB:return "Identifier les capteurs réellement disponibles (IMU, pression, champ magnétique, luminosité, Camera2) et exporter des échantillons bruts. Ne calcule ni vitesse ni pose, et ne collecte rien en arrière-plan.";
             case LAYERS:return "Choisir les plans détectés, points de scène et trace locale. Change seulement les éléments dessinés.";
             case UNKNOWN_GROUND:return "Si aucun sol n'est détecté, dessiner une surface approximative sous la caméra. Ne corrige pas l'odométrie.";
             case BIKE_VIEW_HINTS:return "Afficher une alerte quand la caméra voit surtout vers le bas. Ne masque pas les pièces mobiles du vélo.";
