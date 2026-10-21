@@ -1,0 +1,214 @@
+{
+  "schema_version": 1,
+  "purpose": "Candidate registry for offline, Galaxy S21 smartphone-only degraded-visibility experiments. No measured ranking or deployment claim.",
+  "date": "2026-10-21",
+  "smartphone_models": [
+    {
+      "id": "arcore",
+      "priority": "P0",
+      "name": "ARCore",
+      "role": "visual_inertial_baseline",
+      "hardware_tier": "S0",
+      "modalities": [
+        "rgb",
+        "imu"
+      ],
+      "license": "proprietary_sdk",
+      "readiness": "current_repo_baseline",
+      "source": "https://developers.google.com/ar/develop/camera",
+      "needs_training": false,
+      "can_predict_position_without_visual_input": false,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
+    },
+    {
+      "id": "basalt",
+      "priority": "P0",
+      "name": "Basalt",
+      "role": "custom_vio",
+      "hardware_tier": "S0",
+      "modalities": [
+        "rgb",
+        "imu"
+      ],
+      "license": "BSD-3-Clause engine, third-party audit needed",
+      "readiness": "Android_experimental_not_field_qualified",
+      "source": "https://github.com/VladyslavUsenko/basalt",
+      "needs_training": false,
+      "can_predict_position_without_visual_input": false,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
+    },
+    {
+      "id": "pdr_java",
+      "priority": "P0",
+      "name": "Java pedestrian PDR baseline",
+      "role": "pdr_baseline",
+      "hardware_tier": "S0",
+      "modalities": [
+        "imu"
+      ],
+      "license": "repository_owned",
+      "readiness": "exists_in_repo_requires_S21_validation",
+      "source": "docs/SMARTPHONE_ONLY_SENSOR_AI_ROADMAP_20261021.md",
+      "needs_training": false,
+      "can_predict_position_without_visual_input": true,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
+    },
+    {
+      "id": "observability_gate",
+      "priority": "P0",
+      "name": "Rule-based observability and abstention gate",
+      "role": "fusion_quality",
+      "hardware_tier": "S0",
+      "modalities": [
+        "rgb",
+        "imu"
+      ],
+      "license": "repository_owned_proposed",
+      "readiness": "proposed_no_impl_claim",
+      "source": "docs/SMARTPHONE_ONLY_SENSOR_AI_ROADMAP_20261021.md",
+      "needs_training": false,
+      "can_predict_position_without_visual_input": false,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
+    },
+    {
+      "id": "ronin",
+      "priority": "P1",
+      "name": "RoNIN",
+      "role": "learned_pedestrian_imu",
+      "hardware_tier": "S0",
+      "modalities": [
+        "imu"
+      ],
+      "license": "GPL-3.0 source",
+      "readiness": "candidate_host_benchmark_only",
+      "source": "https://github.com/Sachini/ronin",
+      "needs_training": true,
+      "can_predict_position_without_visual_input": true,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
+    },
+    {
+      "id": "tlio",
+      "priority": "P1",
+      "name": "TLIO",
+      "role": "learned_inertial_filter",
+      "hardware_tier": "S0",
+      "modalities": [
+        "imu"
+      ],
+      "license": "BSD-style software; check weights/data",
+      "readiness": "requires_training_per_readme",
+      "source": "https://github.com/CathIAS/TLIO",
+      "needs_training": true,
+      "can_predict_position_without_visual_input": true,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
+    },
+    {
+      "id": "rnin_vio",
+      "priority": "P1",
+      "name": "RNIN-VIO",
+      "role": "neural_visual_inertial_constraints",
+      "hardware_tier": "S0",
+      "modalities": [
+        "rgb",
+        "imu"
+      ],
+      "license": "Apache-2.0 repository; weights/deps audit",
+      "readiness": "research_reference_not_S21_qualified",
+      "source": "https://github.com/zju3dv/rnin-vio",
+      "needs_training": true,
+      "can_predict_position_without_visual_input": false,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
+    },
+    {
+      "id": "lionet",
+      "priority": "P1",
+      "name": "L-IONet",
+      "role": "lightweight_learned_pedestrian_imu",
+      "hardware_tier": "S0",
+      "modalities": [
+        "imu"
+      ],
+      "license": "unchecked_do_not_ship",
+      "readiness": "paper_only_verify_weights_license",
+      "source": "https://arxiv.org/abs/2001.04061",
+      "needs_training": true,
+      "can_predict_position_without_visual_input": true,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
+    },
+    {
+      "id": "depth_anything_v2_small",
+      "priority": "P2",
+      "name": "Depth Anything V2 Small",
+      "role": "rgb_relative_depth",
+      "hardware_tier": "S0",
+      "modalities": [
+        "rgb"
+      ],
+      "license": "Apache-2.0 Small only; larger CC-BY-NC-4.0",
+      "readiness": "candidate_mobile_export_not_benchmarked",
+      "source": "https://github.com/DepthAnything/Depth-Anything-V2",
+      "needs_training": false,
+      "can_predict_position_without_visual_input": false,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
+    }
+  ],
+  "fixed_platform_gates": {
+    "supports_smartphone_only_radar": false,
+    "supports_smartphone_only_lwir": false,
+    "arcore_depth_enabled_by_default": false,
+    "shared_camera_allows_external_set_repeating_request_while_arcore_active": false,
+    "bicycle_speed_from_imu_only_observable": false,
+    "opaque_smoke_navigation_operationally_approved": false,
+    "emergency_route_guidance_approved": false,
+    "app_has_proven_cross_session_relocalization": false
+  },
+  "experimental_scenarios": [
+    {
+      "id": "s21_darkness_led_on_off",
+      "hardware_tier": "S0",
+      "requires_independent_gt": true
+    },
+    {
+      "id": "s21_opaque_camera_walk",
+      "hardware_tier": "S0",
+      "requires_independent_gt": true
+    },
+    {
+      "id": "s21_bike_inertial_no_gnss",
+      "hardware_tier": "S0",
+      "requires_independent_gt": true
+    },
+    {
+      "id": "s21_walking_roNIN_tlio_replay",
+      "hardware_tier": "S0",
+      "requires_independent_gt": true
+    },
+    {
+      "id": "s21_wifi_existing_infrastructure",
+      "hardware_tier": "S1",
+      "requires_independent_gt": true
+    }
+  ],
+  "excluded_external_hardware": [
+    {
+      "name": "LWIR USB thermal camera",
+      "hardware_tier": "H",
+      "reason": "external thermal detector absent from S21"
+    },
+    {
+      "name": "mmWave radar module",
+      "hardware_tier": "H",
+      "reason": "external radar RF front-end absent from S21"
+    },
+    {
+      "name": "foot-mounted IMU",
+      "hardware_tier": "H",
+      "reason": "body-mounted second inertial measurement device absent from S21"
+    },
+    {
+      "name": "UWB anchors added to site",
+      "hardware_tier": "H",
+      "reason": "site infrastructure installation"
+    }
+  ]
+}
