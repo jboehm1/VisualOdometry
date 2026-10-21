@@ -21,6 +21,8 @@ report = {'command': command, 'exit_code': result.returncode,
           'child_cpu_seconds': usage.ru_utime+usage.ru_stime,
           'child_peak_rss_kib_linux': usage.ru_maxrss,
           'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
+          'engine_shared_libraries_sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in binary.parent.glob('libbasalt*.so*')},
           'truth_mount': False, 'network': 'none', 'power_joules': None,
           'online_frame_latency_ms': None}
 Path('/out/runtime.json').write_text(json.dumps(report, indent=2)+'\n')

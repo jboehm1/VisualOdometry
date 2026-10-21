@@ -25,6 +25,9 @@ def record(source, image):
             'release_triplet_sha256': digest(Path(__file__).with_name('x64-linux-release.cmake')),
             'host_image': image.strip(), 'image_pin_policy': 'resolved digest recorded at first attempt; tag not pre-pinned',
             'engine_binary_sha256': digest(binary), 'dependency_license_file_sha256': notices,
+            'engine_shared_libraries_sha256': {p.name: digest(p) for p in sorted((source / 'build/release').glob('libbasalt*.so*'))},
+            'calibration_sha256': digest(source / 'data/euroc_eucm_calib.json'),
+            'estimator_config_sha256': digest(source / 'data/euroc_config.json'),
             'build_options': {'scalar': 'float', 'jobs': 2, 'target': 'basalt_vio', 'march': 'x86-64'},
             'license_review': 'UNREVIEWED_TRANSITIVES; no binary redistribution or APK packaging',
             'source_changes': subprocess.check_output(['git', '-C', str(source), 'status', '--porcelain'], text=True).splitlines()}

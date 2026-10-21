@@ -16,5 +16,8 @@
   or clock fitting. First-reference gauge and SE3 diagnostic reported separately.
 - Host image digest, build options, dependency metadata, source, data and binary
   hashes must be retained. Research-only; no native binaries/datasets uploaded.
-- Next: actual CI source build and real EuRoC V2_01 replay, inspect failures and
+- Next: actual CI source build and real EuRoC V1_01 replay, inspect failures and
   iterate. No build, accuracy, Android JNI or transitive-license success presumed.
+
+## First actual CI finding and acquisition adjustment
+Official ETH V2_01 download timed out after 60 seconds in run 39554931508, before native build or any accuracy result. The next attempt uses the pinned HF V1_01 archive above (Git LFS metadata verified). This is an availability-driven sequence substitution, not a result-driven choice. Original V1_01 reference attitude is documented as inaccurate by OpenVINS; orientation and first-pose-gauge results are explicitly diagnostics, not authoritative field accuracy. Source: https://github.com/rpng/open_vins/blob/master/docs/gs-datasets.dox . Raw sources remain excluded from artifacts.

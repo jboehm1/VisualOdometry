@@ -143,6 +143,7 @@ def score(reference, trajectory, staged, runtime):
             'posthoc_rigid_se3_diagnostic': rigid,
             'gauge_note': 'First matched reference pose fixes gauge AFTER inference; not an independent presurveyed alignment.',
             'limits': ['Not Android/ARCore performance', 'No power/thermal/online latency measurement',
+                       'Selected V1_01 original reference has a published attitude-accuracy caveat; rotation and first-pose gauge errors are diagnostic',
                        'EuRoC MAV global-shutter stereo is not rolling-shutter smartphone mono',
                        'Native redistribution/transitive license review and JNI remain unqualified']}
 

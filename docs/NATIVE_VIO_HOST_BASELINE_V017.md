@@ -7,7 +7,7 @@ Branch `work/native-vio-basalt-host-20261021`, based on PR #44 at
 
 1. Compile the actual Basalt `basalt_vio` target from pinned upstream source,
    not a dummy engine or a supplied trajectory. Record binary and dependency IDs.
-2. Feed real EuRoC V2_01 stereo PNGs and accelerometer/gyro with upstream EuRoC
+2. Feed real EuRoC V1_01 stereo PNGs and accelerometer/gyro with upstream EuRoC
    calibration/config. Select the first 1200 camera frames before looking at GT.
 3. During inference, mount only staged sensors, engine/toolchain and an empty
    output directory. Container has read-only root and no network; raw archive,
@@ -28,8 +28,10 @@ Branch `work/native-vio-basalt-host-20261021`, based on PR #44 at
   first-use provenance, not an already audited/pinned image across all attempts.
 - Release-only static dependency triplet, float estimator instantiation, generic
   x86-64, two compiler/engine threads, 90-minute job cap and 15-minute replay cap.
-- Dataset acquisition bounded to 3 GiB compressed / 8 GiB expanded. First official
-  download hash is observed, not independently pre-pinned. Original data and native
+- Dataset acquisition bounded to 3 GiB compressed / 8 GiB expanded. Mirror source is pinned to commit `d05bd6a92a5f456562153f83d65805fea27cb57d`,
+  SHA256 `a920fe5b5e69a6ad19b32f1cfaf90ac2f59d45dfd1ca18cc9722e07684ba45fa`,
+  1,149,702,102 bytes. Integrity is verified against mirror metadata, not an
+  independently authenticated institutional original. Original data and native
   binaries stay temporary; upload only small poses/reports/identity metadata.
 
 ## Scoring distinctions
@@ -62,3 +64,6 @@ camera–IMU timestamps, native/ARCore switching and field validation remain ope
 
 Reproduce the workflow steps in `.github/workflows/basalt-host.yml`; the adapter
 is `tools/vio/basalt/euroc_adapter.py`, inference wrapper `container_run.py`.
+
+## First actual CI finding and acquisition adjustment
+Official ETH V2_01 download timed out after 60 seconds in run 39554931508, before native build or any accuracy result. The next attempt uses the pinned HF V1_01 archive above (Git LFS metadata verified). This is an availability-driven sequence substitution, not a result-driven choice. Original V1_01 reference attitude is documented as inaccurate by OpenVINS; orientation and first-pose-gauge results are explicitly diagnostics, not authoritative field accuracy. Source: https://github.com/rpng/open_vins/blob/master/docs/gs-datasets.dox . Raw sources remain excluded from artifacts.
