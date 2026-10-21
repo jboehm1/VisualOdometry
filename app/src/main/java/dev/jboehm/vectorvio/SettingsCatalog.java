@@ -19,9 +19,9 @@ final class SettingsCatalog {
         Section(String title,String subtitle){this.title=title;this.subtitle=subtitle;}
     }
     enum Action {
-        GPX_AR, GPS_MANUAL_ALIGN, GPS_ROUTES, PDR, COURSES, RETURN_TRACE,
+        GPX_AR, GPS_MANUAL_ALIGN, GPS_ROUTES, PDR, COURSES, RETURN_TRACE, GPX_EXTENDED_PREVIEW,
         GPS_TOGGLE, GPS_COMPARISON, IMU_TOGGLE,
-        LAYERS, UNKNOWN_GROUND, BIKE_VIEW_HINTS, OVERLAY_RENDER,
+        LAYERS, UNKNOWN_GROUND, BIKE_VIEW_HINTS, OVERLAY_RENDER, CAMERA_CAPTURE_PROFILE, CAMERA2_MANUAL_LAB, CUSTOM_VIO,
         VIDEO_TRAINING, COLLECT_ONLY, ARCORE_REPLAY, EXPORT, CAPTURE_INFO,
         MAP_VIEW, MAP_SETTINGS, MAP_SAVED, MAP_PLACE_POI,
         POWER, SIMULATION, HELP
@@ -34,6 +34,7 @@ final class SettingsCatalog {
     }
     private static final List<Item> ALL=Collections.unmodifiableList(Arrays.asList(
         new Item(Section.NAVIGATION,Action.GPX_AR,"GPX AR — experimental camera guidance","Show an imported route on the observed ground · opt-in"),
+        new Item(Section.NAVIGATION,Action.GPX_EXTENDED_PREVIEW,"Extended GPX world preview","Approximate dotted future/past outside ARCore-detected floor; opt-out"),
         new Item(Section.NAVIGATION,Action.GPS_MANUAL_ALIGN,"Adjust GPX on screen","Drag to match real trail · manual, session-only"),
         new Item(Section.NAVIGATION,Action.GPS_ROUTES,"GPS ROUTES — import GPX / follow / record","2D GPS guidance without a camera"),
         new Item(Section.NAVIGATION,Action.PDR,"PDR · NO CAMERA — steps / sensors / GNSS course","Step/IMU walking and running, no camera · local estimate"),
@@ -48,6 +49,9 @@ final class SettingsCatalog {
         new Item(Section.DISPLAY,Action.UNKNOWN_GROUND,"Estimated ground","Optional approximation where no ARCore plane is observed"),
         new Item(Section.DISPLAY,Action.BIKE_VIEW_HINTS,"Bike / downward camera hints","Opt-out view quality warnings · no fake odometry correction"),
         new Item(Section.DISPLAY,Action.OVERLAY_RENDER,"Overlay renderer","Automatic GPU/Canvas and GPU recovery"),
+        new Item(Section.DISPLAY,Action.CAMERA_CAPTURE_PROFILE,"AR camera · 30/60 FPS profile","Low light / balanced / fast motion; applies on next ARCore session"),
+        new Item(Section.DISPLAY,Action.CAMERA2_MANUAL_LAB,"Camera2 · shutter + ISO LAB","Manual shutter and ISO with real hardware feedback · ARCore paused"),
+        new Item(Section.DISPLAY,Action.CUSTOM_VIO,"VIO custom · Basalt (experimental)","Independent camera + IMU · factory bootstrap unverified · compare with ARCore"),
 
         new Item(Section.CAPTURE,Action.VIDEO_TRAINING,"Training video","Opt-in camera/IMU dataset recording"),
         new Item(Section.CAPTURE,Action.COLLECT_ONLY,"Collect only · screen off","Dedicated capture mode without live mapping"),

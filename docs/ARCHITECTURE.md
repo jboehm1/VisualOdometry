@@ -1,3 +1,11 @@
+## Interface déterministe de validation (v0.16, pas une nouvelle estimation)
+
+La pipeline de test réutilise `benchmark.py` → `tools/campaigns/unified.py` → `tools/testenv/` plutôt qu'un quatrième runner ou une nouvelle vérité synthétique cachée. `tools/datasets/repro_manifest.py` capture SHA code/fichiers d'entrée et vérifie les mutations avant relecture. Le reçu indique explicitement **SYNTHETIC_FIXTURE** ou **UNVERIFIED_REMOTE_BYTES_AT_PREFLIGHT** quand rien de réel n'est localement hashé. Les mesures ATE/RPE, GPX p95, couverture, latence p95 et énergie exigent des données et métadonnées réelles et le moteur effectivement exécuté. Le test de deux PDR sur une entrée synthétique ne prouve jamais leur précision terrain. Voir [matrice et licence](DATASET_REPRODUCIBILITY_V016.md).
+
+## v0.15 native-VIO boundary (experimental)
+
+The new pure Java `nativevio.NativeVioInputGate` is a **fail-closed acquisition contract**, not a VIO estimator. It checks explicit camera identity/calibration and clock source, frame monotonicity, shutter duration and gyro/accelerometer timestamp bracketing; >1-second capture gaps start fresh acquisition segments. It is **not connected** to existing Camera2 Lab or ARCore. Do not report the gate as a second visual-inertial engine, a metric pose, or a replacement for ARCore/GPX. Future boundaries: `ImageReader YUV_420_888` + checked `CaptureResult` timestamps → calibrated C++ estimator → source/scale/quality-tagged pose → explicit world reanchoring. See [native VIO](NATIVE_VIO_ENGINE_V015.md) and [commercial release policy](COMMERCIAL_RELEASE_GATES.md).
+
 > Current implementation inventory: [MODULES_AND_DATASETS.md](MODULES_AND_DATASETS.md). This document retains historical mathematical explanations; use that inventory and CAPTURE_FORMAT.md for implemented features.
 
 > Updated behavior: see [SPATIAL_EXPLORER.md](SPATIAL_EXPLORER.md). Since 0.2 displacement/height restart per independent segment, and diagnostic raw IMU is logged. Since 0.3 map snapshots can be saved/reopened, with optional image keyframes and a manual endpoint constraint. The older baseline explanations below describe 0.1 where inconsistent.
@@ -107,3 +115,17 @@ Thresholds are heuristics, not calibrated confidence bounds. For a real validati
 - VINS-Mono: https://github.com/HKUST-Aerial-Robotics/VINS-Mono
 - ORB-SLAM3: https://github.com/UZ-SLAMLab/ORB_SLAM3
 - EuRoC MAV dataset: https://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets
+
+### Geographic heading observability
+`GeoAlignment` checks minimum supported motion in both local VIO and GPS coordinates after robust inlier selection. Its `baselineMeters` is the strongest jointly supported pair span, gated by both endpoint accuracies, used conservatively for diagnostic heading allowance. Raw residual RMS still includes rejected fixes. This is a fail-closed geometry check, not a covariance estimate or common-bias detector.
+
+Measured comparison and cache identity: protocol/report digests and explicit truth declarations are mandatory in scoreboard schema 2; repeated-route cohorts retain individual raw dataset identities. Testenv fingerprints runtime converters, evaluators and registry configuration before reusing reports. See [contract](work/MEASURED_REPORT_CONTRACT_V2.md).
+
+Native input state is transactional: validate calibration, frame clock, overflow and IMU bracket before committing watermark/segment. Require increasing corrected mid-exposure as well as capture start. Invalid future captures cannot authorize older samples. This remains an unconnected acquisition contract.
+
+### Isolated native host replay
+Basalt host baseline separates source/toolchain build, predeclared sensor-only staging, network-disabled C++ inference and subsequent reference scoring. IMU poses retain metric scale; first-reference gauge and posthoc rigid SE3 diagnostics remain distinct. See [host baseline](NATIVE_VIO_HOST_BASELINE_V017.md). Actual upstream build/replay passed at `cf4e5194` with unmodified upstream source and 1200 exported body poses. Source/image/binary/input hashes and actual trajectory are retained with the report. No Android acquisition/JNI wiring.
+The generic benchmark pose parser distinguishes EuRoC wxyz from TUM xyzw before forming IMU/body rotations. Mixed-format RPE now has an explicit orientation regression; input clocks, frames and scale stay unchanged.
+
+### PDR/VIO comparison and conservative challenger selection
+See [actual engines, comparison protocols and experimental gates](PDR_VIO_COMPARISON_20261021.md). The host Basalt VO/VIO ablation and subject-disjoint Java PDR challengers are research experiments; no ARCore superiority is implied. A later frozen consensus130 fallback passed reserved-subject step gates and is integrated with actual-Java parity, plus a pause/resume watermark fix. Phone metric accuracy remains unqualified.

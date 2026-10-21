@@ -29,6 +29,7 @@ public final class PdrEngine {
         /** Cadence is inferred from accepted step timestamps, not accelerometer integration. */
         public final double cadenceStepsPerMin, estimatedSpeedMps;
         public final HeadingSource headingSource;
+        public final String fallbackAlgorithm;
         public final int trajectorySteps, stepsWithoutHeading;
         public final long lastStepNs;
         Snapshot(PdrEngine p, long nowNs) {
@@ -39,6 +40,7 @@ public final class PdrEngine {
             stepsWithoutHeading=p.stepsWithoutHeading; lastStepNs=p.lastStepNs;
             Heading h=p.headingAt(nowNs); headingSource=h.source;
             headingDeg=h.source==HeadingSource.UNAVAILABLE?Double.NaN:Math.toDegrees(h.radians);
+            fallbackAlgorithm=p.fallback.algorithmId();
             if(recording && p.lastStepNs!=Long.MIN_VALUE && nowNs>=p.lastStepNs
                     && nowNs-p.lastStepNs<=4_000_000_000L
                     && Double.isFinite(p.smoothedStepPeriodNs)){
@@ -56,16 +58,22 @@ public final class PdrEngine {
     private boolean recording;
     /** A sensor sample arriving from before START must never move this session. */
     private long sessionStartNs=Long.MIN_VALUE;
+    private long segmentStartNs=Long.MIN_VALUE, lastAccelerationNs=Long.MIN_VALUE;
     private long lastStepNs=Long.MIN_VALUE, deviceTimeNs=Long.MIN_VALUE, gpsTimeNs=Long.MIN_VALUE;
     private long lastPressureNs=Long.MIN_VALUE;
     private boolean deviceHeadingAvailable, gpsCourseAvailable;
     private double deviceHeadingRad, gpsHeadingRad, stepLengthM=.74, distanceM, eastM, northM;
     private double baselinePressureHpa=Double.NaN, elevationM=Double.NaN;
     private double smoothedStepPeriodNs=Double.NaN;
+    private boolean cadenceResetPending=true;
     private int steps, trajectorySteps, stepsWithoutHeading;
     private boolean gapPending;
     private final ArrayList<Point> path=new ArrayList<>();
-    private final StepPeakDetector fallback=new StepPeakDetector();
+    private final StepPeakDetector fallback;
+
+    public PdrEngine() { this(StepPeakDetector.Mode.CONSENSUS_130); }
+    /** Historical fallback can be executed explicitly by the research harness. */
+    public PdrEngine(StepPeakDetector.Mode mode) { fallback=new StepPeakDetector(mode); }
 
     public void setStepLengthMeters(double meters) {
         if (!Double.isFinite(meters)||meters<.35||meters>1.8)
@@ -75,6 +83,7 @@ public final class PdrEngine {
     public void start(long timeNs) {
         if(timeNs<=0)throw new IllegalArgumentException("session start timestamp must be positive");
         sessionStartNs=timeNs;
+        segmentStartNs=timeNs;lastAccelerationNs=Long.MIN_VALUE;
         recording=true; lastStepNs=Long.MIN_VALUE; deviceTimeNs=Long.MIN_VALUE;
         gpsTimeNs=Long.MIN_VALUE; lastPressureNs=Long.MIN_VALUE;
         deviceHeadingAvailable=false; gpsCourseAvailable=false;
@@ -82,27 +91,41 @@ public final class PdrEngine {
         trajectorySteps=0; stepsWithoutHeading=0;
         elevationM=Double.NaN; baselinePressureHpa=Double.NaN;
         smoothedStepPeriodNs=Double.NaN;
+        cadenceResetPending=true;
         fallback.reset();gapPending=false;path.clear();path.add(new Point(timeNs,0,0,false));
     }
     public void pause() {
-        recording=false;fallback.reset();lastStepNs=Long.MIN_VALUE;
-        smoothedStepPeriodNs=Double.NaN;gapPending=true;
+        recording=false;fallback.reset();
+        smoothedStepPeriodNs=Double.NaN;cadenceResetPending=true;gapPending=true;
     }
     public void resume() {
-        recording=true;fallback.reset();lastStepNs=Long.MIN_VALUE;
+        long latest=Math.max(Math.max(lastStepNs,lastAccelerationNs),
+            Math.max(Math.max(deviceTimeNs,gpsTimeNs),lastPressureNs));
+        long lower=Math.max(segmentStartNs,latest==Long.MAX_VALUE?latest:latest+1);
+        resume(lower);
+    }
+    /** Resume with an actual BOOTTIME boundary; queued paused samples stay out. */
+    public void resume(long timeNs) {
+        long latest=Math.max(Math.max(lastStepNs,lastAccelerationNs),
+            Math.max(Math.max(deviceTimeNs,gpsTimeNs),lastPressureNs));
+        if(timeNs<=0 || sessionStartNs==Long.MIN_VALUE || timeNs<segmentStartNs || timeNs<latest)
+            throw new IllegalArgumentException("resume precedes accepted session observations");
+        segmentStartNs=timeNs;
+        recording=true;fallback.reset();
         smoothedStepPeriodNs=Double.NaN;
-        deviceTimeNs=Long.MIN_VALUE;gpsTimeNs=Long.MIN_VALUE;
+        cadenceResetPending=true;
+        // Availability resets; accepted timestamp watermarks must survive.
         deviceHeadingAvailable=false;gpsCourseAvailable=false;gapPending=true;
     }
     public boolean isRecording() { return recording; }
     /** Gate delayed callbacks from the preceding session before they reach the trace. */
     public boolean isInCurrentSession(long timeNs) {
-        return recording && timeNs>=sessionStartNs && timeNs>0;
+        return recording && timeNs>=segmentStartNs && timeNs>0;
     }
 
     /** Android SensorManager azimuth: radians clockwise from north; phone top Y axis. */
     public void deviceHeading(long timeNs, double radians) {
-        if (!recording||timeNs<sessionStartNs||timeNs<=deviceTimeNs||!Double.isFinite(radians)) return;
+        if (!isInCurrentSession(timeNs)||timeNs<=deviceTimeNs||!Double.isFinite(radians)) return;
         deviceTimeNs=timeNs; deviceHeadingRad=wrap(radians); deviceHeadingAvailable=true;
     }
     /**
@@ -111,7 +134,7 @@ public final class PdrEngine {
      * Keep the timestamp high-water mark to reject late buffered older rotations.
      */
     public boolean invalidateDeviceHeading(long timeNs) {
-        if(!recording || timeNs<sessionStartNs || timeNs<deviceTimeNs
+        if(!isInCurrentSession(timeNs) || timeNs<deviceTimeNs
                 || !deviceHeadingAvailable) return false;
         deviceTimeNs=timeNs;
         deviceHeadingAvailable=false;
@@ -120,7 +143,7 @@ public final class PdrEngine {
     /** GNSS course must first be converted TRUE -> MAGNETIC north by Android adapter. */
     public void gpsCourse(long timeNs, double radians, float speedMps,
                           float horizontalAccuracyM, float bearingAccuracyDeg) {
-        if (!recording || timeNs<sessionStartNs || timeNs<=gpsTimeNs) return;
+        if (!isInCurrentSession(timeNs) || timeNs<=gpsTimeNs) return;
         // A newer low-quality fix revokes an older accepted course immediately.
         // It is logged in the trace, so Java replay makes the identical decision.
         gpsTimeNs=timeNs;
@@ -134,23 +157,23 @@ public final class PdrEngine {
     }
     /** Revoke GNSS direction immediately on provider/permission/measurement loss. */
     public boolean invalidateGpsCourse(long timeNs) {
-        if(!recording || timeNs<sessionStartNs || timeNs<gpsTimeNs ||
+        if(!isInCurrentSession(timeNs) || timeNs<gpsTimeNs ||
            !gpsCourseAvailable) return false;
         gpsTimeNs=timeNs;
         gpsCourseAvailable=false;
         return true;
     }
     public void pressure(long timeNs, double hPa) {
-        if(!recording||timeNs<sessionStartNs||timeNs<=lastPressureNs ||
+        if(!isInCurrentSession(timeNs)||timeNs<=lastPressureNs ||
                 !Double.isFinite(hPa)||hPa<300||hPa>1100) return;
         lastPressureNs=timeNs;
         if(!Double.isFinite(baselinePressureHpa)) baselinePressureHpa=hPa;
         elevationM=44330.0*(1.0-Math.pow(hPa/baselinePressureHpa,0.190294957));
     }
     public boolean step(long timeNs) {
-        if (!recording || timeNs<sessionStartNs || (lastStepNs!=Long.MIN_VALUE
+        if (!isInCurrentSession(timeNs) || (lastStepNs!=Long.MIN_VALUE
                 && (timeNs<=lastStepNs || timeNs-lastStepNs<MIN_STEP_NS))) return false;
-        if(lastStepNs!=Long.MIN_VALUE){
+        if(lastStepNs!=Long.MIN_VALUE && !cadenceResetPending){
             long dt=timeNs-lastStepNs;
             if(dt<=2_000_000_000L){
                 smoothedStepPeriodNs=Double.isFinite(smoothedStepPeriodNs)
@@ -159,6 +182,7 @@ public final class PdrEngine {
                 smoothedStepPeriodNs=Double.NaN;
             }
         }
+        cadenceResetPending=false;
         lastStepNs=timeNs; ++steps; distanceM+=stepLengthM;
         Heading heading=headingAt(timeNs);
         if (heading.source==HeadingSource.UNAVAILABLE) {++stepsWithoutHeading;gapPending=true;return true;}
@@ -171,7 +195,10 @@ public final class PdrEngine {
     }
     /** Fallback used ONLY when Android's STEP_DETECTOR is missing or not permitted. */
     public boolean acceleration(long timeNs, double x, double y, double z) {
-        if (!isInCurrentSession(timeNs)) return false;
+        if (!isInCurrentSession(timeNs) || timeNs<=lastAccelerationNs
+                || !Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)
+                || Math.hypot(Math.hypot(x,y),z)>80) return false;
+        lastAccelerationNs=timeNs;
         return fallback.accept(timeNs,x,y,z) && step(timeNs);
     }
     public Snapshot snapshot(long timeNs){return new Snapshot(this,timeNs);}

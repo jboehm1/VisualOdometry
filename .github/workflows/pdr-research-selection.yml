@@ -1,0 +1,48 @@
+name: PDR real fixed-candidate verification (reserved cohort already consumed)
+on:
+  push:
+    branches: [work/pdr-vio-timing-probe-20261021]
+    paths:
+      - 'tools/pdr/research/**'
+      - 'app/src/main/java/dev/jboehm/vectorvio/pdr/PdrEngine.java'
+      - 'app/src/main/java/dev/jboehm/vectorvio/pdr/StepPeakDetector.java'
+      - '.github/workflows/pdr-research-selection.yml'
+  pull_request:
+    paths:
+      - 'tools/pdr/research/**'
+      - 'app/src/main/java/dev/jboehm/vectorvio/pdr/PdrEngine.java'
+      - 'app/src/main/java/dev/jboehm/vectorvio/pdr/StepPeakDetector.java'
+      - '.github/workflows/pdr-research-selection.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pdr-research-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  real-selection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify conservative selection and evaluate real raw accelerometers
+        run: |
+          python -m unittest discover -s tools/pdr/research -v
+          python tools/pdr/research/evaluate_candidates.py --out campaign_results/pdr_research
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pdr-real-frozen-selection
+          path: campaign_results/pdr_research/*.json
+          retention-days: 21
+          if-no-files-found: warn

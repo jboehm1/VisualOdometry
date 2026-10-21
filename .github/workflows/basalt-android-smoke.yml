@@ -1,0 +1,105 @@
+name: Basalt Android JNI - real monocular replay
+on:
+  pull_request:
+    paths:
+      - 'native/android/**'
+      - 'tools/vio/android/**'
+      - 'app/src/main/java/dev/jboehm/vectorvio/nativevio/**'
+      - 'app/src/androidTest/**'
+      - '.github/workflows/basalt-android-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: basalt-android-smoke-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android-native-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Sensor-only real input fixture (no reference, no dataset artifact upload)
+        run: |
+          python3 -m pip install numpy==2.2.6 opencv-python-headless==4.10.0.84 PyYAML==6.0.2
+          python3 tools/vio/basalt/fetch_euroc.py --out "$RUNNER_TEMP/euroc-jni"
+          python3 tools/vio/android/mono_fixture.py --source "$RUNNER_TEMP/euroc-jni/raw" --out app/src/androidTest/assets/mono_fixture.bin --receipt app/build/reports/native-smoke/fixture.json
+      - name: Android build tools
+        run: |
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install 'platform-tools' 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.3.13750724' 'emulator' 'system-images;android-30;default;x86_64'
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vector-native-x86-cache
+          key: vector-basalt-android-x86-v1-ndk27-${{ github.event.pull_request.head.sha || github.sha }}
+          restore-keys: vector-basalt-android-x86-v1-ndk27-
+      - name: Build actual JNI backend for emulator ABI
+        run: python3 tools/vio/android/build.py --abi x86_64 --work "$RUNNER_TEMP/vector-native-x86-cache" --ndk "$ANDROID_HOME/ndk/27.3.13750724"
+      - name: Boot Android and run native inference/shutdown tests
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          export ANDROID_USER_HOME="$RUNNER_TEMP/vector-android-user"
+          export ANDROID_EMULATOR_HOME="$ANDROID_USER_HOME"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          sudo chmod a+rw /dev/kvm
+          AVDMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n 1)
+          echo no | "$AVDMANAGER" create avd --force -n vector-native -k 'system-images;android-30;default;x86_64' --device pixel_2 --path "$ANDROID_AVD_HOME/vector-native.avd"
+          "$ANDROID_HOME/emulator/emulator" -avd vector-native -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect -accel on > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          timeout 180 adb wait-for-device
+          booted=false
+          for i in $(seq 1 120); do
+            if test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1; then booted=true; break; fi
+            sleep 2
+          done
+          test "$booted" = true
+          adb shell input keyevent 82
+          gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.jboehm.vectorvio.nativevio.BasaltAndroidTest --no-daemon --stacktrace
+          # UTP removes installed packages (and their external files) after tests.
+          # Preserve the same receipt from its captured per-test log instead.
+          python3 - <<'PYTHON'
+          import json
+          from pathlib import Path
+          receipts=[]
+          for p in Path('app/build/outputs/androidTest-results').rglob('logcat-*testRealMonocularImagesAndImuProducePoses.txt'):
+              for line in p.read_text(errors='replace').splitlines():
+                  if 'BASALT_ANDROID_REPLAY ' in line:
+                      receipts.append(json.loads(line.split('BASALT_ANDROID_REPLAY ',1)[1]))
+          if not receipts:raise ValueError('Actual Android inference receipt missing')
+          result=receipts[-1]
+          if result['poses_observed']<50 or result['truth_available_to_engine'] is not False:
+              raise ValueError('Invalid real Android execution receipt')
+          Path('app/build/reports/native-smoke/runtime.json').write_text(json.dumps(result,indent=2)+'\n')
+          print(json.dumps(result))
+          PYTHON
+      - name: Capture diagnostics
+        if: always()
+        run: |
+          mkdir -p app/build/reports/native-smoke
+          cp "$RUNNER_TEMP/emulator.log" app/build/reports/native-smoke/emulator.log || true
+          timeout 10 adb logcat -d -t 1500 > app/build/reports/native-smoke/logcat.txt || true
+      - name: Upload execution proof only, never sensor images or test APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basalt-android-native-smoke
+          path: |
+            app/build/reports/native-smoke/
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          retention-days: 14
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: ${{ runner.temp }}/vector-native-x86-cache
+          key: vector-basalt-android-x86-v1-ndk27-${{ github.event.pull_request.head.sha || github.sha }}

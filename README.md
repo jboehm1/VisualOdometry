@@ -1,3 +1,13 @@
+## Datasets reproductibles et poursuite autonome (v0.16)
+
+Les **suites existantes** `testenv.py` et les runners `benchmark.py` sont conservés. Nouvelle preuve par hash `tools/datasets/repro_manifest.py` (lock/verify, fichiers/sources, détection de mutations, provenance inconnue déclarée), et smoke CI des moteurs Java PDR + baseline Python sur IMU **synthétique**, sans prétendre à une précision terrain. Matrice complète des vrais datasets disponibles/limites/licences et protocole GPX-PDR-ARCore-vs-natif : [DATASET_REPRODUCIBILITY_V016.md](docs/DATASET_REPRODUCIBILITY_V016.md). Boucle Work et checkpoint : [handover autonome](docs/HANDOVER_WORK_AUTONOMOUS_V016.md) · [ACTIVE_SPRINT.md](docs/work/ACTIVE_SPRINT.md).
+
+See the complete **autonomous Work-mode engineering handover**: [GPX + PDR + ARCore/native-VIO A/B](docs/HANDOVER_WORK_AUTONOMOUS_V016.md). This document defines iterative Git/CI checkpoints, ground-truth protocols, commercial constraints and continuation rules. It is a plan, not a claim of complete robustness.
+
+## Native VIO v0.15 R&D / possible commercial product
+
+Camera2 Lab can change shutter/ISO, but it **does not feed a native metric-VIO tracker** yet; ARCore remains the default. An isolated `nativevio.NativeVioInputGate` now validates camera/IMU timing and verified calibration (contract + synthetic JUnit tests only). No Basalt, Kimera, OKVIS or C++ pose engine ships in the APK. For future commercial distribution, privacy-first design, ARCore terms, transitive dependencies, licenses/attribution and independent field accuracy evidence are mandatory: see [native-VIO specification](docs/NATIVE_VIO_ENGINE_V015.md), [commercial release gates](docs/COMMERCIAL_RELEASE_GATES.md), and [Atlas v5](docs/VECTOR_VIO_ATLAS_INTERACTIF_v5.html).
+
 **🌐 Pilotage central VECTOR VIO (Android)** : [Atlas interactif V5 — GPS/FLP, brouillard et fumée dense/pompiers (R&D)](docs/VECTOR_VIO_ATLAS_INTERACTIF_v5.html) · [Feuille de route centrale de tous les chantiers](docs/ROADMAP_CENTRAL.md) · [Suivi JSON](docs/ROADMAP_CENTRAL.json). **La branche par défaut `master` reste l'archive 2019 ; `feature/slam-explorer` est l'intégration Android actuelle.**
 
 **Développements parallèles :** lire [la coordination commune](docs/DEVELOPMENT_COORDINATION.md) avant de toucher aux fichiers partagés ; état des branches, conflits reproduits et ordre d’intégration.
@@ -162,3 +172,15 @@ See [Real Dataset Benchmark Pipeline](docs/BENCHMARK_PIPELINE.md) for source cat
 ### Three executable validation campaigns (2026-10-18)
 
 See [Three Campaigns — real external EuRoC evaluation, IMU-only PDR, and same-engine Android ARCore replay](docs/THREE_CAMPAIGNS.md). The hosted A job has scored **published VINS-Mono EuRoC poses**, B has run a camera-free PDR baseline on **synthetic** sensor fixtures, and C has compiled an APK with **official ARCore dataset playback** through the existing odometer. These do not yet establish our APK's accuracy. A private Google Drive folder is ready for actual datasets; a separately authorized manual cloud sync can evaluate user-provided inputs once credentials and sources exist.
+
+### GPS/VIO observability hardening (21 October 2026)
+The experimental geographic alignment now requires motion supported by compatible pairs in both GPS and VIO. Frozen GPS and outlier-only baselines cannot authorize a geographic candidate. See [measured synthetic audit](docs/work/OBSERVABILITY_AUDIT_20261021.md); no physical-device accuracy is implied.
+
+The same quality cycle hardens measured-report provenance, CPU-aware comparisons, test cache dependency identity and native input timestamp state. See [checkpoint](docs/work/AUTONOMOUS_QUALITY_CHECKPOINT_20261021.md).
+
+### Native host estimator baseline
+The isolated [Basalt host pipeline](docs/NATIVE_VIO_HOST_BASELINE_V017.md) builds actual pinned upstream C++ and replays sensor-only EuRoC input before independent scoring. Source build and real replay passed at `cf4e5194`: 1200 estimated body poses, 1179 reference matches, no scale fitting. ATE diagnostics are 0.22855 m with first-reference gauge and 0.036887 m after posthoc rigid alignment; original V1_01 attitude caveat applies. No Android native estimator is enabled.
+Benchmark correction: standard EuRoC state quaternions use wxyz; TUM uses xyzw. [Parser audit](docs/work/EUROC_QUATERNION_FIX_20261021.md). Previous rotational/RPE results need re-scoring.
+
+### PDR/VIO comparison and conservative challenger selection
+See [actual engines, comparison protocols and experimental gates](docs/PDR_VIO_COMPARISON_20261021.md). The host Basalt VO/VIO ablation and subject-disjoint Java PDR challengers are research experiments; no ARCore superiority is implied. A later frozen consensus130 fallback passed reserved-subject step gates and is integrated with actual-Java parity, plus a pause/resume watermark fix. Phone metric accuracy remains unqualified.

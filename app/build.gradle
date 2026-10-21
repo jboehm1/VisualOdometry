@@ -8,9 +8,9 @@ android {
         applicationId 'dev.jboehm.vectorvio'
         minSdk 26
         targetSdk 35
-        versionCode 12
-        versionName '0.12.0-alpha'
-        testInstrumentationRunner 'android.test.InstrumentationTestRunner'
+        versionCode 16
+        versionName '0.15.0-alpha1'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -28,4 +28,6 @@ dependencies {
     implementation 'com.google.android.gms:play-services-location:21.4.0'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.14.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'junit:junit:4.13.2'
 }

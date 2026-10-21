@@ -1,0 +1,180 @@
+{
+  "source": {
+    "sha256": "41c8e925a30220a3afd0a735d75864b259096a04386412790a87f5d262042cf4",
+    "bytes": 14303749,
+    "url": "https://raw.githubusercontent.com/simpleLoc/SIMUL-dataset/ee7eb4e89bf33a17cafb4268207b802773427493/data/by-person/31/awindaRecording_20230403142813.csv"
+  },
+  "annotation": {
+    "sha256": "9262878bdfed766680da198071b0657becc603afa524e0839029dd8452faaea1",
+    "bytes": 3352,
+    "url": "https://raw.githubusercontent.com/simpleLoc/SIMUL-dataset/ee7eb4e89bf33a17cafb4268207b802773427493/data/by-person/31/awindaRecording_20230403142813.csv.stepNonoverlap"
+  },
+  "samples": 15443,
+  "trials": [
+    {
+      "participant": "31",
+      "placement": "front_pocket",
+      "event_confirmation_delay": {
+        "count": 316,
+        "mean_ms": 43.90822784810126,
+        "max_ms": 125.0
+      },
+      "metrics": {
+        "current": {
+          "count": 338,
+          "reference": 315,
+          "matched": 304,
+          "false_positives": 34,
+          "missed_steps": 11,
+          "count_error_pct": 7.302,
+          "precision": 0.899408,
+          "recall": 0.965079,
+          "f1": 0.931087
+        },
+        "smooth": {
+          "count": 325,
+          "reference": 315,
+          "matched": 307,
+          "false_positives": 18,
+          "missed_steps": 8,
+          "count_error_pct": 3.175,
+          "precision": 0.944615,
+          "recall": 0.974603,
+          "f1": 0.959375
+        },
+        "adaptive": {
+          "count": 316,
+          "reference": 315,
+          "matched": 298,
+          "false_positives": 18,
+          "missed_steps": 17,
+          "count_error_pct": 0.317,
+          "precision": 0.943038,
+          "recall": 0.946032,
+          "f1": 0.944532
+        },
+        "adaptive_event_time": {
+          "count": 316,
+          "reference": 315,
+          "matched": 301,
+          "false_positives": 15,
+          "missed_steps": 14,
+          "count_error_pct": 0.317,
+          "precision": 0.952532,
+          "recall": 0.955556,
+          "f1": 0.954041
+        }
+      }
+    },
+    {
+      "participant": "31",
+      "placement": "hand",
+      "event_confirmation_delay": {
+        "count": 307,
+        "mean_ms": 67.75244299674267,
+        "max_ms": 175.0
+      },
+      "metrics": {
+        "current": {
+          "count": 313,
+          "reference": 315,
+          "matched": 300,
+          "false_positives": 13,
+          "missed_steps": 15,
+          "count_error_pct": -0.635,
+          "precision": 0.958466,
+          "recall": 0.952381,
+          "f1": 0.955414
+        },
+        "smooth": {
+          "count": 314,
+          "reference": 315,
+          "matched": 305,
+          "false_positives": 9,
+          "missed_steps": 10,
+          "count_error_pct": -0.317,
+          "precision": 0.971338,
+          "recall": 0.968254,
+          "f1": 0.969793
+        },
+        "adaptive": {
+          "count": 307,
+          "reference": 315,
+          "matched": 303,
+          "false_positives": 4,
+          "missed_steps": 12,
+          "count_error_pct": -2.54,
+          "precision": 0.986971,
+          "recall": 0.961905,
+          "f1": 0.974277
+        },
+        "adaptive_event_time": {
+          "count": 307,
+          "reference": 315,
+          "matched": 301,
+          "false_positives": 6,
+          "missed_steps": 14,
+          "count_error_pct": -2.54,
+          "precision": 0.980456,
+          "recall": 0.955556,
+          "f1": 0.967846
+        }
+      }
+    },
+    {
+      "participant": "31",
+      "placement": "back_pocket",
+      "event_confirmation_delay": {
+        "count": 321,
+        "mean_ms": 45.05451713395639,
+        "max_ms": 112.5
+      },
+      "metrics": {
+        "current": {
+          "count": 354,
+          "reference": 315,
+          "matched": 292,
+          "false_positives": 62,
+          "missed_steps": 23,
+          "count_error_pct": 12.381,
+          "precision": 0.824859,
+          "recall": 0.926984,
+          "f1": 0.872945
+        },
+        "smooth": {
+          "count": 335,
+          "reference": 315,
+          "matched": 302,
+          "false_positives": 33,
+          "missed_steps": 13,
+          "count_error_pct": 6.349,
+          "precision": 0.901493,
+          "recall": 0.95873,
+          "f1": 0.929231
+        },
+        "adaptive": {
+          "count": 321,
+          "reference": 315,
+          "matched": 295,
+          "false_positives": 26,
+          "missed_steps": 20,
+          "count_error_pct": 1.905,
+          "precision": 0.919003,
+          "recall": 0.936508,
+          "f1": 0.927673
+        },
+        "adaptive_event_time": {
+          "count": 321,
+          "reference": 315,
+          "matched": 266,
+          "false_positives": 55,
+          "missed_steps": 49,
+          "count_error_pct": 1.905,
+          "precision": 0.82866,
+          "recall": 0.844444,
+          "f1": 0.836478
+        }
+      }
+    }
+  ]
+}

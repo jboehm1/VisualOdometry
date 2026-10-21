@@ -28,6 +28,22 @@ public final class PdrExportTest {
             return buf.toString("UTF-8");
         }
     }
+    @Test public void resourceTraceTravelsInsideActualPdrZip() throws Exception {
+        Application app=RuntimeEnvironment.getApplication();
+        PdrEngine engine=new PdrEngine();engine.start(1);
+        PdrTraceWriter writer=new PdrTraceWriter(app);writer.startTelemetry("fixture");
+        writer.sample("RAW_ACCEL",android.os.SystemClock.elapsedRealtimeNanos(),0,0,9.81,3);
+        writer.step(500_000_000L);engine.step(500_000_000L);
+        File target=new File(app.getCacheDir(),"resources-"+System.nanoTime()+".zip");
+        writer.export(app,Uri.fromFile(target),engine.path(),engine.snapshot(500_000_000L),"FIXTURE");
+        try(ZipFile z=new ZipFile(target)){
+            assertTrue(entry(z,"resources.csv").contains("battery_temperature_c"));
+            org.json.JSONObject m=new org.json.JSONObject(entry(z,"resources_metadata.json"));
+            assertEquals("JAVA_PDR",m.getString("engine"));
+            assertEquals(1,m.getJSONObject("counters").getInt("accepted_steps"));
+            assertTrue(entry(z,"metadata.txt").contains("resources.csv"));
+        }finally{target.delete();}
+    }
     @Test public void exportedPathContainsGapAndReplayableDistanceEvents() throws Exception {
         Application app=RuntimeEnvironment.getApplication();
         PdrEngine p=new PdrEngine();

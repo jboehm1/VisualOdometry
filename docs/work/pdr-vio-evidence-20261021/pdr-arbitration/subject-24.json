@@ -1,0 +1,213 @@
+{
+  "source": {
+    "sha256": "eeffb9d1a62d4e5588c54462a7bbe8a27c1335bb47c4d6dd07449a56a57bbd3f",
+    "bytes": 6675488,
+    "url": "https://raw.githubusercontent.com/simpleLoc/SIMUL-dataset/ee7eb4e89bf33a17cafb4268207b802773427493/data/by-person/24/awindaRecording_20230506184711.csv"
+  },
+  "annotation": {
+    "sha256": "d9ea7a5b23d5c2f274fde9edcb8e361b1ed2cc66c7e002afa7b9eedbca824352",
+    "bytes": 783,
+    "url": "https://raw.githubusercontent.com/simpleLoc/SIMUL-dataset/ee7eb4e89bf33a17cafb4268207b802773427493/data/by-person/24/awindaRecording_20230506184711.csv.stepNonoverlap"
+  },
+  "samples": 6901,
+  "trials": [
+    {
+      "participant": "24",
+      "placement": "front_pocket",
+      "event_confirmation_delay": {
+        "count": 89,
+        "mean_ms": 34.41011235955057,
+        "max_ms": 100.0
+      },
+      "metrics": {
+        "current": {
+          "count": 96,
+          "reference": 80,
+          "matched": 76,
+          "false_positives": 20,
+          "missed_steps": 4,
+          "count_error_pct": 20.0,
+          "precision": 0.791667,
+          "recall": 0.95,
+          "f1": 0.863636
+        },
+        "smooth": {
+          "count": 88,
+          "reference": 80,
+          "matched": 76,
+          "false_positives": 12,
+          "missed_steps": 4,
+          "count_error_pct": 10.0,
+          "precision": 0.863636,
+          "recall": 0.95,
+          "f1": 0.904762
+        },
+        "adaptive": {
+          "count": 89,
+          "reference": 80,
+          "matched": 77,
+          "false_positives": 12,
+          "missed_steps": 3,
+          "count_error_pct": 11.25,
+          "precision": 0.865169,
+          "recall": 0.9625,
+          "f1": 0.911243
+        },
+        "adaptive_event_time": {
+          "count": 89,
+          "reference": 80,
+          "matched": 76,
+          "false_positives": 13,
+          "missed_steps": 4,
+          "count_error_pct": 11.25,
+          "precision": 0.853933,
+          "recall": 0.95,
+          "f1": 0.899408
+        },
+        "consensus": {
+          "count": 91,
+          "reference": 80,
+          "matched": 77,
+          "false_positives": 14,
+          "missed_steps": 3,
+          "count_error_pct": 13.75,
+          "precision": 0.846154,
+          "recall": 0.9625,
+          "f1": 0.900585
+        }
+      }
+    },
+    {
+      "participant": "24",
+      "placement": "hand",
+      "event_confirmation_delay": {
+        "count": 73,
+        "mean_ms": 65.41095890410959,
+        "max_ms": 162.5
+      },
+      "metrics": {
+        "current": {
+          "count": 71,
+          "reference": 80,
+          "matched": 69,
+          "false_positives": 2,
+          "missed_steps": 11,
+          "count_error_pct": -11.25,
+          "precision": 0.971831,
+          "recall": 0.8625,
+          "f1": 0.913907
+        },
+        "smooth": {
+          "count": 73,
+          "reference": 80,
+          "matched": 72,
+          "false_positives": 1,
+          "missed_steps": 8,
+          "count_error_pct": -8.75,
+          "precision": 0.986301,
+          "recall": 0.9,
+          "f1": 0.941176
+        },
+        "adaptive": {
+          "count": 73,
+          "reference": 80,
+          "matched": 72,
+          "false_positives": 1,
+          "missed_steps": 8,
+          "count_error_pct": -8.75,
+          "precision": 0.986301,
+          "recall": 0.9,
+          "f1": 0.941176
+        },
+        "adaptive_event_time": {
+          "count": 73,
+          "reference": 80,
+          "matched": 71,
+          "false_positives": 2,
+          "missed_steps": 9,
+          "count_error_pct": -8.75,
+          "precision": 0.972603,
+          "recall": 0.8875,
+          "f1": 0.928105
+        },
+        "consensus": {
+          "count": 71,
+          "reference": 80,
+          "matched": 69,
+          "false_positives": 2,
+          "missed_steps": 11,
+          "count_error_pct": -11.25,
+          "precision": 0.971831,
+          "recall": 0.8625,
+          "f1": 0.913907
+        }
+      }
+    },
+    {
+      "participant": "24",
+      "placement": "back_pocket",
+      "event_confirmation_delay": {
+        "count": 86,
+        "mean_ms": 35.75581395348837,
+        "max_ms": 87.5
+      },
+      "metrics": {
+        "current": {
+          "count": 84,
+          "reference": 80,
+          "matched": 71,
+          "false_positives": 13,
+          "missed_steps": 9,
+          "count_error_pct": 5.0,
+          "precision": 0.845238,
+          "recall": 0.8875,
+          "f1": 0.865854
+        },
+        "smooth": {
+          "count": 85,
+          "reference": 80,
+          "matched": 75,
+          "false_positives": 10,
+          "missed_steps": 5,
+          "count_error_pct": 6.25,
+          "precision": 0.882353,
+          "recall": 0.9375,
+          "f1": 0.909091
+        },
+        "adaptive": {
+          "count": 86,
+          "reference": 80,
+          "matched": 74,
+          "false_positives": 12,
+          "missed_steps": 6,
+          "count_error_pct": 7.5,
+          "precision": 0.860465,
+          "recall": 0.925,
+          "f1": 0.891566
+        },
+        "adaptive_event_time": {
+          "count": 86,
+          "reference": 80,
+          "matched": 74,
+          "false_positives": 12,
+          "missed_steps": 6,
+          "count_error_pct": 7.5,
+          "precision": 0.860465,
+          "recall": 0.925,
+          "f1": 0.891566
+        },
+        "consensus": {
+          "count": 84,
+          "reference": 80,
+          "matched": 71,
+          "false_positives": 13,
+          "missed_steps": 9,
+          "count_error_pct": 5.0,
+          "precision": 0.845238,
+          "recall": 0.8875,
+          "f1": 0.865854
+        }
+      }
+    }
+  ]
+}

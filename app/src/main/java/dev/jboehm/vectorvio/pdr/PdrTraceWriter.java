@@ -14,7 +14,11 @@ public final class PdrTraceWriter {
     private final File dir,events,raw;
     private BufferedWriter eventOut,rawOut;
     private int written;
+    private final Context context;
+    private dev.jboehm.vectorvio.metrics.SessionTelemetry telemetry;
+    private String telemetryError="";
     public PdrTraceWriter(Context c) throws IOException {
+        context=c;
         dir=new File(c.getCacheDir(),"pdr_"+System.currentTimeMillis());
         if(!dir.mkdirs())throw new IOException("Cannot create PDR session directory");
         events=new File(dir,"events.csv");raw=new File(dir,"raw_sensors.csv");
@@ -23,8 +27,17 @@ public final class PdrTraceWriter {
         eventOut.write("t_ns,type,x,y,z,bearing_accuracy_deg\n");
         rawOut.write("t_ns,type,x,y,z,w,accuracy\n");
     }
+    public void startTelemetry(String configuration) {
+        if(telemetry!=null)return;
+        try{
+            telemetry=new dev.jboehm.vectorvio.metrics.SessionTelemetry(context,new File(dir,"session"),"JAVA_PDR",configuration,
+                context instanceof android.app.Activity?((android.app.Activity)context).getWindow():null);
+            telemetry.resume();
+        }catch(IOException|RuntimeException e){telemetryError=e.toString();}
+    }
     public void sample(String type,long t,double x,double y,double z,int accuracy) {
         if(eventOut==null)return;
+        if(telemetry!=null&&type.startsWith("RAW_"))telemetry.sensor(type,t);
         try{
             BufferedWriter target=type.startsWith("RAW_")?rawOut:eventOut;
             if(type.startsWith("RAW_"))target.write(String.format(Locale.US,
@@ -37,6 +50,7 @@ public final class PdrTraceWriter {
     /** Full quaternion for ML dataset; heading remains a separately derived event. */
     public void rotationVector(long t,float[] v,int accuracy) {
         if(rawOut==null)return;
+        if(telemetry!=null)telemetry.sensor("RAW_ROTATION_VECTOR",t);
         try{
             rawOut.write(String.format(Locale.US,"%d,RAW_ROTATION_VECTOR,%.9f,%.9f,%.9f,%.9f,%d%n",
                 t,v[0],v[1],v[2],v.length>3?v[3]:Double.NaN,accuracy));
@@ -50,8 +64,9 @@ public final class PdrTraceWriter {
                 t,radians,speed,horizontalAccuracy,bearingAccuracy));
         }catch(IOException e){throw new IllegalStateException("GPS trace write failed",e);}
     }
-    public void step(long t){sample("STEP",t,0,0,0,0);}
+    public void step(long t){if(telemetry!=null)telemetry.count("accepted_steps");sample("STEP",t,0,0,0,0);}
     public void close() throws IOException {
+        if(telemetry!=null)telemetry.close();
         if(eventOut!=null){eventOut.close();eventOut=null;}
         if(rawOut!=null){rawOut.close();rawOut=null;}
     }
@@ -75,6 +90,10 @@ public final class PdrTraceWriter {
             if(dst==null)throw new IOException("No output stream");
             try(ZipOutputStream zip=new ZipOutputStream(dst,StandardCharsets.UTF_8)){
                 addFile(zip,events,"events.csv");addFile(zip,raw,"raw_sensors.csv");
+                for(String suffix:new String[]{"resources.csv","resources_metadata.json"}){
+                    File metrics=new File(dir,"session_"+suffix);
+                    if(metrics.isFile())addFile(zip,metrics,suffix);
+                }
                 zip.putNextEntry(new ZipEntry("path.csv"));
                 zip.write("t_ns,east_m,north_m,gap_before\n".getBytes(StandardCharsets.UTF_8));
                 for(PdrEngine.Point p:points)zip.write(String.format(Locale.US,
@@ -90,12 +109,15 @@ public final class PdrTraceWriter {
                     "GNSS is NOT used to calculate PDR distance; no position fix applied.\n"+
                     "Pressure altitude: relative, weather drift possible.\n"+
                     "Step mode: "+stepMode+"\n"+
+                    "Accelerometer fallback algorithm: "+snap.fallbackAlgorithm+"\n"+
+                    "Check stride calibration after changing gait, carry mode or step source/algorithm.\n"+
                     "Gait profile: "+gaitProfile+"\n"+
                     "Direction policy: "+headingPolicy+"\n"+
                     "Step length m: "+snap.stepLengthM+"\n"+
                     "Steps: "+snap.steps+"\n"+
                     "Estimated distance m: "+snap.distanceM+"\n"+
                     "Steps with no heading: "+snap.stepsWithoutHeading+"\n"+
+                    "Resource telemetry: "+(telemetry!=null?"resources.csv + resources_metadata.json":telemetryError.isEmpty()?"NOT STARTED":telemetryError)+"\n"+
                     "Sensor timing diagnostics (observed callbacks only):\n"+
                     sensorTiming+"\n")
                     .getBytes(StandardCharsets.UTF_8));zip.closeEntry();

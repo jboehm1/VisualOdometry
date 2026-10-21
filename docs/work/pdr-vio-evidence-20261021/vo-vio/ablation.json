@@ -1,0 +1,109 @@
+{
+  "schema": "vector-basalt-vo-vio-ablation/1",
+  "status": "MEASURED_ABLATION",
+  "order": [
+    "vio",
+    "vo",
+    "vo",
+    "vio"
+  ],
+  "results": {
+    "vio": {
+      "each": {
+        "first_pose_gauge_ate_rmse_m": [
+          0.22852830386661407,
+          0.22857158433195446
+        ],
+        "posthoc_rigid_ate_rmse_m": [
+          0.036886494742283144,
+          0.03688676179555613
+        ],
+        "reference_interval_coverage": [
+          0.9998302496946332,
+          0.9998302496946332
+        ],
+        "wall_seconds": [
+          11.447422204000077,
+          11.193065869999828
+        ],
+        "cpu_seconds": [
+          37.258375,
+          37.04895500000001
+        ],
+        "peak_rss_kib": [
+          77948,
+          78756
+        ]
+      },
+      "median": {
+        "first_pose_gauge_ate_rmse_m": 0.22854994409928425,
+        "posthoc_rigid_ate_rmse_m": 0.03688662826891964,
+        "reference_interval_coverage": 0.9998302496946332,
+        "wall_seconds": 11.320244036999952,
+        "cpu_seconds": 37.153665000000004,
+        "peak_rss_kib": 78352.0
+      }
+    },
+    "vo": {
+      "each": {
+        "first_pose_gauge_ate_rmse_m": [
+          0.22911573237941507,
+          0.22911593423143836
+        ],
+        "posthoc_rigid_ate_rmse_m": [
+          0.038871964306875006,
+          0.03887194270448072
+        ],
+        "reference_interval_coverage": [
+          0.9998302496946332,
+          0.9998302496946332
+        ],
+        "wall_seconds": [
+          8.472820590000083,
+          8.211606888999995
+        ],
+        "cpu_seconds": [
+          26.807193,
+          26.831536999999997
+        ],
+        "peak_rss_kib": [
+          60612,
+          59424
+        ]
+      },
+      "median": {
+        "first_pose_gauge_ate_rmse_m": 0.22911583330542673,
+        "posthoc_rigid_ate_rmse_m": 0.03887195350567786,
+        "reference_interval_coverage": 0.9998302496946332,
+        "wall_seconds": 8.342213739500039,
+        "cpu_seconds": 26.819364999999998,
+        "peak_rss_kib": 60018.0
+      }
+    }
+  },
+  "host": {
+    "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.35",
+    "machine": "x86_64",
+    "cpu_model": [
+      "AMD EPYC 9V45 96-Core Processor"
+    ],
+    "logical_cpus_visible": 4
+  },
+  "sensor_tree_sha256": "c39a4bb2f696e0e33cbed67797f4b86d3fe5be7b9412351cec802e68c966bb7f",
+  "engine_binary_sha256": "e4c88761f831664d23fd389dfd01e6efe62d3ebd5049dcbd688155e4ff771f46",
+  "reference_sha256": "701200e6924ba845ccdeea884bd717c82d1ed91f480913ea6e2e6ccb9c0fbf6d",
+  "report_files_sha256": {
+    "trial_0_vio/score.json": "2b3736a89d9ae04809a64311e4f33afc3b72b2639d9c32905a40a0a13e631497",
+    "trial_1_vo/score.json": "39d7c980f1d5db5c12ea7296c8bdf2a20d0089681f8b9bc6506eb4097061a389",
+    "trial_2_vo/score.json": "9932a30c8ed2dad8aabbfbbe21624f0152f759ad45ee23055644987031747c5d",
+    "trial_3_vio/score.json": "06a861dce8c50893ce7cd1d5228da670ad0e4630375e6201a68bb8452d02f284"
+  },
+  "ARCore_executed": false,
+  "global_best_engine_selected": false,
+  "limits": [
+    "One short V1_01 stereo window, original reference attitude caveat",
+    "Posthoc rigid and first-reference-pose gauge are diagnostics",
+    "Offline hosted throughput, no Android latency/battery/thermal evidence",
+    "This isolates IMU use within Basalt; not a cross-engine product comparison"
+  ]
+}

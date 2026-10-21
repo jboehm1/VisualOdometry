@@ -55,6 +55,23 @@ public final class SettingsActivityTest {
             assertFalse(((Switch)a.getWindow().getDecorView().findViewWithTag("switch_BIKE_VIEW_HINTS")).isChecked());
         }finally{d.pause().stop().destroy();}
     }
+    @Test public void extendedGpxIsAnOptOutNativeSwitch(){
+        org.robolectric.RuntimeEnvironment.getApplication()
+            .getSharedPreferences("spatial_explorer",Activity.MODE_PRIVATE)
+            .edit().putBoolean("gpx_extended_preview",true).commit();
+        ActivityController<SettingsActivity> c=open();
+        try{
+            SettingsActivity a=c.get();
+            View row=a.getWindow().getDecorView().findViewWithTag("setting_GPX_EXTENDED_PREVIEW");
+            assertNotNull(row);
+            Switch enabled=(Switch)a.getWindow().getDecorView().findViewWithTag("switch_GPX_EXTENDED_PREVIEW");
+            assertTrue(enabled.isChecked());
+            enabled.setChecked(false);
+            assertFalse(a.getSharedPreferences("spatial_explorer",Activity.MODE_PRIVATE)
+                .getBoolean("gpx_extended_preview",true));
+        }finally{c.pause().stop().destroy();}
+    }
+
     @Test public void searchFindsGpxAcrossSectionsAndUsesTypedAction(){
         ActivityController<SettingsActivity> c=open();
         try{
@@ -65,6 +82,16 @@ public final class SettingsActivityTest {
             assertNotNull(match);match.performClick();
             assertEquals(Activity.RESULT_OK,Shadows.shadowOf(a).getResultCode());
             assertEquals("GPX_AR",Shadows.shadowOf(a).getResultIntent().getStringExtra(SettingsActivity.EXTRA_ACTION));
+        }finally{c.pause().stop().destroy();}
+    }
+    @Test public void searchFindsCustomBasaltAndReturnsDistinctAction(){
+        ActivityController<SettingsActivity> c=open();
+        try{
+            SettingsActivity a=c.get();
+            ((EditText)a.getWindow().getDecorView().findViewWithTag("settings_search")).setText("Basalt");
+            View custom=a.getWindow().getDecorView().findViewWithTag("setting_CUSTOM_VIO");
+            assertNotNull(custom);custom.performClick();
+            assertEquals("CUSTOM_VIO",Shadows.shadowOf(a).getResultIntent().getStringExtra(SettingsActivity.EXTRA_ACTION));
         }finally{c.pause().stop().destroy();}
     }
 }

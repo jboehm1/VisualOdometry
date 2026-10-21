@@ -47,6 +47,27 @@ public class ArRouteGuideTest {
         for(int i=0;i<100;i++,ns+=100_000_000){g.onPose(1,ns,ns,0,0);if(i%10==0)g.onFix(fix(ns,i%3,0,LocationSample.Source.GPS_PROVIDER,false));}
         assertEquals(ArRouteGuide.State.NEED_BASELINE,g.snapshot(ns).state);assertTrue(g.snapshot(ns).edges.isEmpty());
     }
+    @Test public void frozenGpsHidesWorldRouteUntilFreshCoherentMotionSupportsHeading(){
+        ArRouteGuide g=engine();long ns=1_000_000_000L;
+        for(int i=0;i<=180;i++,ns+=100_000_000L){
+            g.onPose(1,ns,ns,i*.1,0);
+            if(i%10==0)g.onFix(fix(ns,0,0,LocationSample.Source.GPS_PROVIDER,false));
+        }
+        ArRouteGuide.Snapshot blocked=g.snapshot(ns-100_000_000L);
+        assertEquals(ArRouteGuide.State.NEED_BASELINE,blocked.state);
+        assertTrue(blocked.edges.isEmpty());assertTrue(blocked.worldEdges.isEmpty());
+        assertTrue(blocked.markers.isEmpty());assertTrue(Double.isNaN(blocked.latitude));
+        assertTrue(Double.isNaN(blocked.targetX));assertTrue(Double.isNaN(blocked.nearestX));
+        // New consistent measurements eventually replace the frozen window.
+        // They are simulated source fixes, never generated from the route.
+        for(int i=181;i<=1000;i++,ns+=100_000_000L){
+            g.onPose(1,ns,ns,i*.1,0);
+            if(i%10==0)g.onFix(fix(ns,(i-180)*.1,0,LocationSample.Source.GPS_PROVIDER,false));
+        }
+        ArRouteGuide.Snapshot recovered=g.snapshot(ns-100_000_000L);
+        assertEquals(ArRouteGuide.State.CANDIDATE,recovered.state);
+        assertFalse(recovered.edges.isEmpty());assertTrue(Double.isFinite(recovered.latitude));
+    }
     @Test public void commonBiasStaysUnobservableAndDoesNotClaimZeroUncertainty(){
         ArRouteGuide g=engine();long now=feed(g,.4,false,5);ArRouteGuide.Snapshot s=g.snapshot(now);
         assertEquals(ArRouteGuide.State.CANDIDATE,s.state);assertTrue(s.residualMeters<.01);
@@ -177,6 +198,29 @@ public class ArRouteGuideTest {
         g.trackingLost();
         assertFalse(g.visualShifted());
         assertTrue(g.snapshot(now).edges.isEmpty());
+    }
+
+    @Test public void findWholeRouteWhenUserOutsideRenderedNinetyMeterWindow(){
+        RouteIndex idx=new RouteIndex(route());
+        double[] nearest=idx.closest(lat(100),lon(300));
+        assertNotNull(nearest);assertTrue(nearest[2]>200);
+        assertEquals(0,idx.closest(lat(40),lon(20))[2],.15);
+        assertNull(idx.closest(Double.NaN,lon(20)));
+        assertTrue(idx.near(lat(100),lon(300),90,950).isEmpty());
+    }
+    @Test public void candidateAlignmentMaintainsWholeRouteRecoveryTargetBeyondViewport(){
+        ArRouteGuide g=engine();
+        long t=feed(g,0,false,0);
+        assertEquals(ArRouteGuide.State.CANDIDATE,g.snapshot(t).state);
+        g.onPose(1,t+100_000_000L,t+100_000_000L,250,-10);
+        ArRouteGuide.Snapshot s=g.snapshot(t+100_000_000L);
+        assertEquals(ArRouteGuide.State.CANDIDATE,s.state);
+        assertTrue(s.edges.isEmpty());
+        assertTrue(s.nearestMeters>150);
+        assertTrue(Double.isFinite(s.nearestX));
+        assertTrue(Double.isFinite(s.nearestZ));
+        g.trackingLost();
+        assertTrue(Double.isNaN(g.snapshot(t+200_000_000L).nearestX));
     }
 
 }

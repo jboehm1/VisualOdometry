@@ -5,6 +5,19 @@ import static org.junit.Assert.*;
 
 /** Deterministic guard-rail fixtures, NOT a ground-truth human step benchmark. */
 public final class StepPeakDetectorTest {
+    @Test public void invalidFutureSamplesDoNotPoisonConsensusStateOrIdentity(){
+        StepPeakDetector clean=new StepPeakDetector(), noisy=new StepPeakDetector();
+        assertEquals("JAVA_CAUSAL_CONSENSUS130_V2",clean.algorithmId());
+        assertEquals("JAVA_THRESHOLD_RHYTHM_V1",
+            new StepPeakDetector(StepPeakDetector.Mode.LEGACY_RESEARCH).algorithmId());
+        long t=1_000_000_000L;
+        for(int i=0;i<1000;i++,t+=20_000_000L){
+            assertFalse(noisy.accept(t+20_000_000_000L,Double.NaN,0,0));
+            assertFalse(noisy.accept(t+20_000_000_000L,Double.MAX_VALUE,0,0));
+            double z=i%30==10?14.5:9.81;
+            assertEquals(clean.accept(t,0,0,z),noisy.accept(t,0,0,z));
+        }
+    }
     private static int syntheticGait(int samplesPerStep,int steps){
         StepPeakDetector detector=new StepPeakDetector();
         long time=1_000_000_000L;

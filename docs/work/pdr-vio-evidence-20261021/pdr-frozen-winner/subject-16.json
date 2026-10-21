@@ -1,0 +1,114 @@
+{
+  "source": {
+    "sha256": "06572366f0a4485997eefc1a89ddfe1e815c1d76c7927083090460cb5710af93",
+    "bytes": 69447697,
+    "url": "https://raw.githubusercontent.com/simpleLoc/SIMUL-dataset/ee7eb4e89bf33a17cafb4268207b802773427493/data/by-person/16/awindaRecording_20230501202002.csv"
+  },
+  "annotation": {
+    "sha256": "7063464f082ff0ca1ee2a14e81e0bef456cd7523c23ba103210800ad2985ec9d",
+    "bytes": 17397,
+    "url": "https://raw.githubusercontent.com/simpleLoc/SIMUL-dataset/ee7eb4e89bf33a17cafb4268207b802773427493/data/by-person/16/awindaRecording_20230501202002.csv.stepNonoverlap"
+  },
+  "samples": 72343,
+  "trials": [
+    {
+      "participant": "16",
+      "placement": "front_pocket",
+      "event_confirmation_delay": {
+        "count": 1479,
+        "mean_ms": 29.056795131845842,
+        "max_ms": 87.5
+      },
+      "metrics": {
+        "current": {
+          "count": 1482,
+          "reference": 1476,
+          "matched": 1472,
+          "false_positives": 10,
+          "missed_steps": 4,
+          "count_error_pct": 0.407,
+          "precision": 0.993252,
+          "recall": 0.99729,
+          "f1": 0.995267
+        },
+        "consensus_130": {
+          "count": 1482,
+          "reference": 1476,
+          "matched": 1472,
+          "false_positives": 10,
+          "missed_steps": 4,
+          "count_error_pct": 0.407,
+          "precision": 0.993252,
+          "recall": 0.99729,
+          "f1": 0.995267
+        }
+      }
+    },
+    {
+      "participant": "16",
+      "placement": "hand",
+      "event_confirmation_delay": {
+        "count": 1481,
+        "mean_ms": 103.17353139770425,
+        "max_ms": 162.5
+      },
+      "metrics": {
+        "current": {
+          "count": 1482,
+          "reference": 1476,
+          "matched": 1472,
+          "false_positives": 10,
+          "missed_steps": 4,
+          "count_error_pct": 0.407,
+          "precision": 0.993252,
+          "recall": 0.99729,
+          "f1": 0.995267
+        },
+        "consensus_130": {
+          "count": 1482,
+          "reference": 1476,
+          "matched": 1472,
+          "false_positives": 10,
+          "missed_steps": 4,
+          "count_error_pct": 0.407,
+          "precision": 0.993252,
+          "recall": 0.99729,
+          "f1": 0.995267
+        }
+      }
+    },
+    {
+      "participant": "16",
+      "placement": "back_pocket",
+      "event_confirmation_delay": {
+        "count": 1479,
+        "mean_ms": 30.5104800540906,
+        "max_ms": 100.0
+      },
+      "metrics": {
+        "current": {
+          "count": 1482,
+          "reference": 1476,
+          "matched": 1474,
+          "false_positives": 8,
+          "missed_steps": 2,
+          "count_error_pct": 0.407,
+          "precision": 0.994602,
+          "recall": 0.998645,
+          "f1": 0.996619
+        },
+        "consensus_130": {
+          "count": 1482,
+          "reference": 1476,
+          "matched": 1474,
+          "false_positives": 8,
+          "missed_steps": 2,
+          "count_error_pct": 0.407,
+          "precision": 0.994602,
+          "recall": 0.998645,
+          "f1": 0.996619
+        }
+      }
+    }
+  ]
+}

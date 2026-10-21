@@ -21,7 +21,7 @@ concurrency:
 jobs:
   android:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - name: Java 17
@@ -52,6 +52,7 @@ jobs:
       - name: Python telemetry-analysis unit tests
         run: |
           python3 -m unittest discover -s tools/tests -v
+          python3 -m unittest discover -s tools/telemetry -v
           python3 -m unittest discover -s tools/gpx_ar/tests -v
           python3 tools/coordination/android_menu_contract.py --require GPS_ROUTES ARCORE_REPLAY FLP_AB PDR COURSES
           python3 tools/pdr/progress.py --check
@@ -67,8 +68,34 @@ jobs:
           module.fixture(Path('app/build/reports/gpx-ar/synthetic-input.zip'))
           PYTHON
           python3 tools/gpx_ar/replay.py app/build/reports/gpx-ar/synthetic-input.zip --out app/build/reports/gpx-ar/replay --input-origin synthetic_fixture
-      - name: Unit tests and installable APK
-        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
+      - name: Embed source identity for resource exports
+        env:
+          VECTOR_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os, subprocess
+          from pathlib import Path
+          target=Path('app/src/main/assets/build_provenance.json')
+          target.parent.mkdir(parents=True,exist_ok=True)
+          target.write_text(json.dumps({'source_commit':os.environ['VECTOR_SOURCE_SHA'],
+              'build_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+              'build_tree':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),
+              'workflow_run_id':os.environ['GITHUB_RUN_ID']}))
+          PYTHON
+      - name: Java unit tests and lint before native compilation
+        run: gradle :app:testDebugUnitTest :app:lintDebug --no-daemon --stacktrace
+      - name: Native Android toolchain
+        run: |
+          "$SDKMANAGER" --install 'ndk;27.3.13750724'
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vector-native-cache
+          key: vector-basalt-android-v1-ndk27-arm64-0f3b2b52-${{ github.event.pull_request.head.sha || github.sha }}
+          restore-keys: vector-basalt-android-v1-ndk27-arm64-0f3b2b52-
+      - name: Cross-compile pinned Basalt estimator for arm64 Android
+        run: python3 tools/vio/android/build.py --work "$RUNNER_TEMP/vector-native-cache" --ndk "$ANDROID_HOME/ndk/27.3.13750724"
+      - name: Package native libraries into installable APK
+        run: gradle :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
       - name: Pure Java camera-free PDR replay and quality invariants
         run: |
           mkdir -p app/build/reports/pdr
@@ -114,3 +141,10 @@ jobs:
           path: app/build/reports/tests/
           retention-days: 14
           if-no-files-found: ignore
+
+      - name: Preserve native dependency build progress even after a failed probe
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/vector-native-cache
+          key: vector-basalt-android-v1-ndk27-arm64-0f3b2b52-${{ github.event.pull_request.head.sha || github.sha }}

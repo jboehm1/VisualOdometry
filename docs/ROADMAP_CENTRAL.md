@@ -1,4 +1,25 @@
+## Datasets / matrices déterministes : état documenté 21/10/2026
+
+**Livré sur branche PR #43** : `tools/datasets/repro_manifest.py` (hash SHA256 des datasets locaux y compris arborescences et du code source, validation de l'état exact, symlink interdit, sorties historiques immuables), suite `deterministic-pdr-smoke.json` Java/Python et `.github/workflows/datasets-determinism.yml`. **C'est une garantie de reproductibilité d'entrée**, pas une preuve de dérive métrique ou d'ancrage GPX. Réutilise le moteur unique `tools/testenv` / `tools/campaigns/unified.py`; les runners ADVIO et Mobile-GVIO réels restent distincts. **Non faits** : acquisition S21 GPS+RTK indépendante, qualification PDR OxIOD/RoNIN complète, Basalt/JNI Android, A/B métrique et énergétique sur le même appareil. Voir [matrice](DATASET_REPRODUCIBILITY_V016.md), [handover](HANDOVER_WORK_AUTONOMOUS_V016.md) et [checkpoint Work](work/ACTIVE_SPRINT.md).
+
+## Work continuation and comparative navigation goal
+
+A full [autonomous Work handover](HANDOVER_WORK_AUTONOMOUS_V016.md) records the GPX anchor fail-closed design, PDR camera-free validation, fair ARCore/Camera2 native-VIO comparisons, energy/cost Pareto metrics, and persistent iteration/checkpoint instructions. Extreme conditions require **visible uncertainty and safe degradation**, not unverified perfect anchoring. Read it and current Git/CI before each new agent cycle; never interpret the document as proof that Work runs indefinitely or without external permissions.
+
+## Native VIO benchmark-first progress addendum
+
+New: C++17 engine-neutral API and host CI smoke (no native estimator), stricter Java calibration matrix gate, license release blocker, and measured-run scorecard skeleton (`tools/vio/compare_measured_runs.py`) with real-vs-synthetic differentiation and Pareto analysis. Its inputs must come from **actual** external engine measurements and independent truth; scorecard code by itself provides **zero comparative performance evidence**. Native JNI, YUV streaming, commercial legal signoff and GPX hard-condition field validation remain open. Follow `docs/NATIVE_VIO_ENGINE_V015.md` and `docs/coordination/nativevio-commercial-v015-20261021.md`.
+
+## Native VIO v0.15: staged commercial-safe R&D
+
+**New isolated implementation branch:** `feature/v015-commercial-nativevio-contracts` stacked on PR #42. Status: Java camera/IMU input timing/calibration guard **coded; CI pending**, a structural third-party release gate and docs, no C++ VIO engine and no direct GPX integration. Priorities: (1) pin & compile permissive engine + audit *every* redistributed dependency; (2) real camera+IMU benchmark with independent GT; (3) calibrated Android Camera2 YUV + SensorManager + native JNI and truthful tracking flags; (4) benchmark shutter A/B and GPX, test S21 and fallback devices; (5) product-grade privacy/ARCore terms/license/release process. ARCore stays default, and native VIO stays disabled until full gates. Details: [Native VIO engine v0.15](NATIVE_VIO_ENGINE_V015.md), [Commercial release](COMMERCIAL_RELEASE_GATES.md), [Atlas v5](VECTOR_VIO_ATLAS_INTERACTIF_v5.html).
+
 # VECTOR VIO — Feuille de route CENTRALE (tous chantiers)
+
+> **20/10/2026 — v0.13 global GPX fin de chantier (PR à valider).** La branche `feature/v013-full-gpx-global-lod` prolonge la PR #34 (90 m) par un index complet, un échantillonnage par bandes jusqu'à **50 km**, un clipping frustum, un budget de rendu borné, et l'import GPX >50k points. Le rendu violet distant reste **virtuel et approximatif**; la carte 2D donne accès au GPX complet. Limites configurées et nécessité des essais S21 dans [doc technique](GPX_AR_WORLD_GUIDE_V013.md). Ni succès CI ni coordonnées de plan virtuel ne certifient l'alignement réel.
+
+
+> **20 octobre 2026 — GPX dans le monde v0.13 · chantier `feature/v013-gpx-world-horizon`.** Extension GPX passée/future 90 m, bleu sur plans réellement observés + violet pointillé au-delà du sol observé, trait épais près/fin loin, flèche de récupération et caches bornés. Commutateur opt-out dans Paramètres → Parcours. C'est **un rendu indicatif**, pas un gain de précision odométrique. [Spécification et protocole](GPX_AR_WORLD_GUIDE_V013.md). CI et essai terrain S21 restent des étapes de validation.
 
 > **20 octobre 2026 — UX v0.12 + carte agrandissable (écran réglages complet, PR en cours).** Capture d'écran utilisateur : l'ancien AlertDialog imbriqué est petit et illisible. Nouveau `SettingsActivity` natif plein écran, 6 onglets à grands boutons, recherche, cartes 17sp/14sp, interrupteurs immédiats et persistants (GPS, IMU, sol, alertes vélo), navigation par actions identifiées sans index. Les options dépendant de la caméra ferment l'écran et reprennent l'action dans MainActivity; ouvrir les réglages interrompt volontairement ARCore/recording selon la gestion Android existante. [Doc UX](SETTINGS_SCREEN_V012.md). Travail isolé sur `feature/v012-settings-screen`, base `0eeeeb22a18b88cc6fb842ecea2556fb28754c74`; compilation et S21 à qualifier avant fusion.
 
@@ -157,3 +178,19 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 | Historique GitHub | `master` — `d9e4a8b4fe6b3d6caa32d435e00d66b8fe5976c7`, archive 2019 |
 
 > **Vigilance** : les SHA ci-dessus sont un instantané daté. Les autres chats peuvent pousser après cet audit. Une nouvelle fusion doit consulter à nouveau les branches, et une CI verte sur une branche ne prouve pas la validité de l'application combinée.
+
+### Autonomous quality cycle — 21 October 2026
+- G2 observability: frozen-GPS and rejected-outlier baseline failure reproduced and fixed on isolated descendant of PR #43. Synthetic 500-seed audit per scenario, including low-weight uncertain fixes: 2000/2000 false candidates before, 0/2000 after; coherent and single-GPS-spike scenarios retained 1000/1000 candidates. Real S21 GT gate remains open.
+- Evidence and reproduction: [observability audit](work/OBSERVABILITY_AUDIT_20261021.md). Current branch: `work/autonomous-quality-20261021`; do not merge ahead of stacked ancestors.
+
+- B1 evidence integrity: measured scoreboard v2 rejects incomplete declarations, impossible match counts and unversioned identities; CPU included in Pareto. Same-raw and repeated-route grouping are explicit.
+- D1 reproducibility: runtime converters/evaluators/registry source now invalidate resume caches even before commit. Two regression tests added. Physical accuracy and environment/toolchain locking remain open.
+
+- V2 acquisition guard: rejected future frame no longer resets accepted monotonic watermark/segment; overflow and exposure-midpoint reversal regressions added. This is a contract correction, not a Camera2/JNI or native estimator implementation. See [audit](work/NATIVE_INPUT_STATE_AUDIT_20261021.md).
+
+### N1 build / N2 host execution proven; dependency audit still open
+New isolated Basalt source-build + EuRoC workflow, pinned source/vcpkg, sensor-only inference container and reused metric evaluator. Six local adapter regressions pass. Actual source build and isolated V1_01 replay passed in run 39555701592 at `cf4e5194`: 1200 poses, 1179 matches. Diagnostic ATE: 0.22855 m first-pose gauge / 0.036887 m posthoc rigid SE3, no scale fit. Original reference attitude caveat applies. Transitive review, NDK/JNI and physical-phone gates remain open; no native APK claim. [Contract and status](NATIVE_VIO_HOST_BASELINE_V017.md).
+- Benchmark evidence correction: EuRoC wxyz was interpreted as xyzw. Fixed parser and false fixture; 16 local benchmark/fetch tests pass. Re-score prior rotational/local-frame RPE. [Audit](work/EUROC_QUATERNION_FIX_20261021.md).
+
+### PDR/VIO comparison and conservative challenger selection
+See [actual engines, comparison protocols and experimental gates](PDR_VIO_COMPARISON_20261021.md). The host Basalt VO/VIO ablation and subject-disjoint Java PDR challengers are research experiments; no ARCore superiority is implied. A later frozen consensus130 fallback passed reserved-subject step gates and is integrated with actual-Java parity, plus a pause/resume watermark fix. Phone metric accuracy remains unqualified.

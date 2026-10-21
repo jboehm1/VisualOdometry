@@ -65,6 +65,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         new dev.jboehm.vectorvio.geo.GeoFusionTracker();
     private volatile String geoDiagnostics="GEO WAIT";
     private long lastTrackingQualityMs;
+    /** v0.14 exposure telemetry only; ARCore still owns its AE/shutter settings. */
+    private long lastCameraExposureDiagnosticMs;
+    private volatile String cameraQualityLabel="";
     private final AnchoredOdometry anchoredOdometry=new AnchoredOdometry();
     private final TraceGuide traceGuide=new TraceGuide();
     private volatile boolean returnTraceRequested;
@@ -112,6 +115,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile int gpxDisplayFlags=dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.ALL;
     /** Optional occlusion only; depth NEVER becomes absolute terrain or GNSS truth. */
     private volatile boolean gpxDepthEnabled;
+    private volatile boolean gpxExtendedPreview=true;
     private volatile boolean gpxDepthSupported;
     private final ArPoseClock gpxPoseClock=new ArPoseClock();
     private final dev.jboehm.vectorvio.gpxar.ArRouteGuide gpxAr=new dev.jboehm.vectorvio.gpxar.ArRouteGuide();
@@ -133,6 +137,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile int gpxGeneration=1;
     private long lastGpxDiagnosticNs;
 
+    private volatile dev.jboehm.vectorvio.metrics.SessionTelemetry resourceTelemetry;
     private boolean trainingEnabled=false,exportDataset=false;
     private volatile Session arSession;
     private volatile int width=0,height=0;
@@ -234,6 +239,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         SharedPreferences preferences=getSharedPreferences("spatial_explorer",MODE_PRIVATE);
         gps.enabled=preferences.getBoolean("gps_speed_enabled",true);
         gpxDisplayFlags=preferences.getInt("gpx_display_flags",dev.jboehm.vectorvio.gpxar.RouteDisplayOptions.ALL);
+        gpxExtendedPreview=preferences.getBoolean("gpx_extended_preview",true);
         gpxDepthEnabled=preferences.getBoolean("gpx_depth_occlusion",false);
         estimatedGround=preferences.getBoolean("estimated_ground",false);
         keyframeIntervalSeconds=preferences.getFloat("keyframe_interval",1f);
@@ -242,7 +248,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         pointConfidenceThreshold=preferences.getFloat("point_confidence",.2f);
         imu=new ImuMonitor(this);
         imu.setListener((type,t,x,y,z)->{
-            if(odometer.isRecording())recorder.imu(type,t,x,y,z);
+            if(odometer.isRecording()){
+                recorder.imu(type,t,x,y,z);
+                if(resourceTelemetry!=null)resourceTelemetry.sensor(type==android.hardware.Sensor.TYPE_ACCELEROMETER?"ACCEL":"GYRO",t);
+            }
         });
         FrameLayout root=new FrameLayout(this);
         root.setBackgroundColor(0xFF091723);
@@ -384,6 +393,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(odometer.snapshot(SystemClock.elapsedRealtime()).recording) {
             long now=SystemClock.elapsedRealtime();
             odometer.pause(now);
+            if(resourceTelemetry!=null)resourceTelemetry.pause();
             recorder.event("PAUSE",System.currentTimeMillis());
             recordButton.setText("RESUME");
             recordButton.setContentDescription("Resume recording");
@@ -403,7 +413,17 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
 
     private void beginRecording() {
         if(arSession==null||!rendererRunning||odometer.isRecording())return;
-        if(needsNewFile){recorder.newSession();needsNewFile=false;}
+        if(needsNewFile){
+            if(resourceTelemetry!=null){resourceTelemetry.close();resourceTelemetry=null;}
+            recorder.newSession();needsNewFile=false;
+        }
+        if(resourceTelemetry==null&&recorder.currentFile()!=null)try {
+            File log=recorder.currentFile();
+            resourceTelemetry=new dev.jboehm.vectorvio.metrics.SessionTelemetry(this,
+                new File(log.getParentFile(),SessionBundle.stem(log)),playbackMode?"ARCORE_PLAYBACK":"ARCORE_LIVE",
+                "VIEW="+frameScheduler.fps()+"; tracking_target_hz=30; video="+trainingEnabled+"; torch="+torchEnabled,getWindow());
+        }catch(java.io.IOException|RuntimeException e){recorder.event("RESOURCE_TELEMETRY_UNAVAILABLE_"+e.getClass().getSimpleName(),System.currentTimeMillis());}
+        if(resourceTelemetry!=null)resourceTelemetry.resume("VIEW="+frameScheduler.fps()+"; tracking_target_hz=30; video="+trainingEnabled+"; torch="+torchEnabled);
         long now=SystemClock.elapsedRealtime();
         odometer.start(now);
         journalGpxArRoute();
@@ -566,12 +586,19 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             case UNKNOWN_GROUND:return estimatedGround?"ON":"OFF";
             case VIDEO_TRAINING:return trainingEnabled?"ARMED":"OFF";
             case POWER:return frameScheduler.mode().id.toUpperCase(Locale.US);
+            case CAMERA_CAPTURE_PROFILE:return CameraCaptureProfiles.fromPreference(
+                getSharedPreferences("spatial_explorer",MODE_PRIVATE)
+                    .getString("camera_capture_profile","BALANCED_30")).name().replace('_',' ');
             default:return "";
         }
     }
     private void performSettingsAction(SettingsCatalog.Action a){
         switch(a){
             case GPX_AR:gpxArMenu();break;
+            case GPX_EXTENDED_PREVIEW:
+                gpxExtendedPreview=!gpxExtendedPreview;
+                getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit()
+                    .putBoolean("gpx_extended_preview",gpxExtendedPreview).apply();break;
             case GPS_MANUAL_ALIGN:beginGpxManualMode();break;
             case GPS_ROUTES:startActivity(new Intent(this,GpsRoutesActivity.class));break;
             case PDR:
@@ -611,6 +638,17 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 getSharedPreferences("spatial_explorer",MODE_PRIVATE).edit()
                     .putBoolean("estimated_ground",estimatedGround).apply();break;
             case OVERLAY_RENDER:overlaySettings();break;
+            case CAMERA_CAPTURE_PROFILE:cameraCaptureProfileMenu();break;
+            case CAMERA2_MANUAL_LAB:
+                startActivity(new Intent(this,Camera2ManualActivity.class));break;
+            case CUSTOM_VIO:
+                if(odometer.isRecording()){
+                    Toast.makeText(this,"Pause the ARCore recording before switching estimators",Toast.LENGTH_LONG).show();break;
+                }
+                new AlertDialog.Builder(this).setTitle("Basalt custom · experimental")
+                    .setMessage("Runs independently from ARCore with the same shutter/ISO optimization controls as Camera2 Lab. Uses SDK factory camera geometry; timing, distortion and IMU noise are not calibrated for this phone. Accuracy is unverified. Record ARCore first, then the same measured route with Basalt. Basalt uses no ARCore trajectory. Raw IMU, poses, camera metadata and resource metrics are saved; images are not saved.")
+                    .setPositiveButton("Open Basalt",(dialog,which)->startActivity(new Intent(this,Camera2ManualActivity.class).putExtra(Camera2ManualActivity.EXTRA_CUSTOM_VIO,true)))
+                    .setNegativeButton("Cancel",null).show();break;
             case VIDEO_TRAINING:
                 if(odometer.isRecording()){
                     Toast.makeText(this,"Pause before changing video capture",Toast.LENGTH_LONG).show();break;
@@ -894,6 +932,28 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         guideText=g.arrived?"RETURN — near start (estimated)":String.format(Locale.US,"%s · %.1f m left · trace %.1f m · %s",g.offRoute>1?"REJOIN":"RETURN",g.remaining,g.offRoute,turn);
     }
 
+    private void cameraCaptureProfileMenu() {
+        if(playbackMode){
+            Toast.makeText(this,"Camera profile unavailable in ARCore replay",Toast.LENGTH_LONG).show();
+            return;
+        }
+        final CameraCaptureProfiles.Profile[] profiles=CameraCaptureProfiles.Profile.values();
+        String[] labels={"LOW LIGHT: 30 FPS target + autofocus",
+            "BALANCED: 30 FPS target + fixed focus",
+            "FAST MOTION: 60 FPS target if supported"};
+        final SharedPreferences prefs=getSharedPreferences("spatial_explorer",MODE_PRIVATE);
+        CameraCaptureProfiles.Profile selected=CameraCaptureProfiles.fromPreference(
+            prefs.getString("camera_capture_profile","BALANCED_30"));
+        new AlertDialog.Builder(this).setTitle("ARCore camera profile")
+            .setSingleChoiceItems(labels,selected.ordinal(),(dialog,which)->{
+                prefs.edit().putString("camera_capture_profile",profiles[which].name()).apply();
+                dialog.dismiss();
+                Toast.makeText(this,"Saved. Close and relaunch VECTOR VIO to use the new ARCore capture configuration. Manual shutter/ISO: CAMERA2 LAB.",Toast.LENGTH_LONG).show();
+            })
+            
+            .setNegativeButton("CANCEL",null).show();
+    }
+
     private void toggleTorch() {
         Session session=arSession;
         if(session==null||!rendererRunning){
@@ -948,6 +1008,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             .setPositiveButton("RESET",(d,w)->{
                 if(odometer.snapshot(SystemClock.elapsedRealtime()).recording)
                     recorder.event("RESET",System.currentTimeMillis());
+                if(resourceTelemetry!=null){resourceTelemetry.close();resourceTelemetry=null;}
                 odometer.reset();
                 clearMap=true;
                 String previousAutoName=autoMapName;
@@ -968,7 +1029,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private void pickExport() {
         if(odometer.isRecording()){toggleRecording();Toast.makeText(this,"Paused to finalize recording before export",Toast.LENGTH_SHORT).show();}
         new AlertDialog.Builder(this).setTitle("Export recording").setItems(new String[]{
-            "Current session — complete ZIP (video if recorded + IMU)",
+            "Current session — complete ZIP (metrics + IMU + optional video)",
             "Older session — complete ZIP", "Current session — CSV only", "Older session — CSV only"},(d,i)->{
                 exportDataset=i<2;
                 if(i==0||i==2){File current=recorder.currentFile();if(current==null){Toast.makeText(this,"No current recording; choose an older session",Toast.LENGTH_LONG).show();return;}launchSessionExport(current);}
@@ -1193,6 +1254,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         else gps.enabled=wantGps;
         estimatedGround=currentSettings.getBoolean("estimated_ground",false);
         hud.setBikeHints(currentSettings.getBoolean("bike_view_hints",true));
+        gpxExtendedPreview=currentSettings.getBoolean("gpx_extended_preview",true);
         hud.setLayers(currentSettings.getInt("overlay_layers",0));
         hud.setSensors(currentSettings.getBoolean("imu_overlay_enabled",false));
         if(!playbackMode){imu.start();gps.start();if(gpxArEnabled&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);}
@@ -1222,10 +1284,27 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     return;
                 }
                 Session created=new Session(this);
-                java.util.List<CameraConfig> cameras=created.getSupportedCameraConfigs(
-                    new CameraConfigFilter(created).setTargetFps(java.util.EnumSet.of(CameraConfig.TargetFps.TARGET_FPS_30)));
+                CameraCaptureProfiles.Profile requestedProfile=CameraCaptureProfiles.fromPreference(
+                    getSharedPreferences("spatial_explorer",MODE_PRIVATE)
+                        .getString("camera_capture_profile","BALANCED_30"));
+                boolean fastSupported=false;
+                java.util.List<CameraConfig> cameras=java.util.Collections.emptyList();
+                if(CameraCaptureProfiles.isFast(requestedProfile)){
+                    cameras=created.getSupportedCameraConfigs(new CameraConfigFilter(created)
+                        .setTargetFps(java.util.EnumSet.of(CameraConfig.TargetFps.TARGET_FPS_60)));
+                    fastSupported=!cameras.isEmpty();
+                }
+                if(cameras.isEmpty())cameras=created.getSupportedCameraConfigs(
+                    new CameraConfigFilter(created).setTargetFps(
+                        java.util.EnumSet.of(CameraConfig.TargetFps.TARGET_FPS_30)));
                 if(!cameras.isEmpty())created.setCameraConfig(cameras.get(0));
+                if(CameraCaptureProfiles.isFast(requestedProfile)&&!fastSupported)
+                    runOnUiThread(()->Toast.makeText(this,
+                        "ARCore 60 FPS unsupported on this camera: 30 FPS fallback",
+                        Toast.LENGTH_LONG).show());
                 Config config=new Config(created);
+                config.setFocusMode(CameraCaptureProfiles.autoFocus(requestedProfile)
+                    ?Config.FocusMode.AUTO:Config.FocusMode.FIXED);
                 config.setPlaneFindingMode(Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL);
                 config.setLightEstimationMode(Config.LightEstimationMode.DISABLED);
                 gpxDepthSupported=created.isDepthModeSupported(Config.DepthMode.RAW_DEPTH_ONLY);
@@ -1308,6 +1387,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         long now=SystemClock.elapsedRealtime();
         if(odometer.snapshot(now).recording){
             odometer.pause(now);
+            if(resourceTelemetry!=null)resourceTelemetry.pause();
             recorder.event("APP_PAUSED",System.currentTimeMillis());
             recordButton.setText("RESUME");
             recordButton.setContentDescription("Resume recording");
@@ -1348,6 +1428,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
         if(frameScheduler!=null)frameScheduler.stop();
         if(cadenceThread!=null)cadenceThread.quitSafely();
+        if(resourceTelemetry!=null){resourceTelemetry.close();resourceTelemetry=null;}
         recorder.shutdown();
         elevationIo.shutdownNow();
         mapIo.shutdown();
@@ -1417,6 +1498,11 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             s.setDisplayGeometry(getWindowManager().getDefaultDisplay().getRotation(),width,height);
             long phaseStartNs=SystemClock.elapsedRealtimeNanos();
             Frame frame=s.update();latestFrame=frame;
+            dev.jboehm.vectorvio.metrics.SessionTelemetry metrics=resourceTelemetry;
+            if(metrics!=null){
+                metrics.duration("arcore_update_call",SystemClock.elapsedRealtimeNanos()-phaseStartNs);
+                metrics.frame(frame.getTimestamp(),frame.getCamera().getTrackingState()==TrackingState.TRACKING,frame.getCamera().getTrackingFailureReason().name());
+            }
             if(playbackMode){
                 if(s.getPlaybackStatus()==PlaybackStatus.FINISHED){endPlayback();return;}
                 if(frame.getTimestamp()>0){playbackFrames++;
@@ -1428,6 +1514,56 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             phaseStartNs=SystemClock.elapsedRealtimeNanos();
             try{training.frame(s,frame);}catch(Exception e){training.status="VIDEO METADATA ERROR";}
             metadataMs=(SystemClock.elapsedRealtimeNanos()-phaseStartNs)/1_000_000L;
+            // Read camera's ACTUAL shutter/ISO at 1 Hz. Non-shared ARCore API:
+            // information only; we never force exposure or reconfigure AE mid-session.
+            long qualityMs=SystemClock.elapsedRealtime();
+            if(qualityMs-lastCameraExposureDiagnosticMs>=1000L && !playbackMode){
+                lastCameraExposureDiagnosticMs=qualityMs;
+                dev.jboehm.vectorvio.nativevio.FactoryCameraCalibration.observe(this,s,frame);
+                long exposureNs=0;int iso=0;
+                try{
+                    com.google.ar.core.ImageMetadata metadata=frame.getImageMetadata();
+                    exposureNs=metadata.getLong(com.google.ar.core.ImageMetadata.SENSOR_EXPOSURE_TIME);
+                    iso=metadata.getInt(com.google.ar.core.ImageMetadata.SENSOR_SENSITIVITY);
+                }catch(Exception unavailable){ /* Camera results are optional by device/frame. */ }
+                float[] sensor=imu.snapshot();
+                double angularSpeed=Math.sqrt((double)sensor[3]*sensor[3]+
+                    (double)sensor[4]*sensor[4]+(double)sensor[5]*sensor[5]);
+                CameraCaptureQuality.Assessment quality=CameraCaptureQuality.classify(
+                    exposureNs,iso,angularSpeed,
+                    frame.getCamera().getTrackingState()==TrackingState.TRACKING);
+                cameraQualityLabel=quality.state==CameraCaptureQuality.State.NORMAL ||
+                    quality.state==CameraCaptureQuality.State.UNKNOWN ||
+                    quality.state==CameraCaptureQuality.State.TRACKING_LOST?"":" · "+quality.label();
+                if(odometer.isRecording()&&recorder.currentFile()!=null)
+                    recorder.sidecar(recorder.currentFile(),"_camera_quality.csv",
+                        "frame_time_ns,exposure_ms,iso,gyro_rad_s,angular_blur_deg,quality_heuristic",
+                        String.format(Locale.US,"%d,%.4f,%d,%.6f,%.5f,%s",
+                            frame.getTimestamp(),quality.exposureMs,iso,angularSpeed,
+                            quality.angularBlurDeg,quality.state));
+                // Evidence needed to calibrate image brightness vs genuine ARCore
+                // tracking quality, WITHOUT taking control of ARCore's shutter.
+                // CPU images are optional; on some devices they are unavailable.
+                // Never hold the Image across renderer frames or store its pixels.
+                if(odometer.isRecording()&&recorder.currentFile()!=null&&frame.getTimestamp()>0){
+                    android.media.Image cameraImage=null;
+                    try{
+                        cameraImage=frame.acquireCameraImage();
+                        CameraImageQuality.Metrics m=ArCoreFrameLuma.measure(cameraImage);
+                        if(m!=null){
+                            String reason=frame.getCamera().getTrackingState()==TrackingState.TRACKING?
+                                "NONE":frame.getCamera().getTrackingFailureReason().name();
+                            recorder.sidecar(recorder.currentFile(),"_arcore_luma.csv",
+                                "frame_time_ns,tracking_state,failure_reason,p10_y,p50_y,p90_y,dark_fraction,clipped_fraction,edge_fraction,exposure_ms,iso",
+                                String.format(Locale.US,"%d,%s,%s,%d,%d,%d,%.4f,%.4f,%.4f,%.4f,%d",
+                                    frame.getTimestamp(),frame.getCamera().getTrackingState(),reason,
+                                    m.p10,m.p50,m.p90,m.darkFraction,m.clippedFraction,m.edgeFraction,
+                                    quality.exposureMs,iso));
+                        }
+                    }catch(Exception cpuImageUnavailable){ /* live AR must never fail because of diagnostic */ }
+                    finally{if(cameraImage!=null)cameraImage.close();}
+                }
+            }
             if(clearMap){gpxAr.trackingLost();gpxReference.reset();gpxGeneration++;traceGuide.clear();returnTraceRequested=false;guideText="";anchoredOdometry.reset();odometer.lostTracking();mapper.clear();if(worldOverlay!=null)worldOverlay.clear();clearMap=false;}
             Odometer.Result poseResult=Odometer.Result.INACTIVE;
 
@@ -1486,6 +1622,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                        && recorder.currentFile()!=null) {
                     Odometer.Snapshot data=odometer.snapshot(SystemClock.elapsedRealtime());
                     recorder.pose(wallMs,frame.getTimestamp(),xyz,quaternion,data);
+                    if(resourceTelemetry!=null)resourceTelemetry.count("pose_exports");
                     lastLoggedFrameNs=frame.getTimestamp();
                 }
             } else {
@@ -1563,7 +1700,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 lastHudUpdateMs=now;
                 if(recorder.problem()!=null) message="CSV ERROR: check Android logcat";
                 Odometer.Snapshot snap=odometer.snapshot(now);
-                String currentTracking=trackingLabel,currentMessage=message;
+                String currentTracking=trackingLabel+cameraQualityLabel,currentMessage=message;
                 int marks=markerCount;
                 runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(gpxArEnabled?gpxArText:guideText);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);hud.updateGps(gps.reading(SystemClock.elapsedRealtimeNanos()));});
             }
@@ -1584,6 +1721,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
     }
     @Override public void onDrawFrame(GL10 gl){
+        long drawStartNs=SystemClock.elapsedRealtimeNanos();
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);
         if(!rendererRunning||arSession==null||background==null)return;
         // First draw establishes the EGL context; queued updates can then run without swaps.
@@ -1599,6 +1737,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             mapper.allowEstimatedGround=estimatedGround;
             dev.jboehm.vectorvio.gpxar.ArRouteGuide.Snapshot routeState=gpxAr.snapshot(SystemClock.elapsedRealtimeNanos());
             mapper.gpxRoute=routeState;mapper.gpxWorldFromMetric=gpxReference.worldFromMetric();mapper.gpxDisplayFlags=gpxDisplayFlags;mapper.gpxMode=gpxArEnabled;
+            mapper.gpxExtendedPreview=gpxExtendedPreview;
             mapper.gpxDepthOcclusion=gpxArEnabled&&gpxDepthEnabled&&gpxDepthSupported&&!playbackMode;
 
             SceneMapper.Snapshot scene=mapper.update(arSession,frame,latestPoseResult,width,height,odometer.currentSegment(),mapCapture.pois(),pointConfidenceThreshold,history);
@@ -1633,6 +1772,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 try{worldOverlay.draw(camera,hud.layers(),width,height,getResources().getDisplayMetrics().density);}catch(RuntimeException|OutOfMemoryError e){disableWorldOverlay(e);}
         }catch(Exception displayError){
             if(now-lastOverlayErrorMs>=5_000){lastOverlayErrorMs=now;android.util.Log.e("VectorGL","Presentation failed; tracking continues",displayError);recorder.event("OVERLAY_SCENE_ERROR",System.currentTimeMillis());}
+        }finally{
+            if(resourceTelemetry!=null){resourceTelemetry.count("view_draw_callbacks");
+                resourceTelemetry.duration("gl_draw_submit_wall",SystemClock.elapsedRealtimeNanos()-drawStartNs);}
         }
     }
 }

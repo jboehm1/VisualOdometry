@@ -26,7 +26,8 @@ public class SettingsCatalogTest {
     @Test public void navigationKeepsGpxAndDedicatedManualShiftDiscoverable(){
         List<SettingsCatalog.Item> navigation=SettingsCatalog.items(SettingsCatalog.Section.NAVIGATION);
         assertEquals(SettingsCatalog.Action.GPX_AR,navigation.get(0).action);
-        assertEquals(SettingsCatalog.Action.GPS_MANUAL_ALIGN,navigation.get(1).action);
+        assertTrue("Manual GPX alignment must remain discoverable regardless of option order",
+            navigation.stream().anyMatch(item->item.action==SettingsCatalog.Action.GPS_MANUAL_ALIGN));
         assertTrue(navigation.stream().anyMatch(x->x.action==SettingsCatalog.Action.RETURN_TRACE));
         assertTrue(navigation.stream().anyMatch(x->x.action==SettingsCatalog.Action.PDR));
         assertTrue(navigation.stream().anyMatch(x->x.action==SettingsCatalog.Action.COURSES));
@@ -40,5 +41,11 @@ public class SettingsCatalogTest {
         assertTrue(SettingsCatalog.byId(SettingsCatalog.Action.GPS_MANUAL_ALIGN).description.contains("manual"));
         assertTrue(SettingsCatalog.byId(SettingsCatalog.Action.GPS_TOGGLE).description.contains("active"));
         assertTrue(SettingsCatalog.byId(SettingsCatalog.Action.VIDEO_TRAINING).description.contains("Opt-in"));
+    }
+    @Test public void customVioAndCameraLabAreDistinctActions(){
+        SettingsCatalog.Item custom=SettingsCatalog.byId(SettingsCatalog.Action.CUSTOM_VIO);
+        SettingsCatalog.Item lab=SettingsCatalog.byId(SettingsCatalog.Action.CAMERA2_MANUAL_LAB);
+        assertNotEquals(custom.action,lab.action);assertTrue(custom.title.contains("Basalt"));
+        assertTrue(custom.description.contains("unverified"));assertEquals(SettingsCatalog.Section.DISPLAY,custom.section);
     }
 }

@@ -70,11 +70,11 @@ public final class SettingsActivity extends Activity {
         back.setOnClickListener(v->finish());
         LinearLayout heading=vertical();
         TextView title=text("PARAMÈTRES",23,WHITE,true);heading.addView(title);
-        String version="?";
-        try{version=getPackageManager().getPackageInfo(getPackageName(),0).versionName;}
-        catch(PackageManager.NameNotFoundException ignored){}
+        String version=AppIdentity.version(this);
         TextView subtitle=text("VECTOR VIO  •  v"+version,12,CYAN,true);
         subtitle.setTag("settings_version");heading.addView(subtitle);
+        TextView build=text(AppIdentity.buildLabel(this),10,MUTED,false);
+        build.setTag("settings_build");heading.addView(build);
         header.addView(heading,new LinearLayout.LayoutParams(0,-2,1));
         root.addView(header,new LinearLayout.LayoutParams(-1,densityDp(64)));
         TextView helper=text("Toutes les options, expliquées et regroupées.",13,MUTED,false);
@@ -197,6 +197,7 @@ public final class SettingsActivity extends Activity {
     }
     private boolean isChecked(SettingsCatalog.Action a){
         switch(a){
+            case GPX_EXTENDED_PREVIEW:return prefs.getBoolean("gpx_extended_preview",true);
             case GPS_TOGGLE:return prefs.getBoolean("gps_speed_enabled",true) &&
                 (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED ||
                  checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED);
@@ -209,6 +210,7 @@ public final class SettingsActivity extends Activity {
     private void changeToggle(SettingsCatalog.Action a,boolean checked){
         String key;
         switch(a){
+            case GPX_EXTENDED_PREVIEW:key="gpx_extended_preview";break;
             case GPS_TOGGLE:key="gps_speed_enabled";break;
             case IMU_TOGGLE:key="imu_overlay_enabled";break;
             case UNKNOWN_GROUND:key="estimated_ground";break;

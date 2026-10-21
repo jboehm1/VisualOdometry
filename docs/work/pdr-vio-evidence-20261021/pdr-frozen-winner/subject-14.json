@@ -1,0 +1,312 @@
+{
+  "source": {
+    "sha256": "32321f61e7d2a256549f93cc78a763540e2ed9cfa9e3b57d52eaf47496d07485",
+    "bytes": 31403692,
+    "url": "https://raw.githubusercontent.com/simpleLoc/SIMUL-dataset/ee7eb4e89bf33a17cafb4268207b802773427493/data/by-person/14/awindaRecording_20230418125909.csv"
+  },
+  "annotation": {
+    "sha256": "b1a01c7c32c67ae16255a8288e149101a5edb3d903c0493f22d9b710c0784873",
+    "bytes": 7550,
+    "url": "https://raw.githubusercontent.com/simpleLoc/SIMUL-dataset/ee7eb4e89bf33a17cafb4268207b802773427493/data/by-person/14/awindaRecording_20230418125909.csv.stepNonoverlap"
+  },
+  "samples": 32615,
+  "trials": [
+    {
+      "participant": "14",
+      "placement": "front_pocket",
+      "event_confirmation_delay": {
+        "count": 641,
+        "mean_ms": 36.193447737909516,
+        "max_ms": 125.0
+      },
+      "metrics": {
+        "current": {
+          "count": 679,
+          "reference": 662,
+          "matched": 649,
+          "false_positives": 30,
+          "missed_steps": 13,
+          "count_error_pct": 2.568,
+          "precision": 0.955817,
+          "recall": 0.980363,
+          "f1": 0.967934
+        },
+        "smooth": {
+          "count": 659,
+          "reference": 662,
+          "matched": 647,
+          "false_positives": 12,
+          "missed_steps": 15,
+          "count_error_pct": -0.453,
+          "precision": 0.981791,
+          "recall": 0.977341,
+          "f1": 0.979561
+        },
+        "adaptive": {
+          "count": 641,
+          "reference": 662,
+          "matched": 596,
+          "false_positives": 45,
+          "missed_steps": 66,
+          "count_error_pct": -3.172,
+          "precision": 0.929797,
+          "recall": 0.900302,
+          "f1": 0.914812
+        },
+        "adaptive_event_time": {
+          "count": 641,
+          "reference": 662,
+          "matched": 603,
+          "false_positives": 38,
+          "missed_steps": 59,
+          "count_error_pct": -3.172,
+          "precision": 0.940718,
+          "recall": 0.910876,
+          "f1": 0.925556
+        },
+        "consensus": {
+          "count": 653,
+          "reference": 662,
+          "matched": 611,
+          "false_positives": 42,
+          "missed_steps": 51,
+          "count_error_pct": -1.36,
+          "precision": 0.935681,
+          "recall": 0.922961,
+          "f1": 0.929278
+        },
+        "consensus_120": {
+          "count": 654,
+          "reference": 662,
+          "matched": 611,
+          "false_positives": 43,
+          "missed_steps": 51,
+          "count_error_pct": -1.208,
+          "precision": 0.934251,
+          "recall": 0.922961,
+          "f1": 0.928571
+        },
+        "consensus_125": {
+          "count": 654,
+          "reference": 662,
+          "matched": 611,
+          "false_positives": 43,
+          "missed_steps": 51,
+          "count_error_pct": -1.208,
+          "precision": 0.934251,
+          "recall": 0.922961,
+          "f1": 0.928571
+        },
+        "consensus_130": {
+          "count": 655,
+          "reference": 662,
+          "matched": 612,
+          "false_positives": 43,
+          "missed_steps": 50,
+          "count_error_pct": -1.057,
+          "precision": 0.934351,
+          "recall": 0.924471,
+          "f1": 0.929385
+        }
+      }
+    },
+    {
+      "participant": "14",
+      "placement": "hand",
+      "event_confirmation_delay": {
+        "count": 648,
+        "mean_ms": 63.29089506172839,
+        "max_ms": 200.0
+      },
+      "metrics": {
+        "current": {
+          "count": 651,
+          "reference": 662,
+          "matched": 604,
+          "false_positives": 47,
+          "missed_steps": 58,
+          "count_error_pct": -1.662,
+          "precision": 0.927803,
+          "recall": 0.912387,
+          "f1": 0.92003
+        },
+        "smooth": {
+          "count": 661,
+          "reference": 662,
+          "matched": 628,
+          "false_positives": 33,
+          "missed_steps": 34,
+          "count_error_pct": -0.151,
+          "precision": 0.950076,
+          "recall": 0.94864,
+          "f1": 0.949358
+        },
+        "adaptive": {
+          "count": 648,
+          "reference": 662,
+          "matched": 619,
+          "false_positives": 29,
+          "missed_steps": 43,
+          "count_error_pct": -2.115,
+          "precision": 0.955247,
+          "recall": 0.935045,
+          "f1": 0.945038
+        },
+        "adaptive_event_time": {
+          "count": 648,
+          "reference": 662,
+          "matched": 616,
+          "false_positives": 32,
+          "missed_steps": 46,
+          "count_error_pct": -2.115,
+          "precision": 0.950617,
+          "recall": 0.930514,
+          "f1": 0.940458
+        },
+        "consensus": {
+          "count": 652,
+          "reference": 662,
+          "matched": 608,
+          "false_positives": 44,
+          "missed_steps": 54,
+          "count_error_pct": -1.511,
+          "precision": 0.932515,
+          "recall": 0.918429,
+          "f1": 0.925419
+        },
+        "consensus_120": {
+          "count": 653,
+          "reference": 662,
+          "matched": 606,
+          "false_positives": 47,
+          "missed_steps": 56,
+          "count_error_pct": -1.36,
+          "precision": 0.928025,
+          "recall": 0.915408,
+          "f1": 0.921673
+        },
+        "consensus_125": {
+          "count": 651,
+          "reference": 662,
+          "matched": 604,
+          "false_positives": 47,
+          "missed_steps": 58,
+          "count_error_pct": -1.662,
+          "precision": 0.927803,
+          "recall": 0.912387,
+          "f1": 0.92003
+        },
+        "consensus_130": {
+          "count": 651,
+          "reference": 662,
+          "matched": 604,
+          "false_positives": 47,
+          "missed_steps": 58,
+          "count_error_pct": -1.662,
+          "precision": 0.927803,
+          "recall": 0.912387,
+          "f1": 0.92003
+        }
+      }
+    },
+    {
+      "participant": "14",
+      "placement": "back_pocket",
+      "event_confirmation_delay": {
+        "count": 660,
+        "mean_ms": 38.59848484848485,
+        "max_ms": 112.5
+      },
+      "metrics": {
+        "current": {
+          "count": 666,
+          "reference": 662,
+          "matched": 647,
+          "false_positives": 19,
+          "missed_steps": 15,
+          "count_error_pct": 0.604,
+          "precision": 0.971471,
+          "recall": 0.977341,
+          "f1": 0.974398
+        },
+        "smooth": {
+          "count": 661,
+          "reference": 662,
+          "matched": 644,
+          "false_positives": 17,
+          "missed_steps": 18,
+          "count_error_pct": -0.151,
+          "precision": 0.974281,
+          "recall": 0.97281,
+          "f1": 0.973545
+        },
+        "adaptive": {
+          "count": 660,
+          "reference": 662,
+          "matched": 643,
+          "false_positives": 17,
+          "missed_steps": 19,
+          "count_error_pct": -0.302,
+          "precision": 0.974242,
+          "recall": 0.971299,
+          "f1": 0.972769
+        },
+        "adaptive_event_time": {
+          "count": 660,
+          "reference": 662,
+          "matched": 646,
+          "false_positives": 14,
+          "missed_steps": 16,
+          "count_error_pct": -0.302,
+          "precision": 0.978788,
+          "recall": 0.975831,
+          "f1": 0.977307
+        },
+        "consensus": {
+          "count": 666,
+          "reference": 662,
+          "matched": 647,
+          "false_positives": 19,
+          "missed_steps": 15,
+          "count_error_pct": 0.604,
+          "precision": 0.971471,
+          "recall": 0.977341,
+          "f1": 0.974398
+        },
+        "consensus_120": {
+          "count": 666,
+          "reference": 662,
+          "matched": 647,
+          "false_positives": 19,
+          "missed_steps": 15,
+          "count_error_pct": 0.604,
+          "precision": 0.971471,
+          "recall": 0.977341,
+          "f1": 0.974398
+        },
+        "consensus_125": {
+          "count": 666,
+          "reference": 662,
+          "matched": 647,
+          "false_positives": 19,
+          "missed_steps": 15,
+          "count_error_pct": 0.604,
+          "precision": 0.971471,
+          "recall": 0.977341,
+          "f1": 0.974398
+        },
+        "consensus_130": {
+          "count": 666,
+          "reference": 662,
+          "matched": 647,
+          "false_positives": 19,
+          "missed_steps": 15,
+          "count_error_pct": 0.604,
+          "precision": 0.971471,
+          "recall": 0.977341,
+          "f1": 0.974398
+        }
+      }
+    }
+  ]
+}
