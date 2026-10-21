@@ -12,7 +12,7 @@ import math
 from collections import Counter
 from pathlib import Path
 
-STATES = {"VISUAL_OBSERVED", "VISUAL_CAUTION", "ORIENTATION_ONLY", "POSITION_UNKNOWN"}
+STATES = {"VISUAL_OBSERVED", "VISUAL_CAUTION", "IMU_ONLY_NO_POSITION", "POSITION_UNKNOWN"}
 EXPECTED = {"frame_time_ns", "elapsed_ns", "arcore_tracking", "imu_fresh",
             "camera_quality", "gate_state", "arcore_pose_available", "inertial_translation",
             "visual_age_ms", "reason"}
