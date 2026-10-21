@@ -33,7 +33,7 @@ public class SessionTelemetryTest {
         t.count("accepted_steps");t.duration("test",2_000_000L);
         t.pause();t.count("accepted_steps");t.frame(400,false);
         t.resume();t.frame(500,true);t.pause();t.close();t.close();
-        JSONObject m=new JSONObject(Files.readString(new File(base+"_resources_metadata.json").toPath()));
+        JSONObject m=new JSONObject(new String(Files.readAllBytes(new File(base+"_resources_metadata.json").toPath()),java.nio.charset.StandardCharsets.UTF_8));
         assertEquals("RECORDED",m.getString("status"));assertEquals(2,m.getInt("segments"));
         assertEquals(1,m.getJSONObject("counters").getInt("accepted_steps"));
         assertEquals(4,m.getJSONObject("counters").getInt("distinct_camera_frames"));
