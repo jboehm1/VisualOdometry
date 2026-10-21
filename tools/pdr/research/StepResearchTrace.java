@@ -12,7 +12,8 @@ public final class StepResearchTrace {
     public static void main(String[] args) throws Exception {
         PdrEngine current = new PdrEngine();
         PeakCandidate smooth = new PeakCandidate(false), adaptive = new PeakCandidate(true);
-        List<Long> a = new ArrayList<>(), b = new ArrayList<>(), c = new ArrayList<>(), events=new ArrayList<>(), delays=new ArrayList<>();
+        CausalArbitration arbitration=new CausalArbitration();
+        List<Long> a = new ArrayList<>(), b = new ArrayList<>(), c = new ArrayList<>(), events=new ArrayList<>(), delays=new ArrayList<>(), combined=new ArrayList<>();
         long previous = -1; int samples = 0;
         try (BufferedReader in = Files.newBufferedReader(Path.of(args[0]))) {
             if (!"t_ns,ax,ay,az".equals(in.readLine())) throw new IllegalArgumentException("schema");
@@ -26,16 +27,20 @@ public final class StepResearchTrace {
                     throw new IllegalArgumentException("invalid sample");
                 previous=t;
                 if(samples++==0)current.start(t);
-                if(current.acceleration(t,x,y,z))a.add(t);
+                boolean base=current.acceleration(t,x,y,z);
+                boolean candidate=adaptive.accept(t,x,y,z);
+                if(base)a.add(t);
                 if(smooth.accept(t,x,y,z))b.add(t);
-                if(adaptive.accept(t,x,y,z)) {
+                if(candidate) {
                     c.add(t);events.add(adaptive.eventTimestampNs());
                     delays.add(t-adaptive.eventTimestampNs());
                 }
+                if(arbitration.accept(t,base,candidate))combined.add(t);
             }
         }
         if(samples<500)throw new IllegalArgumentException("too few samples");
         System.out.println("{\"current\":"+a+",\"smooth\":"+b+",\"adaptive\":"+c+
-            ",\"adaptive_event_time\":"+events+",\"event_confirmation_delay_ns\":"+delays+"}");
+            ",\"adaptive_event_time\":"+events+",\"event_confirmation_delay_ns\":"+delays+
+            ",\"consensus\":"+combined+",\"consensus_switches\":"+arbitration.switches()+"}");
     }
 }
