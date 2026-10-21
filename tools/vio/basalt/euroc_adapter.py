@@ -95,9 +95,8 @@ def stage(source, target, max_frames=1200):
             'truth_available_to_engine': False, 'window_selection': 'first camera frames; no reference-based selection'}
 
 
-def score(reference, trajectory, staged, runtime):
-    mode = runtime.get('engine_mode', 'vio')
-    if mode not in ('vio', 'vo'): raise ValueError('Unknown engine mode receipt')
+def score(reference, trajectory, staged, runtime, engine_name='actual upstream Basalt C++ visual-inertial estimator',
+          engine_source_sha=None, engine_config_sha256=None):
     if (runtime.get('exit_code') != 0 or runtime.get('truth_mount') is not False
             or runtime.get('network') != 'none'
             or not isinstance(runtime.get('binary_sha256'), str)
@@ -135,10 +134,9 @@ def score(reference, trajectory, staged, runtime):
     if primary['tracking_coverage_time_fraction'] < .5:
         raise ValueError('Insufficient scored time coverage')
     if not math.isfinite(primary['ate_rmse_m']): raise ValueError('Nonfinite ATE')
-    return {'schema': 'vector-basalt-host-real/1', 'status': 'MEASURED',
-            'engine': 'actual upstream Basalt C++ stereo '+('visual-inertial' if mode=='vio' else 'visual-only')+' estimator',
-            'engine_mode': mode,
-            'pose_frame': 'IMU/body', 'metric_scale': 'stereo calibrated; no reference scale fitted',
+    result = {'schema': 'vector-vio-host-real/1', 'status': 'MEASURED',
+            'engine': engine_name,
+            'pose_frame': 'IMU/body', 'metric_scale': 'estimated_online; no reference scale fitted',
             'truth_available_to_engine': False,
             'reference_sha256': digest(reference), 'trajectory_sha256': digest(trajectory),
             'sensor_tree_sha256': staged['sensor_tree_sha256'], 'runtime': runtime,
@@ -149,6 +147,15 @@ def score(reference, trajectory, staged, runtime):
                        'Selected V1_01 original reference has a published attitude-accuracy caveat; rotation and first-pose gauge errors are diagnostic',
                        'EuRoC MAV global-shutter stereo is not rolling-shutter smartphone mono',
                        'Native redistribution/transitive license review and JNI remain unqualified']}
+    if engine_source_sha is not None:
+        if not re.fullmatch(r'[0-9a-f]{40}', engine_source_sha):
+            raise ValueError('Engine source identity must be a full immutable commit SHA')
+        result['engine_source_sha'] = engine_source_sha
+    if engine_config_sha256 is not None:
+        if not re.fullmatch(r'[0-9a-f]{64}', engine_config_sha256):
+            raise ValueError('Engine configuration identity must be SHA-256')
+        result['engine_config_sha256'] = engine_config_sha256
+    return result
 
 
 def main():
@@ -158,9 +165,13 @@ def main():
     s.add_argument('--out', type=Path, required=True)
     e = sub.add_parser('score')
     for name in ('reference', 'trajectory', 'staged', 'runtime', 'out'): e.add_argument('--'+name, type=Path, required=True)
+    e.add_argument('--engine-name', default='actual upstream Basalt C++ visual-inertial estimator')
+    e.add_argument('--engine-source-sha')
+    e.add_argument('--engine-config-sha256')
     a = p.parse_args()
     result = stage(a.source, a.target, a.max_frames) if a.action == 'stage' else score(
-        a.reference, a.trajectory, json.loads(a.staged.read_text()), json.loads(a.runtime.read_text()))
+        a.reference, a.trajectory, json.loads(a.staged.read_text()), json.loads(a.runtime.read_text()),
+        a.engine_name, a.engine_source_sha, a.engine_config_sha256)
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(result, indent=2, allow_nan=False)+'\n')
 
