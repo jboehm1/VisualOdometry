@@ -200,6 +200,22 @@
       "needs_training": false,
       "can_predict_position_without_visual_input": false,
       "can_observe_hidden_obstacles_in_opaque_smoke": false
+    },
+    {
+      "id": "xfeat",
+      "priority": "P1",
+      "name": "XFeat learned keypoint detector/descriptor",
+      "role": "fast_visual_correspondence",
+      "hardware_tier": "S0",
+      "modalities": [
+        "rgb"
+      ],
+      "license": "Apache-2.0 original; third-party converted weights audit",
+      "readiness": "pretrained_and_litert_community_available_no_S21_test",
+      "source": "https://github.com/verlab/accelerated_features",
+      "needs_training": false,
+      "can_predict_position_without_visual_input": false,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
     }
   ],
   "fixed_platform_gates": {
