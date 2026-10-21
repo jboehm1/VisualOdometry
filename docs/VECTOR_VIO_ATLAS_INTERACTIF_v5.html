@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VECTOR VIO · Atlas interactif V5.4 — bibliothèque de cas d’usage, faible lumière, GPS/VIO et modes adaptatifs</title><style>
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VECTOR VIO · Atlas interactif V5.5 — bibliothèque de cas d’usage, faible lumière, GPS/VIO et modes adaptatifs</title><style>
 :root{--bg:#08111e;--panel:#111f31;--panel2:#172940;--line:#30455c;--ink:#eaf4ff;--muted:#9fb3ca;--cyan:#54d9d2;--purple:#b3a0ff;--orange:#ffbb76;--green:#80dba9}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,Segoe UI,Arial,sans-serif}header{position:sticky;top:0;z-index:5;background:#08111ef2;border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}.top{max-width:1440px;margin:auto;padding:15px 25px;display:flex;align-items:center;gap:15px;justify-content:space-between;flex-wrap:wrap}.brand{font-size:20px;font-weight:850;letter-spacing:.07em}.brand span{color:var(--cyan)}.sub{font-size:12px;color:var(--muted);letter-spacing:.08em}.actions{display:flex;gap:7px;flex-wrap:wrap}button,.btn{background:#223750;border:1px solid #38516c;color:var(--ink);border-radius:9px;padding:9px 13px;cursor:pointer;font:inherit;font-size:13px}button:hover{background:#2e4865}.primary{background:#127f80;border-color:#36b7b5}main{max-width:1440px;margin:auto;padding:28px 25px 75px}h1{font-size:clamp(32px,4vw,55px);line-height:1.08;letter-spacing:-.045em;margin:0 0 12px}h2{font-size:23px;margin:0 0 17px;letter-spacing:-.02em}h3{margin:0 0 8px;font-size:16px}.muted{color:var(--muted)}.hero{display:grid;grid-template-columns:1.3fr .7fr;gap:22px;margin:14px 0 32px}.hero p{font-size:17px;color:var(--muted);max-width:780px}.tag{font-size:11px;letter-spacing:.14em;color:var(--cyan);font-weight:800}.metricrow{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:15px}.metric b{display:block;font-size:27px;color:var(--cyan)}.metric small{color:var(--muted)}section{margin:32px 0 42px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px}.sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:19px;position:relative}.card p{color:var(--muted);margin:0 0 13px}.card .icon{font-size:29px;margin-bottom:12px}.card .edit{position:absolute;right:12px;top:12px;padding:5px 9px}.pill{display:inline-block;padding:4px 9px;border-radius:99px;background:#203a4d;color:var(--cyan);font-size:11px;font-weight:700}.idea{border-top:3px solid var(--cyan)}.idea:nth-child(3n+2){border-top-color:var(--purple)}.idea:nth-child(3n){border-top-color:var(--orange)}.flow{overflow:auto;background:#0b1929;border:1px solid var(--line);border-radius:18px;padding:20px}.flow svg{display:block;width:100%;min-width:700px;height:auto}.flow text{font-family:Inter,Segoe UI,Arial,sans-serif;fill:#eaf4ff}.flow .small{font-size:13px;fill:#b7cbdf}.flow .title{font-size:17px;font-weight:750}.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:12px}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.twocol{display:grid;grid-template-columns:1fr 1fr;gap:14px}.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}.step{background:var(--panel);border:1px solid var(--line);padding:15px;border-radius:13px}.step b{font-size:14px;color:var(--cyan)}.step p{color:var(--muted);font-size:13px;margin:8px 0 0}.status{font-size:11px;color:var(--orange);margin:8px 0}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:750px}th,td{text-align:left;border-bottom:1px solid var(--line);padding:12px}th{color:var(--cyan);font-size:12px}td{font-size:13px}input,textarea,select{width:100%;padding:11px;background:#091727;color:var(--ink);border:1px solid var(--line);border-radius:8px;font:inherit}textarea{min-height:100px}label{display:block;font-size:12px;color:var(--muted);margin:12px 0 5px}dialog{border:1px solid #47617c;background:#112238;color:var(--ink);border-radius:16px;width:min(540px,94vw);padding:25px}dialog::backdrop{background:#000b}.dialogactions{display:flex;justify-content:flex-end;gap:9px;margin-top:20px}.note{border-left:3px solid var(--orange);padding:12px 15px;background:#30291e;color:#f6dbba;border-radius:0 8px 8px 0}.footer{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:20px}a{color:var(--cyan)}.empty{color:var(--muted);padding:15px}@media(max-width:900px){.hero,.twocol{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.grid,.metricrow,.steps{grid-template-columns:1fr}main{padding:22px 14px}.panel{padding:15px}}@media print{header .actions,.edit,.sectionhead button,.dialogactions{display:none!important}body{background:white;color:#182c42}.card,.panel,.metric,.step{background:white;color:#182c42;break-inside:avoid}.card p,.muted,.step p{color:#4b6278}header{position:static;background:white}.flow{background:#122033;print-color-adjust:exact}section{break-inside:avoid}}
 
 
@@ -30,7 +30,7 @@
 @media(max-width:750px){.marketFilters{grid-template-columns:1fr}.marketCard .catalogbtn{width:100%}}
 </style>
 <style>
-/* Atlas V5.4: overview-first, accessible theme navigation and responsive strategy dashboard. */
+/* Atlas V5.5: overview-first, accessible theme navigation and responsive strategy dashboard. */
 body{background:radial-gradient(ellipse 90vw 55vw at 68% -12%,#153a48 0%,transparent 68%),#08111e}
 header{border-bottom:1px solid #305065;box-shadow:0 4px 32px #0002}.top{padding:11px 25px}
 .brand{font-size:18px}.sub{letter-spacing:.04em;font-size:11px}
@@ -76,7 +76,7 @@ section[hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){.valuecard,.card{transition:none!important}html{scroll-behavior:auto!important}}
 @media print{.atlasFocus,.atlasHistoricLinks,#marketSearch,#marketPriority,#marketDomain,.marketCompareActions{display:none!important}.atlasVisual{break-inside:avoid}section[hidden]{display:block!important}#marketComparison{display:none!important}}
 </style><style>
-/* Atlas V5.4 — qualitative decision laboratory; no invented success scores */
+/* Atlas V5.5 — qualitative decision laboratory; no invented success scores */
 #product-decision-lab{scroll-margin-top:88px}
 .atlasDecisionFlow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:18px 0}
 .atlasDecisionFlow>div{background:#122b3d;border:1px solid #35566a;border-radius:12px;padding:14px}
@@ -92,9 +92,33 @@ section[hidden]{display:none!important}
 .atlasPilotIndex{display:grid;place-items:center;border:1px solid #8d7b50;color:#f1d493;border-radius:8px;width:28px;height:28px;font-weight:900}
 @media(max-width:850px){.atlasDecisionFlow{grid-template-columns:repeat(2,minmax(0,1fr))}.atlasPilotGrid{grid-template-columns:1fr}}
 @media(max-width:650px){.atlasDecisionGrid{grid-template-columns:1fr}.atlasDecisionGrid label{margin-top:9px}}
-</style></head><body><header><div class="top"><div><div class="brand">VECTOR <span>VIO</span> <span style="font-weight:400;color:#9fb3ca">/ ATLAS</span></div><div class="sub">V5.4 · STRATEGY STUDIO · AUTO ADAPTATIF PROPOSÉ · HISTORIQUE V1→V4</div></div><div class="actions"><button onclick="setAtlasFocus('product',true);document.getElementById('ideas').scrollIntoView({behavior:'smooth'})">💡 Idées</button><button onclick="setAtlasFocus('engineering',true);document.getElementById('execution').scrollIntoView({behavior:'smooth'})">▥ Avancement</button><button onclick="addIdea()">＋ Ajouter une idée</button><button onclick="exportJSON()">⇩ Sauver JSON</button><button onclick="document.getElementById('importer').click()">⇧ Importer JSON</button><button onclick="window.print()">⎙ Imprimer / PDF</button></div></div></header><input id="importer" type="file" accept=".json,application/json" hidden onchange="importJSON(event)"><main>
+</style><style>
+/* S0-first study: separate device-alone from environmental-infrastructure and dedicated hardware. */
+#phone-first-degraded{scroll-margin-top:88px}
+.phoneFirstIntro{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.phoneFirstRule{padding:14px;border:1px solid #315768;border-radius:13px;background:#0c273a}
+.phoneFirstRule span,.phoneFirstSensorGrid article span{font-size:11px;letter-spacing:.06em;color:#90ead5;font-weight:800}
+.phoneFirstRule h3{font-size:18px;margin:10px 0}
+.phoneFirstControls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:12px 0}
+.phoneFirstControls label{font-weight:750;display:block}
+.phoneFirstControls select{width:100%;max-width:100%}
+.phoneFirstResult{border-left:4px solid #60d9ca;background:#132e3e;border-radius:11px;padding:18px;margin:17px 0 10px}
+.phoneFirstResult h3{font-size:20px;margin:5px 0}
+.phoneFirstResult .tag{color:#8debcf}
+.phoneFirstSensorGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.phoneFirstSensorGrid article{border:1px solid #36586b;background:#11283a;border-radius:12px;padding:15px}
+.phoneFirstSensorGrid h4{margin:7px 0;font-size:15px}.phoneFirstSensorGrid p{color:#bdd1dc;font-size:12px}
+.phoneFirstFlow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:15px 0}
+.phoneFirstFlow div{background:#1a4050;border:1px solid #468d89;border-radius:12px;font-weight:750;padding:13px}
+.phoneFirstFlow small{display:block;color:#aed2dc;font-size:11px;font-weight:normal}
+.phoneHardwareBoundary{margin-top:19px;border:1px solid #8b725b;border-radius:14px;padding:14px;background:#262731}
+.phoneHardwareBoundary>summary{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:800;color:#ffc99a}
+.phoneHardwareBoundary .panel{margin-top:14px}
+@media(max-width:850px){.phoneFirstIntro{grid-template-columns:1fr}.phoneFirstSensorGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.phoneFirstControls{grid-template-columns:1fr}.phoneFirstFlow{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.phoneFirstSensorGrid{grid-template-columns:1fr}.phoneFirstFlow{grid-template-columns:1fr}}
+</style></head><body><header><div class="top"><div><div class="brand">VECTOR <span>VIO</span> <span style="font-weight:400;color:#9fb3ca">/ ATLAS</span></div><div class="sub">V5.5 · STRATEGY STUDIO · AUTO ADAPTATIF PROPOSÉ · HISTORIQUE V1→V4</div></div><div class="actions"><button onclick="setAtlasFocus('product',true);document.getElementById('ideas').scrollIntoView({behavior:'smooth'})">💡 Idées</button><button onclick="setAtlasFocus('engineering',true);document.getElementById('execution').scrollIntoView({behavior:'smooth'})">▥ Avancement</button><button onclick="addIdea()">＋ Ajouter une idée</button><button onclick="exportJSON()">⇩ Sauver JSON</button><button onclick="document.getElementById('importer').click()">⇧ Importer JSON</button><button onclick="window.print()">⎙ Imprimer / PDF</button></div></div></header><input id="importer" type="file" accept=".json,application/json" hidden onchange="importJSON(event)"><main>
 <div class="atlasEditorial">
-  <div class="atlasEditorialCopy"><div class="atlasEyebrow"><span class="atlasSignal"></span> VECTOR VIO / STRATEGY STUDIO <span class="atlasEdition">V5.4 · 21/10/2026</span></div>
+  <div class="atlasEditorialCopy"><div class="atlasEyebrow"><span class="atlasSignal"></span> VECTOR VIO / STRATEGY STUDIO <span class="atlasEdition">V5.5 · 21/10/2026</span></div>
   <h1>De la trajectoire à la <em>preuve terrain.</em></h1>
   <p class="atlasLead">Explorer les niches où la position relative d’un smartphone permet vraiment de mieux documenter, retrouver ou vérifier un objet. Chaque proposition reste une hypothèse à comparer aux méthodes les plus simples.</p>
   <div class="atlasHeroActions"><a class="atlasSolidLink" href="#opportunity-landscape">Explorer les opportunités <span aria-hidden="true">↗</span></a><a class="atlasQuietLink" href="OPPORTUNITY_DEEP_DIVE_20261021.md">Lire l’enquête concurrentielle →</a></div>
@@ -125,7 +149,55 @@ section[hidden]{display:none!important}
   <button type="button" data-atlas-focus="all" aria-pressed="false" onclick="setAtlasFocus('all')">☰ Tout voir</button>
  </div>
 </nav>
-<details class="atlasHistoricLinks"><summary>Index complet des anciennes sections <span>↘</span></summary><div class="navchips" aria-label="Sommaire rapide"><a href="#ideas">Cas d’usage</a><a href="#terrain">Terrain difficile</a><a href="#fumee">Fumée / secours R&D</a><a href="#gpxfusion">GPS + VIO</a><a href="#segmentation">Sentiers / vision</a><a href="#positionnement">Stratégie initiale</a><a href="#branches">Branches</a><a href="#journal">Historique</a><a href="#usages">Matrice d’usage</a><a href="#execution">Avancement</a><a href="#androidbaseline">GPS ↔ FLP</a><a href="#adaptive">Modes adaptatifs</a><a href="#precisioncases">14 cas métier</a><a href="#precisionlab">Objectif 10 cm</a><a href="#opportunity-landscape">35 niches</a><a href="#market-deep-dives">Nouvelles niches 2026</a><a href="#product-decision-lab">Décider si VIO utile</a><a href="#experiences">Expériences</a><a href="#iteration4">V4 technique</a><a href="#engineering-updates">Notes d'intégration</a></div></details><section id="opportunity-landscape" data-module="opportunity-research-20261021" aria-labelledby="opportunityHeading">
+<details class="atlasHistoricLinks"><summary>Index complet des anciennes sections <span>↘</span></summary><div class="navchips" aria-label="Sommaire rapide"><a href="#ideas">Cas d’usage</a><a href="#terrain">Terrain difficile</a><a href="#fumee">Fumée / secours R&D</a><a href="#gpxfusion">GPS + VIO</a><a href="#segmentation">Sentiers / vision</a><a href="#positionnement">Stratégie initiale</a><a href="#branches">Branches</a><a href="#journal">Historique</a><a href="#usages">Matrice d’usage</a><a href="#execution">Avancement</a><a href="#androidbaseline">GPS ↔ FLP</a><a href="#adaptive">Modes adaptatifs</a><a href="#precisioncases">14 cas métier</a><a href="#precisionlab">Objectif 10 cm</a><a href="#opportunity-landscape">35 niches</a><a href="#phone-first-degraded">Smartphone seul : nuit/fumée + IA</a><a href="#market-deep-dives">Nouvelles niches 2026</a><a href="#product-decision-lab">Décider si VIO utile</a><a href="#experiences">Expériences</a><a href="#iteration4">V4 technique</a><a href="#engineering-updates">Notes d'intégration</a></div></details>
+<section id="phone-first-degraded" aria-labelledby="phoneFirstHeading" data-module="smartphone-only-darkness-smoke">
+ <div class="sectionhead"><div><div class="tag">P0 · NOUVELLE PRIORITÉ · CAPTEURS INTÉGRÉS UNIQUEMENT</div><h2 id="phoneFirstHeading">26 / Obscurité, fumée et perte de visibilité : maximum avec le smartphone seul</h2></div><span class="pill">Galaxy S21 · S0 sans accessoire</span></div>
+ <div class="panel phoneFirstIntro">
+ <div class="phoneFirstRule"><span>01 / PHYSIQUE</span><h3>Dans le noir, on peut retrouver de la lumière. Dans la fumée opaque, non.</h3><p>Camera2, ARCore et l'IA peuvent optimiser des images encore observables, puis exploiter l'inertiel lorsque la vision décroche. Ils <b>ne créent pas une image fiable d'obstacles cachés</b>. Une pose inertielle n'est pas un scanner 3D.</p></div>
+ <div class="phoneFirstRule"><span>02 / DÉCISION</span><h3>Une position inconnue est une sortie valide.</h3><p>Le but prioritaire est une <b>fusion qui sait s'abstenir</b> : `GOOD_VISUAL` → `DEGRADED` → `INERTIAL_UNCERTAIN` → `POSITION_UNKNOWN`. Aucun guidage d'évacuation, d'intervention ou de recherche de personnes.</p></div>
+ </div>
+ <div class="panel" style="margin-top:15px">
+ <h3>Test de faisabilité — uniquement les capteurs du téléphone</h3>
+ <div class="phoneFirstControls"><div><label for="phoneVisibility">Visibilité réelle</label><select id="phoneVisibility" onchange="updatePhoneFirstScenario()">
+ <option value="night">🌘 Noir sans fumée</option><option value="dim">🌃 Faible lumière + caméra en mouvement</option><option value="haze">🌫️ Voile / fumée légère, encore des contours</option><option value="opaque">🔥 Fumée opaque, aucun contour exploitable</option></select></div>
+ <div><label for="phoneMode">Déplacement</label><select id="phoneMode" onchange="updatePhoneFirstScenario()">
+ <option value="walk">🚶 Marche avec téléphone visible</option><option value="bike">🚴 Vélo / vitesse de translation non mesurée</option><option value="pocket">📱 Téléphone en poche ou caméra couverte</option></select></div>
+ <div><label for="phoneAnchor">Position de référence exploitable</label><select id="phoneAnchor" onchange="updatePhoneFirstScenario()">
+ <option value="none">Aucune référence, GNSS absent</option><option value="gnss">GNSS extérieur réellement bon</option><option value="site">Plan / Wi-Fi existant et autorisé (S1)</option></select></div></div>
+ <div class="phoneFirstResult" id="phoneFirstResult" role="status" aria-live="polite"><span class="tag">SMARTPHONE S0</span><h3>Départ avec vision + inertiel, puis repli contrôlé</h3><p>Comparer les modes sans inventer de précision.</p></div>
+ <p class="muted">Cette boîte est une <b>matrice de décision conservatrice</b>, non une prédiction quantitative de précision. <strong>S1</strong> utilise éventuellement des Wi-Fi/repères existants dans l'environnement : pas de matériel à acheter, mais <b>ce n'est plus autonome</b>.</p>
+ </div>
+ <div class="panel" style="margin-top:15px"><h3>Inventaire exploitable du Galaxy S21 : distinguer vérité physique et fusion</h3>
+ <div class="phoneFirstSensorGrid">
+ <article><span>01 · VISUEL</span><h4>RGB + métadonnées Camera2</h4><p>YUV, histogrammes locaux, ROI gradient, exposition ISO/shutter réellement captée, flou, flux optique, distribution et ratio d'inliers. <b>La netteté doit améliorer la géométrie, pas seulement l'aperçu.</b></p></article>
+ <article><span>02 · INERTIEL</span><h4>Gyroscope + accéléromètre</h4><p>VIO + propagation courte, détection de pas / biais / virages. L'accélération doublement intégrée dérive; le téléphone <b>ne détecte pas la vitesse constante du vélo</b>.</p></article>
+ <article><span>03 · CONTEXTE</span><h4>Magnétomètre + baromètre</h4><p>Orientation ou signature d'une zone et variations d'étage, seulement avec validation des perturbations. Aucun des deux ne fournit une position 3D absolue.</p></article>
+ <article><span>04 · ANCRAGE</span><h4>GNSS et qualité du signal</h4><p>Dernière position globale fiable à la sortie/entrée d'un bâtiment. GNSS en intérieur souvent non fiable; mesurer le modèle S21 avant de déclarer bruts/multifréquence disponibles.</p></article>
+ <article><span>05 · OPTIQUE ACTIVE INTÉGRÉE</span><h4>LED + capteur de luminosité</h4><p>Essai contrôlé torche ON/OFF en obscurité **sans fumée**; la LED peut aggraver la rétro-diffusion en fumée. Pas d'activation autonome en atmosphère dangereuse.</p></article>
+ <article><span>06 · DEPTH EXISTANT</span><h4>ARCore Raw Depth + confiance</h4><p><strong>S21 listé compatible Depth.</strong> Tester densité/confiance des points si disponibles. Depth calculée depuis le mouvement RGB : pas de pénétration fumée. <b>SharedCamera ARCore limite l'accès hardware depth.</b></p></article>
+ </div></div>
+ <div class="panel" style="margin-top:15px"><h3>IA candidates — priorité fonctionnelle, licence et état réel</h3>
+ <div class="tablewrap"><table class="worktable"><thead><tr><th>Ordre</th><th>Moteur / IA</th><th>Pourquoi l'étudier</th><th>Précaution indispensable</th></tr></thead><tbody>
+ <tr><td><b>P0</b></td><td>ARCore, Basalt et garde-fou d'observabilité</td><td>Baseline 6DoF du projet + Camera2 propriétaire du flux Basalt</td><td>Basalt sur S21 non qualifié ; ne pas confondre CI et GT. <a href="https://github.com/VladyslavUsenko/basalt" target="_blank" rel="noopener noreferrer">Basalt BSD-3</a></td></tr>
+ <tr><td><b>P0</b></td><td>PDR classique + classificateur d'activité</td><td>Rester en marche à vitesse incertaine quand caméra perdue</td><td>Pas d'estimation métrique vélo sans référence, pas de route incendie</td></tr>
+ <tr><td><b>P1</b></td><td><a href="https://github.com/Sachini/ronin" target="_blank" rel="noopener noreferrer">RoNIN</a></td><td>Référence réseau IMU/piéton pour marche avec téléphone variable</td><td><b>GPL-3.0</b>, poids/domaine marche, comparaison réelle avant réutilisation commerciale</td></tr>
+ <tr><td><b>P1</b></td><td><a href="https://github.com/CathIAS/TLIO" target="_blank" rel="noopener noreferrer">TLIO</a></td><td>Déplacement IMU avec incertitude et filtre EKF, cible perte caméra</td><td><b>BSD style</b>; dépôt exige dataset et réentraînement, pas d'APK plug-and-play</td></tr>
+ <tr><td><b>P1</b></td><td><a href="https://github.com/zju3dv/rnin-vio" target="_blank" rel="noopener noreferrer">RNIN-VIO</a></td><td>Contrainte inertielle apprise pour VIO en scène visuellement dégradée</td><td><b>Apache-2.0</b> repo, poids et compatibilité smartphone à vérifier</td></tr>
+ <tr><td><b>P1</b></td><td>Classifieur observabilité léger (à entraîner)</td><td>Apprendre les transitions good/degraded/unknown, mieux gérer les faux positifs</td><td>Commencer par seuils explicables, labels indépendants et test aveugle</td></tr>
+ <tr><td><b>P2</b></td><td><a href="https://github.com/DepthAnything/Depth-Anything-V2" target="_blank" rel="noopener noreferrer">Depth Anything V2 Small</a></td><td>Profondeur relative lorsque l'image est vraiment visible</td><td><b>Small Apache-2.0</b> / versions supérieures non commerciales ; profondeur halluciné ≠ sécurité</td></tr>
+ </tbody></table></div>
+ <p class="muted">Un réseau d'augmentation faible lumière peut être essayé uniquement comme candidat P2, avec test de <b>fidélité des points et de dérive</b>. Les modèles peuvent améliorer les décisions faites à partir de données réelles, pas restituer la géométrie derrière une fumée opaque. <a href="SMARTPHONE_ONLY_SENSOR_AI_ROADMAP_20261021.md">Dossier source complet : 10 modèles, capteurs, licences, 8 expériences S21 ↗</a></p>
+ </div>
+ <div class="panel" style="margin-top:15px"><h3>Architecture recommandée, exécutable par étapes</h3>
+ <div class="phoneFirstFlow"><div>RGB + Camera2<br><small>blur / inliers / exposition</small></div><div>IMU horodatée<br><small>gyro + acc + pas / mode</small></div><div>Qualité / fusion<br><small>innovations, incertitude</small></div><div>Pose ou UNKNOWN<br><small>source explicitée, replay</small></div></div>
+ <p class="muted"><b>S0 — téléphone réellement seul :</b> pas de marker additionnel, sans AP, caméra + IMU + capteurs d'environnement. <b>S1 — infrastructure déjà présente :</b> Wi-Fi/BLE RSSI, Wi-Fi RTT et plan du bâtiment peuvent aider, mais nécessitent équipements/repères existants, permissions et conditions adaptées. La prise en charge RTT doit être interrogée en runtime, et les scans Wi-Fi sont limités par Android.</p>
+ </div>
+ <details id="phoneExternalHardware" class="phoneHardwareBoundary"><summary>🧰 MATÉRIEL SUPPLÉMENTAIRE — annexe R&D totalement séparée <span>Déplier ↘</span></summary>
+ <div class="panel"><h3>Ce qui n'existe PAS à l'intérieur d'un Galaxy S21</h3><p><strong>Radar mmWave 4D, caméra thermique LWIR, IMU fixée au pied, LiDAR externe, balises UWB ajoutées :</strong> tous demandent du matériel dédié, une intégration, une calibration, des timestamps et parfois une alimentation/ordinateur. Radar = retours volumétriques épars, pas film RGB ni pose SLAM immédiate. LWIR = contrastes de chaleur, pas transparence garantie dans fumées/vapeurs.</p>
+ <p>Leurs modèles (radar-IMU, thermal VIO) et les datasets correspondants sont une <b>branche expérimentale distincte</b>, non une fonctionnalité ni un benchmark du pipeline smartphone. Des études de marché et de matériel antérieures existent dans la R&D fumée du dépôt.</p><p><a href="#fumee">Étude fumée/hardware historique →</a> · <a href="SMARTPHONE_ONLY_SENSOR_AI_ROADMAP_20261021.md#h-annexe--exclusivement-si-le-t%C3%A9l%C3%A9phone-seul-%C3%A9choue-mat%C3%A9riel-sp%C3%A9cifique">Annexe technique dédiée ↗</a></p></div>
+ </details>
+</section>
+<section id="opportunity-landscape" data-module="opportunity-research-20261021" aria-labelledby="opportunityHeading">
   <div class="sectionhead"><div><div class="tag">RECHERCHE MARCHÉ · 21 OCT 2026 · SOURCES PRIMAIRES + HYPOTHÈSES</div><h2 id="opportunityHeading">23 / Où VECTOR VIO peut créer une véritable valeur ?</h2></div><span class="pill">35 pistes · priorités hypothétiques · sans clients validés</span></div>
   <div class="panel">
     <h3>Thèse produit : journal spatial de visite, pas « SLAM plus précis »</h3>
@@ -651,9 +723,9 @@ filterMarketOpportunities();renderMarketComparison();
 const main=document.querySelector('main'), nav=document.getElementById('atlasFocusNav');
 if(!main||!nav)return;
 const groups={
-  market:new Set(['opportunity-landscape','product-decision-lab','market-deep-dives','precisioncases','usages','positionnement']),
-  product:new Set(['ideas','precisioncases','gpxfusion','usages','branches']),
-  science:new Set(['terrain','fumee','gpxfusion','segmentation','adaptive','precisionlab','experiences']),
+  market:new Set(['phone-first-degraded','opportunity-landscape','product-decision-lab','market-deep-dives','precisioncases','usages','positionnement']),
+  product:new Set(['phone-first-degraded','ideas','precisioncases','gpxfusion','usages','branches']),
+  science:new Set(['phone-first-degraded','terrain','fumee','gpxfusion','segmentation','adaptive','precisionlab','experiences']),
   engineering:new Set(['dataset-determinism-v016','nativevio-commercial-v015','gpx-world-v013',
     'settings-v012','ui-v011','execution','iteration4','androidbaseline','journal'])
 };
@@ -713,5 +785,31 @@ function updateProductDecision(){
  (caveats.length?'<ul class="atlasDecisionWarnings">'+caveats.map(s=>'<li>'+safe(s)+'</li>').join('')+'</ul>':'');
 }
 updateProductDecision();
+</script>
+<script>
+function updatePhoneFirstScenario(){
+ const visibility=document.getElementById('phoneVisibility').value;
+ const locomotion=document.getElementById('phoneMode').value;
+ const anchor=document.getElementById('phoneAnchor').value;
+ let label='S0 · VIO à tester';let title='Essai faible lumière, sans fumée, avec caméra réellement visible.';
+ let details='Démarrer ARCore et Basalt séparément. Quantifier blur/contraste/ratio d’inliers et poses valides. Éclairer seulement si contexte sans risque, puis comparer la trajectoire.';
+ if(visibility==='dim'){label='S0 · CAMERA2 / EXPOSITION';title='Favoriser une image nette plutôt qu’un aperçu simplement lumineux.';details='Tester shutter court quand vitesse angulaire forte, ISO toléré si nécessaire, qualité optique et ARCore comme baseline. Le contrôle Camera2 dédié ne garantit pas le contrôle de l’AE interne ARCore.';}
+ if(visibility==='haze'){label='S0 · CONTRASTE RÉSIDUEL SEULEMENT';title='La VIO peut encore fonctionner si de vrais contours sont observables.';details='Mesurer tracks et innovation de pose, détecter le voile et déclencher le mode dégradé. Aucun réseau ne rend une fumée invisible transparente.';}
+ if(visibility==='opaque'){label='S0 · AUCUNE GÉOMÉTRIE OPTIQUE DISPONIBLE';title='Sans contours visibles, l’IA du téléphone ne voit pas les obstacles.';details='Tester uniquement la détection de perte de tracking, l’estimation inertielle incertaine et POSITION_UNKNOWN. Pas d’instruction d’évacuation ni de navigation réelle.';}
+ if(locomotion==='pocket'){label='S0 · VISION INDISPONIBLE';title='Téléphone en poche : pas de suivi caméra, même en plein jour.';details='Utiliser IMU et modèle de marche uniquement si portage et mode sont reconnus; décroissance de confiance. Aucun obstacle n’est cartographié.';}
+ else if(locomotion==='bike'&&(visibility==='opaque'||visibility==='dim'||visibility==='haze'||visibility==='night')){
+  label='S0 · VELO : VITESSE NON OBSERVABLE';
+  title='À vitesse de vélo constante, l’IMU ne fournit pas l’odométrie métrique.';
+  details='La vitesse nécessite une mesure externe ou du GNSS valide. Modèles RoNIN/TLIO piétons inadaptés sans réentraînement spécifique. Si vision inutilisable, POSITION_UNKNOWN.';
+ }
+ if(visibility==='night'&&locomotion==='walk'){details+=' Torche LED intégrée : uniquement test manuel sans fumée, jamais activation en milieu dangereux.';}
+ if(anchor==='gnss'){details+=' GNSS : utiliser un fix réel seulement si précision et âge valides. En intérieur, la dernière coordonnée connue ne garantit plus la trajectoire.';}
+ if(anchor==='site'){details+=' S1 (et non S0 autonome) : Wi-Fi/BLE/plan existant, vérifier permissions, age des scans, qualité RTT/AP; aucune promesse de position précise.';}
+ if(visibility==='opaque'){details+=' Usage secours : INTERDIT pour ce prototype.';}
+ const safe=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+ const node=document.getElementById('phoneFirstResult'); if(!node)return;
+ node.innerHTML='<span class="tag">'+safe(label)+'</span><h3>'+safe(title)+'</h3><p>'+safe(details)+'</p>';
+}
+updatePhoneFirstScenario();
 </script>
 </body></html>
