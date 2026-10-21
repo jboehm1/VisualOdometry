@@ -1,6 +1,8 @@
 package dev.jboehm.vectorvio.nativevio;
 
-import android.test.InstrumentationTestCase;
+import androidx.test.platform.app.InstrumentationRegistry;
+import org.junit.Test;
+import static org.junit.Assert.*;
 import android.os.SystemClock;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -8,8 +10,8 @@ import java.util.concurrent.*;
 import org.json.JSONObject;
 
 /** Runs the actual compiled JNI estimator in Android, without ARCore or reference poses. */
-public final class BasaltAndroidTest extends InstrumentationTestCase {
-    public void testShutdownWithFullImuQueueBeforeFirstImage()throws Exception {
+public final class BasaltAndroidTest {
+    @Test(timeout=30000) public void testShutdownWithFullImuQueueBeforeFirstImage()throws Exception {
         assertNull(BasaltBridge.unavailableReason());
         FutureTask<Void> run=new FutureTask<>(()->{
             double[] p={640,480,500,500,320,240,1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,.000282,.016,.0001,.001,200};
@@ -22,12 +24,12 @@ public final class BasaltAndroidTest extends InstrumentationTestCase {
         });
         Thread t=new Thread(run,"native-shutdown-test");t.setDaemon(true);t.start();run.get(15,TimeUnit.SECONDS);
     }
-    public void testRealMonocularImagesAndImuProducePoses()throws Exception {
+    @Test(timeout=120000) public void testRealMonocularImagesAndImuProducePoses()throws Exception {
         assertNull(BasaltBridge.unavailableReason());
         long started=SystemClock.elapsedRealtime();
         int poses=0,qualified=0;long last=0;double translationNorm=0;
         try(DataInputStream in=new DataInputStream(new BufferedInputStream(
-            getInstrumentation().getContext().getAssets().open("mono_fixture.bin"),65536));BasaltBridge bridge=new BasaltBridge()){
+            InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("mono_fixture.bin"),65536));BasaltBridge bridge=new BasaltBridge()){
             byte[] magic=new byte[8];in.readFully(magic);assertEquals("VBMONO1\n",new String(magic,StandardCharsets.UTF_8));
             int width=in.readInt(),height=in.readInt(),n=in.readInt();
             double[] p=new double[27];for(int i=0;i<27;i++)p[i]=in.readDouble();int frames=in.readInt();
@@ -61,7 +63,7 @@ public final class BasaltAndroidTest extends InstrumentationTestCase {
             .put("wall_ms",SystemClock.elapsedRealtime()-started).put("android_sdk",android.os.Build.VERSION.SDK_INT)
             .put("abis",new org.json.JSONArray(android.os.Build.SUPPORTED_ABIS)).put("truth_available_to_engine",false)
             .put("limits","Real mono rectified EuRoC sensors on Android emulator; not Camera2 hardware, S21 accuracy, energy or production qualification");
-        File output=new File(getInstrumentation().getTargetContext().getExternalFilesDir(null),"native-smoke.json");
+        File output=new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getExternalFilesDir(null),"native-smoke.json");
         try(Writer w=new OutputStreamWriter(new FileOutputStream(output),StandardCharsets.UTF_8)){w.write(result.toString(2));}
         assertTrue("Actual estimator must publish poses: "+result,poses>=50);
         assertTrue("Visual landmarks/features must be available: "+result,qualified>=10);
