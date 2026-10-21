@@ -79,7 +79,7 @@
       "modalities": [
         "imu"
       ],
-      "license": "GPL-3.0 source",
+      "license": "GPL-3.0 code; official pretrained weights and data RESEARCH ONLY",
       "readiness": "candidate_host_benchmark_only",
       "source": "https://github.com/Sachini/ronin",
       "needs_training": true,
@@ -147,6 +147,56 @@
       "license": "Apache-2.0 Small only; larger CC-BY-NC-4.0",
       "readiness": "candidate_mobile_export_not_benchmarked",
       "source": "https://github.com/DepthAnything/Depth-Anything-V2",
+      "needs_training": false,
+      "can_predict_position_without_visual_input": false,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
+    },
+    {
+      "id": "eqnio",
+      "priority": "P1",
+      "name": "EqNIO",
+      "role": "equivariant_inertial_prior",
+      "hardware_tier": "S0",
+      "modalities": [
+        "imu"
+      ],
+      "license": "not_verified; do_not_ship",
+      "readiness": "ICLR_2025_host_research_port_not_validated",
+      "source": "https://github.com/RoyinaJayanth/EqNIO",
+      "needs_training": true,
+      "can_predict_position_without_visual_input": true,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
+    },
+    {
+      "id": "mario_mono_imu",
+      "priority": "P1",
+      "name": "MARIO mono-IMU / learned pose prior",
+      "role": "body_kinematics_inertial_prior",
+      "hardware_tier": "S0",
+      "modalities": [
+        "imu",
+        "barometer",
+        "magnetometer"
+      ],
+      "license": "MIT code; SMPL Nymeria pose priors third-party rights",
+      "readiness": "CVPR_2026_no_pretrained_checkpoints_mono_variant_requires_training",
+      "source": "https://github.com/SPICExLAB/MARIO",
+      "needs_training": true,
+      "can_predict_position_without_visual_input": true,
+      "can_observe_hidden_obstacles_in_opaque_smoke": false
+    },
+    {
+      "id": "zipdepth",
+      "priority": "P2",
+      "name": "ZipDepth",
+      "role": "rgb_monocular_depth",
+      "hardware_tier": "S0",
+      "modalities": [
+        "rgb"
+      ],
+      "license": "MIT repository; checkpoint redistribution verify",
+      "readiness": "ECCV_2026_official_weights_available_but_no_S21_deployment_evidence",
+      "source": "https://github.com/fabiotosi92/ZipDepth",
       "needs_training": false,
       "can_predict_position_without_visual_input": false,
       "can_observe_hidden_obstacles_in_opaque_smoke": false
