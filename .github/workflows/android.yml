@@ -52,6 +52,7 @@ jobs:
       - name: Python telemetry-analysis unit tests
         run: |
           python3 -m unittest discover -s tools/tests -v
+          python3 -m unittest discover -s tools/telemetry -v
           python3 -m unittest discover -s tools/gpx_ar/tests -v
           python3 tools/coordination/android_menu_contract.py --require GPS_ROUTES ARCORE_REPLAY FLP_AB PDR COURSES
           python3 tools/pdr/progress.py --check
@@ -67,6 +68,20 @@ jobs:
           module.fixture(Path('app/build/reports/gpx-ar/synthetic-input.zip'))
           PYTHON
           python3 tools/gpx_ar/replay.py app/build/reports/gpx-ar/synthetic-input.zip --out app/build/reports/gpx-ar/replay --input-origin synthetic_fixture
+      - name: Embed source identity for resource exports
+        env:
+          VECTOR_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os, subprocess
+          from pathlib import Path
+          target=Path('app/src/main/assets/build_provenance.json')
+          target.parent.mkdir(parents=True,exist_ok=True)
+          target.write_text(json.dumps({'source_commit':os.environ['VECTOR_SOURCE_SHA'],
+              'build_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+              'build_tree':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),
+              'workflow_run_id':os.environ['GITHUB_RUN_ID']}))
+          PYTHON
       - name: Unit tests and installable APK
         run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
       - name: Pure Java camera-free PDR replay and quality invariants

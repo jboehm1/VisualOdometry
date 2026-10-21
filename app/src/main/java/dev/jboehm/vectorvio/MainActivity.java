@@ -137,6 +137,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private volatile int gpxGeneration=1;
     private long lastGpxDiagnosticNs;
 
+    private volatile dev.jboehm.vectorvio.metrics.SessionTelemetry resourceTelemetry;
     private boolean trainingEnabled=false,exportDataset=false;
     private volatile Session arSession;
     private volatile int width=0,height=0;
@@ -247,7 +248,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         pointConfidenceThreshold=preferences.getFloat("point_confidence",.2f);
         imu=new ImuMonitor(this);
         imu.setListener((type,t,x,y,z)->{
-            if(odometer.isRecording())recorder.imu(type,t,x,y,z);
+            if(odometer.isRecording()){
+                recorder.imu(type,t,x,y,z);
+                if(resourceTelemetry!=null)resourceTelemetry.sensor(type==android.hardware.Sensor.TYPE_ACCELEROMETER?"ACCEL":"GYRO",t);
+            }
         });
         FrameLayout root=new FrameLayout(this);
         root.setBackgroundColor(0xFF091723);
@@ -389,6 +393,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         if(odometer.snapshot(SystemClock.elapsedRealtime()).recording) {
             long now=SystemClock.elapsedRealtime();
             odometer.pause(now);
+            if(resourceTelemetry!=null)resourceTelemetry.pause();
             recorder.event("PAUSE",System.currentTimeMillis());
             recordButton.setText("RESUME");
             recordButton.setContentDescription("Resume recording");
@@ -408,7 +413,17 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
 
     private void beginRecording() {
         if(arSession==null||!rendererRunning||odometer.isRecording())return;
-        if(needsNewFile){recorder.newSession();needsNewFile=false;}
+        if(needsNewFile){
+            if(resourceTelemetry!=null){resourceTelemetry.close();resourceTelemetry=null;}
+            recorder.newSession();needsNewFile=false;
+        }
+        if(resourceTelemetry==null&&recorder.currentFile()!=null)try {
+            File log=recorder.currentFile();
+            resourceTelemetry=new dev.jboehm.vectorvio.metrics.SessionTelemetry(this,
+                new File(log.getParentFile(),SessionBundle.stem(log)),playbackMode?"ARCORE_PLAYBACK":"ARCORE_LIVE",
+                "VIEW="+frameScheduler.fps()+"; tracking_target_hz=30; video="+trainingEnabled+"; torch="+torchEnabled,getWindow());
+        }catch(java.io.IOException|RuntimeException e){recorder.event("RESOURCE_TELEMETRY_UNAVAILABLE_"+e.getClass().getSimpleName(),System.currentTimeMillis());}
+        if(resourceTelemetry!=null)resourceTelemetry.resume("VIEW="+frameScheduler.fps()+"; tracking_target_hz=30; video="+trainingEnabled+"; torch="+torchEnabled);
         long now=SystemClock.elapsedRealtime();
         odometer.start(now);
         journalGpxArRoute();
@@ -985,6 +1000,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             .setPositiveButton("RESET",(d,w)->{
                 if(odometer.snapshot(SystemClock.elapsedRealtime()).recording)
                     recorder.event("RESET",System.currentTimeMillis());
+                if(resourceTelemetry!=null){resourceTelemetry.close();resourceTelemetry=null;}
                 odometer.reset();
                 clearMap=true;
                 String previousAutoName=autoMapName;
@@ -1005,7 +1021,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private void pickExport() {
         if(odometer.isRecording()){toggleRecording();Toast.makeText(this,"Paused to finalize recording before export",Toast.LENGTH_SHORT).show();}
         new AlertDialog.Builder(this).setTitle("Export recording").setItems(new String[]{
-            "Current session — complete ZIP (video if recorded + IMU)",
+            "Current session — complete ZIP (metrics + IMU + optional video)",
             "Older session — complete ZIP", "Current session — CSV only", "Older session — CSV only"},(d,i)->{
                 exportDataset=i<2;
                 if(i==0||i==2){File current=recorder.currentFile();if(current==null){Toast.makeText(this,"No current recording; choose an older session",Toast.LENGTH_LONG).show();return;}launchSessionExport(current);}
@@ -1363,6 +1379,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         long now=SystemClock.elapsedRealtime();
         if(odometer.snapshot(now).recording){
             odometer.pause(now);
+            if(resourceTelemetry!=null)resourceTelemetry.pause();
             recorder.event("APP_PAUSED",System.currentTimeMillis());
             recordButton.setText("RESUME");
             recordButton.setContentDescription("Resume recording");
@@ -1403,6 +1420,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
         if(frameScheduler!=null)frameScheduler.stop();
         if(cadenceThread!=null)cadenceThread.quitSafely();
+        if(resourceTelemetry!=null){resourceTelemetry.close();resourceTelemetry=null;}
         recorder.shutdown();
         elevationIo.shutdownNow();
         mapIo.shutdown();
@@ -1472,6 +1490,11 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             s.setDisplayGeometry(getWindowManager().getDefaultDisplay().getRotation(),width,height);
             long phaseStartNs=SystemClock.elapsedRealtimeNanos();
             Frame frame=s.update();latestFrame=frame;
+            dev.jboehm.vectorvio.metrics.SessionTelemetry metrics=resourceTelemetry;
+            if(metrics!=null){
+                metrics.duration("arcore_update_call",SystemClock.elapsedRealtimeNanos()-phaseStartNs);
+                metrics.frame(frame.getTimestamp(),frame.getCamera().getTrackingState()==TrackingState.TRACKING,frame.getCamera().getTrackingFailureReason().name());
+            }
             if(playbackMode){
                 if(s.getPlaybackStatus()==PlaybackStatus.FINISHED){endPlayback();return;}
                 if(frame.getTimestamp()>0){playbackFrames++;
@@ -1590,6 +1613,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                        && recorder.currentFile()!=null) {
                     Odometer.Snapshot data=odometer.snapshot(SystemClock.elapsedRealtime());
                     recorder.pose(wallMs,frame.getTimestamp(),xyz,quaternion,data);
+                    if(resourceTelemetry!=null)resourceTelemetry.count("pose_exports");
                     lastLoggedFrameNs=frame.getTimestamp();
                 }
             } else {
@@ -1688,6 +1712,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
     }
     @Override public void onDrawFrame(GL10 gl){
+        long drawStartNs=SystemClock.elapsedRealtimeNanos();
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);
         if(!rendererRunning||arSession==null||background==null)return;
         // First draw establishes the EGL context; queued updates can then run without swaps.
@@ -1738,6 +1763,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 try{worldOverlay.draw(camera,hud.layers(),width,height,getResources().getDisplayMetrics().density);}catch(RuntimeException|OutOfMemoryError e){disableWorldOverlay(e);}
         }catch(Exception displayError){
             if(now-lastOverlayErrorMs>=5_000){lastOverlayErrorMs=now;android.util.Log.e("VectorGL","Presentation failed; tracking continues",displayError);recorder.event("OVERLAY_SCENE_ERROR",System.currentTimeMillis());}
+        }finally{
+            if(resourceTelemetry!=null){resourceTelemetry.count("view_draw_callbacks");
+                resourceTelemetry.duration("gl_draw_submit_wall",SystemClock.elapsedRealtimeNanos()-drawStartNs);}
         }
     }
 }

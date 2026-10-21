@@ -384,6 +384,7 @@ public final class PdrActivity extends Activity {
             render();return;
         }
         recordedStepMode=bridge.stepMode();
+        writer.startTelemetry("step_source="+recordedStepMode+"; fallback="+engine.snapshot(startNs).fallbackAlgorithm+"; running="+recordedRunning+"; phone_forward="+recordedPhoneTopForward);
         autoStopped=false;exportReady=false;note="RECORDING";
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if(gpsOn)startGps();
