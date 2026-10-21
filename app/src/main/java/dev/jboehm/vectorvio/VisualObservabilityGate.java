@@ -50,6 +50,11 @@ public final class VisualObservabilityGate {
         if(nowNs<=0 || frameNs<=0 || (lastClockNs>=0 && nowNs<=lastClockNs) ||
                 (lastFrameNs>=0 && frameNs<=lastFrameNs)){
             // Replayed frames or bad clocks must not refresh the visual anchor.
+            // Quarantine a duplicate or out-of-order arrival. A repeated
+            // same-clock retry must NOT become a freshly tracked pose.
+            lastClockNs=Math.max(lastClockNs,nowNs);
+            lastFrameNs=Math.max(lastFrameNs,frameNs);
+            lastObservedNs=-1;
             consecutiveGood=0;lastState=State.POSITION_UNKNOWN;
             return new Decision(State.POSITION_UNKNOWN,false,Long.MAX_VALUE,"DUPLICATE_OR_INVALID_CLOCK");
         }
