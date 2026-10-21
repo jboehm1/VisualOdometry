@@ -23,6 +23,10 @@
 
 **No GPU model runtime dependency was added.** The existing `PortableInertialModel` already supports a SHA-256-verified, tiny MLP *diagnostic* checkpoint for PDR; we do not relabel it as EqNIO/TLIO. To integrate actual learned models, implement proper input preprocessing and coordinate-frame contracts for each, benchmark on same raw S21 logs against GT, select only models with distributable weights, and keep any inference diagnostic until validation.
 
+## Build identity and upgrade precautions
+
+Android `versionCode=17` / `versionName=0.16.0-alpha1` on this experimental branch, distinguishable from inherited `0.15.0-alpha1`. Android debug APK signing keys may differ between GitHub Actions runs; if Android refuses to update, **export sessions before uninstall**, since reinstall/uninstall may delete local private recordings. No release-key persistence guarantee.
+
 ## Host replay bridge: reuse the actual Java PDR engine
 
 The sensor lab ZIP can now feed **the existing PdrEngine exactly**, rather than an unrelated Python dead-reckoning proxy:
