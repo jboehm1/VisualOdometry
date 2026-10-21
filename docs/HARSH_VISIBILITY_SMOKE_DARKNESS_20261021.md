@@ -1,6 +1,9 @@
 # VECTOR VIO — niches de localisation en obscurité, fumée et environnement dégradé
 **Date de l'analyse : 21 octobre 2026.** Recherche prospective, non-qualifiée pour sauver des vies, la lutte contre l'incendie ou la navigation en situation critique. Complément de l'Atlas HTML V5.5 et de la R&D fumée du dépôt. **Aucun changement moteur Android ni équipement vendu ici.**
 
+> **PÉRIMÈTRE — ANNEXE H SEULEMENT.** Ce rapport compare aussi le smartphone comme témoin scientifique, mais ses **solutions radar/LWIR/IMU au pied/LiDAR et leurs prix exigent des équipements supplémentaires**. Pour la feuille de route prioritaire **sans aucun capteur externe**, consulter [SMARTPHONE_ONLY_SENSOR_AI_ROADMAP_20261021.md](SMARTPHONE_ONLY_SENSOR_AI_ROADMAP_20261021.md) et son [registre des modèles vérifiés](SMARTPHONE_MODEL_EVALUATION_REGISTRY_20261021.json). Ne pas interpréter les résultats de datasets radar ou de caméras thermiques comme tests d'un Galaxy S21 seul.
+
+
 ## Résultat déterminant : quatre problèmes différents
 
 | Contexte | Physique / échec principal | Smartphone ARCore/Camera2 seul | Approche qui mérite un test | Critère d'abstention |
