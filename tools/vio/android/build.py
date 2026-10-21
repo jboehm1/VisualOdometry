@@ -46,7 +46,9 @@ def build(work,abi,ndk):
     triple={'arm64-v8a':'arm64','x86_64':'x64'}[abi]+'-android-release'
     triplets=work/'triplets';triplets.mkdir(exist_ok=True)
     (triplets/(triple+'.cmake')).write_text('set(VCPKG_TARGET_ARCHITECTURE '+('arm64' if abi=='arm64-v8a' else 'x64')+')\n'
-        'set(VCPKG_CMAKE_SYSTEM_NAME Android)\nset(VCPKG_CRT_LINKAGE dynamic)\nset(VCPKG_LIBRARY_LINKAGE static)\nset(VCPKG_BUILD_TYPE release)\nset(VCPKG_CMAKE_SYSTEM_VERSION 26)\n')
+        'set(VCPKG_CMAKE_SYSTEM_NAME Android)\nset(VCPKG_CRT_LINKAGE dynamic)\nset(VCPKG_LIBRARY_LINKAGE static)\nset(VCPKG_BUILD_TYPE release)\nset(VCPKG_CMAKE_SYSTEM_VERSION 26)\n'
+        'set(VCPKG_CMAKE_CONFIGURE_OPTIONS -DANDROID_ABI='+abi+')\n'
+        'set(VCPKG_CXX_FLAGS_RELEASE "-O1 -g0")\n')
     sdk=work/'opencv';archive=work/'opencv.zip'
     if not (sdk/'OpenCV-android-sdk/sdk/native/jni/OpenCVConfig.cmake').is_file():
         urllib.request.urlretrieve(f'https://github.com/opencv/opencv/releases/download/{OPENCV}/opencv-{OPENCV}-android-sdk.zip',archive)
@@ -55,9 +57,9 @@ def build(work,abi,ndk):
     env=os.environ.copy();env['ANDROID_NDK_HOME']=str(ndk);env['VCPKG_MAX_CONCURRENCY']='2'
     env['VCPKG_BINARY_SOURCES']='clear;files,'+str(work/'archives')+',readwrite'
     (work/'archives').mkdir(exist_ok=True)
-    out=work/('build-'+abi)
+    out=work/('build-v2-'+abi)
     run('cmake','-S',root/'native/android','-B',out,'-G','Ninja',
-        '-DCMAKE_BUILD_TYPE=Release','-DCMAKE_TOOLCHAIN_FILE='+str(vcpkg/'scripts/buildsystems/vcpkg.cmake'),
+        '-DCMAKE_BUILD_TYPE=Release','-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE='+str(ndk/'build/cmake/android.toolchain.cmake'),'-DCMAKE_TOOLCHAIN_FILE='+str(vcpkg/'scripts/buildsystems/vcpkg.cmake'),
         '-DVCPKG_MANIFEST_DIR='+str(manifest),'-DVCPKG_OVERLAY_TRIPLETS='+str(triplets),'-DVCPKG_TARGET_TRIPLET='+triple,
         '-DANDROID_ABI='+abi,'-DANDROID_PLATFORM=android-26','-DANDROID_STL=c++_shared',
         '-DANDROID_NDK='+str(ndk),'-DBASALT_SOURCE='+str(source),'-DOpenCV_DIR='+str(cv/'native/jni'),env=env)
