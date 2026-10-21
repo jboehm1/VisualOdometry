@@ -24,3 +24,10 @@ Official ETH V2_01 download timed out after 60 seconds in run 39554931508, befor
 
 ## Second actual CI finding
 Run 39555347370 verified the 1,149,702,102-byte mirror archive, staged 1200 real stereo frames and IMU, fetched exact upstream source and pulled its tooling image. Configuration then failed because shallow vcpkg lacked the registry baseline commit. Restore full vcpkg history and verify `05442024...:versions/baseline.json` before configuration, as upstream CI does. Tooling image is now fixed to digest `sha256:3553facf6bf25baf283547fab7fad0dd74d47ba79fb9a9c9f9c11fb777d3a502`, observed in that run. No engine poses or accuracy result yet.
+
+## Verified host outcome
+At exact source `cf4e51943c439db12b3d0693dea15e58feb1776b`, real Basalt workflow 39555701592, Android workflow 39555701593 and native contract workflow 39555701846 passed. Actual upstream source is unchanged. Exported 1200 finite, monotonic poses; 1179 matches over 58.91 s available GT, 99.983% of that scorable interval. First-pose gauge ATE 0.22855 m; posthoc rigid SE3 ATE 0.036887 m, scale fixed 1. Original V1_01 attitude caveat remains. Runtime 18.537 s wall, 59.633 s child CPU, 75992 KiB RSS on hosted Linux, not phone performance.
+
+ZIP SHA/CRC, trajectory/tree/binary/shared-library identities cross-checked locally. Preserve seven original small evidence files and added receipt in `docs/work/basalt-host-20261021/`; no source sensors, GT or native binaries. Subsequent documentation-only commit records this earlier exact-source execution; it does not claim a new native execution. Prior finding sections are historical. Native first-pose/rotation diagnostics are not independent presurveyed alignment. The upstream unconditional internal ATE call is ignored; all accepted scores are computed separately after inference.
+
+Next engineering gates: standalone arm64 NDK build and dependency reduction/review, then timestamp-matched YUV + calibrated IMU capture, lifecycle/pose quality and device replay. No automatic native enablement, Android source change, merge or force push.

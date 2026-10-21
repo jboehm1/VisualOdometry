@@ -3,6 +3,50 @@
 Branch `work/native-vio-basalt-host-20261021`, based on PR #44 at
 `513bb614cd7aedd0649b1242d339fc2bc72fb8ba`. Android remains unchanged.
 
+## Verified result — 21 October 2026
+
+Actual upstream compilation and isolated real-sensor replay **PASSED** in
+[run 39555701592](https://github.com/jboehm1/VisualOdometry/actions/runs/39555701592)
+at source `cf4e51943c439db12b3d0693dea15e58feb1776b`.
+[Durable result and identity files](work/basalt-host-20261021/receipt.json)
+retain the seven original small evidence files, including actual estimated poses.
+No original images, IMU/reference CSV or native binaries are retained.
+
+| Observation | Measured result |
+|---|---:|
+| Input window / exported body poses | 59.95 s / 1200 |
+| Real IMU samples / timestamp matches | 12091 / 1179 |
+| Scorable reference duration | 58.91 s |
+| Coverage of that reference interval | 99.983% |
+| ATE RMSE, first-reference-pose gauge | 0.22855 m |
+| ATE RMSE, full posthoc rigid SE3 | 0.036887 m |
+| 1 s translation RPE RMSE | 0.031025 m |
+| 1 s rotation RPE RMSE (attitude caveat) | 0.52606 degrees |
+| Observed sparse path, reference / estimate | 18.7141 m / 18.4314 m |
+| Observed path distance difference | -1.5106% |
+| Engine wall / child CPU duration | 18.537 s / 59.633 s |
+| Child peak RSS on Linux | 75992 KiB |
+
+The coverage denominator is the **available 58.91 s reference interval**, not
+the full 59.95 s sensor window. Neither alignment fits metric scale (factor 1).
+First-pose and rotation errors retain the original V1_01 attitude caveat. One
+short hosted run is not a phone accuracy, speed, repeatability or power claim.
+The `--num-threads 2` flag limits upstream TBB parallelism; it is not a proven
+cap on every process thread. CPU model, energy and online latency were not
+measured. Do not rank this against ARCore or physical-device runs.
+
+Local evidence checks passed: ZIP SHA/CRC; 1200 finite, monotonic exported
+poses; binary and shared-library identities agree between build/runtime/score;
+trajectory and staged-tree digests agree; source changes are empty. Installed
+copyright-file hashes cover 96 dependency records, with legal review still open.
+
+The original build receipt retains a historical image-policy label describing
+first acquisition. For this successful run the workflow already pinned the
+exact digest below; the workflow and recorded image identity are authoritative.
+Upstream also unconditionally calls its internal ATE evaluator after inference;
+without reference, its diagnostic is not authoritative and is never used here.
+The exported poses are scored independently after the container exits.
+
 ## Acceptance gates
 
 1. Compile the actual Basalt `basalt_vio` target from pinned upstream source,
@@ -23,12 +67,12 @@ Branch `work/native-vio-basalt-host-20261021`, based on PR #44 at
 - Basalt source: `0f3b2b52c807f70ff4e2973ce253c73329eea7bc`.
 - vcpkg gitlink: `1e199d32ad53aab1defda61ce41c380302e3f95c`.
 - Upstream registry baseline: `05442024c3fda64320bd25d2251cc9807b84fb6f`.
-- Use upstream `vladyslavusenko/basalt-ci:ubuntu22` tooling image, resolve its
-  immutable digest for each initial acquisition and record it. This is recorded
-  first-use provenance, not an already audited/pinned image across all attempts.
+- Tooling image is fixed after its first observed acquisition to
+  `vladyslavusenko/basalt-ci@sha256:3553facf6bf25baf283547fab7fad0dd74d47ba79fb9a9c9f9c11fb777d3a502`.
+  This identity pin is not a transitive security or licensing audit.
 - Release-only static dependency triplet, float estimator instantiation, generic
   x86-64, two compiler/engine threads, 90-minute job cap and 15-minute replay cap.
-- Dataset acquisition bounded to 3 GiB compressed / 8 GiB expanded. Mirror source is pinned to commit `d05bd6a92a5f456562153f83d65805fea27cb57d`,
+- Dataset acquisition bounded to 2 GiB compressed / 8 GiB expanded. Mirror source is pinned to commit `d05bd6a92a5f456562153f83d65805fea27cb57d`,
   SHA256 `a920fe5b5e69a6ad19b32f1cfaf90ac2f59d45dfd1ca18cc9722e07684ba45fa`,
   1,149,702,102 bytes. Integrity is verified against mirror metadata, not an
   independently authenticated institutional original. Original data and native
@@ -51,8 +95,8 @@ than silently interpreting it as the generic evaluator's xyzw format.
 Six synthetic adapter tests pass locally: stereo/copy limits, no reference read,
 unsafe paths/symlinks, IMU brackets, reference quaternion order, gauge and scale
 preservation, unsuccessful/non-isolated receipt rejection. They do not prove that
-the real C++ engine has been built. Actual CI results must be read before updating
-host-build and real-dataset gates.
+the real C++ engine has been built. The separate successful source build and
+real replay above establish those execution gates, while licensing remains open.
 
 ## Licensing and product scope
 

@@ -188,5 +188,5 @@ Les états signifient : `DOCUMENTE` = protocole/décision rédigé ; `PARTIEL` e
 
 - V2 acquisition guard: rejected future frame no longer resets accepted monotonic watermark/segment; overflow and exposure-midpoint reversal regressions added. This is a contract correction, not a Camera2/JNI or native estimator implementation. See [audit](work/NATIVE_INPUT_STATE_AUDIT_20261021.md).
 
-### N1/N2 actual host build attempt
-New isolated Basalt source-build + EuRoC workflow, pinned source/vcpkg, sensor-only inference container and reused metric evaluator. Six local adapter regressions pass. Host compilation and real pose accuracy are pending actual workflow evidence; no native APK claim. [Contract and status](NATIVE_VIO_HOST_BASELINE_V017.md).
+### N1 build / N2 host execution proven; dependency audit still open
+New isolated Basalt source-build + EuRoC workflow, pinned source/vcpkg, sensor-only inference container and reused metric evaluator. Six local adapter regressions pass. Actual source build and isolated V1_01 replay passed in run 39555701592 at `cf4e5194`: 1200 poses, 1179 matches. Diagnostic ATE: 0.22855 m first-pose gauge / 0.036887 m posthoc rigid SE3, no scale fit. Original reference attitude caveat applies. Transitive review, NDK/JNI and physical-phone gates remain open; no native APK claim. [Contract and status](NATIVE_VIO_HOST_BASELINE_V017.md).

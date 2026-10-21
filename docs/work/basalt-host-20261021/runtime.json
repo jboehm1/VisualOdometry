@@ -1,0 +1,37 @@
+{
+  "command": [
+    "/engine/build/release/basalt_vio",
+    "--dataset-path",
+    "/sensors",
+    "--dataset-type",
+    "euroc",
+    "--cam-calib",
+    "/engine/data/euroc_eucm_calib.json",
+    "--config-path",
+    "/engine/data/euroc_config.json",
+    "--show-gui",
+    "0",
+    "--num-threads",
+    "2",
+    "--use-imu",
+    "1",
+    "--use-double",
+    "0",
+    "--save-trajectory",
+    "tum",
+    "--save-groundtruth",
+    "0"
+  ],
+  "exit_code": 0,
+  "wall_seconds": 18.537193349000063,
+  "child_cpu_seconds": 59.632850999999995,
+  "child_peak_rss_kib_linux": 75992,
+  "binary_sha256": "e4c88761f831664d23fd389dfd01e6efe62d3ebd5049dcbd688155e4ff771f46",
+  "engine_shared_libraries_sha256": {
+    "libbasalt.so": "0f966baaae3d0c309bcd9ac67bb7477a8274e213fe76c536a42e10bb1c756b57"
+  },
+  "truth_mount": false,
+  "network": "none",
+  "power_joules": null,
+  "online_frame_latency_ms": null
+}
