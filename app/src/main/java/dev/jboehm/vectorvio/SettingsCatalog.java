@@ -20,7 +20,7 @@ final class SettingsCatalog {
     }
     enum Action {
         GPX_AR, GPS_MANUAL_ALIGN, GPS_ROUTES, PDR, COURSES, RETURN_TRACE, GPX_EXTENDED_PREVIEW,
-        GPS_TOGGLE, GPS_COMPARISON, IMU_TOGGLE,
+        GPS_TOGGLE, GPS_COMPARISON, IMU_TOGGLE, SENSOR_LAB,
         LAYERS, UNKNOWN_GROUND, BIKE_VIEW_HINTS, OVERLAY_RENDER, CAMERA_CAPTURE_PROFILE, CAMERA2_MANUAL_LAB, CUSTOM_VIO,
         VIDEO_TRAINING, COLLECT_ONLY, ARCORE_REPLAY, EXPORT, CAPTURE_INFO,
         MAP_VIEW, MAP_SETTINGS, MAP_SAVED, MAP_PLACE_POI,
@@ -44,6 +44,7 @@ final class SettingsCatalog {
         new Item(Section.LOCATION,Action.GPS_TOGGLE,"GPS speed badge · show / hide","Fresh native GPS vs VIO speed, horizontal ±m and speed ± when reported; updates while this screen is active"),
         new Item(Section.LOCATION,Action.GPS_COMPARISON,"GPS ↔ FUSED — Android location A/B (experimental)","Compare native GPS with Google Fused; correlated sources"),
         new Item(Section.LOCATION,Action.IMU_TOGGLE,"IMU telemetry overlay","Show/hide raw accelerometer and gyroscope"),
+        new Item(Section.LOCATION,Action.SENSOR_LAB,"SENSOR LAB · Galaxy S21 runtime probe","Inventory actual camera/sensor hardware, sample all available phone sensors in foreground, export evidence ZIP"),
 
         new Item(Section.DISPLAY,Action.LAYERS,"Scene layers","Cycle planes, feature points and trail"),
         new Item(Section.DISPLAY,Action.UNKNOWN_GROUND,"Estimated ground","Optional approximation where no ARCore plane is observed"),
