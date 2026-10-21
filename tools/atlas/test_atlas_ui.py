@@ -104,9 +104,37 @@ class AtlasBrowserTest(unittest.TestCase):
         self.assertTrue(self.page.locator("#opportunity-landscape").is_visible())
         self.assertEqual(self.page.locator("details#engineering-updates section").count(), 9)
 
+    def test_product_decision_gates_and_revisit(self):
+        self.assertTrue(self.page.locator("#product-decision-lab").is_visible())
+        self.page.locator("#decisionCapture").select_option("no")
+        self.assertIn("CAMÉRA INTERDITE", self.page.locator("#decisionResult").inner_text())
+        self.assertIn("NFC", self.page.locator("#decisionResult").inner_text())
+
+        self.page.locator("#decisionCapture").select_option("yes")
+        self.page.locator("#decisionAbsolute").select_option("yes")
+        self.assertIn("MESURE INDÉPENDANTE", self.page.locator("#decisionResult").inner_text())
+
+        self.page.locator("#decisionAbsolute").select_option("no")
+        self.page.locator("#decisionView").select_option("no")
+        self.assertIn("VIO NON EXPLOITABLE", self.page.locator("#decisionResult").inner_text())
+
+        self.page.locator("#decisionView").select_option("yes")
+        self.page.locator("#decisionId").select_option("no")
+        self.assertIn("IDENTITÉ AMBIGUË", self.page.locator("#decisionResult").inner_text())
+
+        self.page.locator("#decisionId").select_option("yes")
+        self.page.locator("#decisionRevisit").select_option("yes")
+        self.assertIn("J+1", self.page.locator("#decisionResult").inner_text())
+        self.page.get_by_role("button", name="🔬 Recherche").click()
+        self.assertFalse(self.page.locator("#product-decision-lab").is_visible())
+        self.page.get_by_role("button", name="🎯 Marchés").click()
+        self.assertTrue(self.page.locator("#product-decision-lab").is_visible())
+
     def test_mobile_layout_and_keyboard(self):
         self.page.set_viewport_size({"width": 390, "height": 844})
         self.page.screenshot(path="atlas-mobile.png", animations="disabled")
+        self.page.locator("#product-decision-lab").scroll_into_view_if_needed()
+        self.page.screenshot(path="atlas-mobile-decision.png", animations="disabled")
         metrics = self.page.evaluate("""() => ({
             innerWidth: window.innerWidth,
             body: document.body.scrollWidth,
