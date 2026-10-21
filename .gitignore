@@ -1,0 +1,22 @@
+# Android and local machine
+.gradle/
+build/
+**/build/
+local.properties
+.idea/
+*.iml
+.cxx/
+captures/
+*.apk
+*.aab
+.DS_Store
+
+# Local large benchmark corpora, engine outputs and Python temp files
+benchmark_data/
+benchmark_results/
+**/__pycache__/
+*.pyc
+.venv/
+
+# Generated campaign runs; may temporarily contain large/private sensor data
+campaign_results/

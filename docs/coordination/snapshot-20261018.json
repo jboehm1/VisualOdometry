@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-10-18T19:27:42.948738+00:00",
+  "base": {
+    "ref": "origin/feature/slam-explorer",
+    "sha": "1b2c59ecf6b17ae9740881834d603f91472c25a9"
+  },
+  "branches": [
+    {
+      "ref": "origin/feature/camera-free-pdr",
+      "sha": "52f7832dcd630a949c4cd0e1e12f55b3ac208001",
+      "common_base": "1450de63031947a0740310a74a3da814ab27d305",
+      "ahead": 13,
+      "behind": 2,
+      "changed_files": [
+        ".github/workflows/android.yml",
+        "app/src/main/AndroidManifest.xml",
+        "app/src/main/java/dev/jboehm/vectorvio/MainActivity.java",
+        "app/src/main/java/dev/jboehm/vectorvio/pdr/PdrActivity.java",
+        "app/src/main/java/dev/jboehm/vectorvio/pdr/PdrEngine.java",
+        "app/src/main/java/dev/jboehm/vectorvio/pdr/PdrSensorBridge.java",
+        "app/src/main/java/dev/jboehm/vectorvio/pdr/PdrTraceWriter.java",
+        "app/src/main/java/dev/jboehm/vectorvio/pdr/PdrTrailView.java",
+        "app/src/main/java/dev/jboehm/vectorvio/pdr/StepPeakDetector.java",
+        "app/src/test/java/dev/jboehm/vectorvio/pdr/PdrAndroidTest.java",
+        "app/src/test/java/dev/jboehm/vectorvio/pdr/PdrEngineTest.java",
+        "docs/PDR_DATASETS.json",
+        "docs/PDR_MODULE.md",
+        "tools/pdr/PdrReplay.java",
+        "tools/pdr/check_fixture.py",
+        "tools/pdr/check_quality_fixture.py",
+        "tools/pdr/convert_accel.py",
+        "tools/pdr/evaluate.py",
+        "tools/pdr/fixtures/gnss-stride.csv",
+        "tools/pdr/fixtures/walk-east.csv",
+        "tools/pdr/run.sh",
+        "tools/tests/test_pdr_tools.py"
+      ]
+    },
+    {
+      "ref": "origin/work/slam-roadmap-b1-b2-b8",
+      "sha": "6c89a83d278b223415c2df4195c2f81674129bfe",
+      "common_base": "1450de63031947a0740310a74a3da814ab27d305",
+      "ahead": 39,
+      "behind": 2,
+      "changed_files": [
+        "README.md",
+        "app/src/main/AndroidManifest.xml",
+        "app/src/main/java/dev/jboehm/vectorvio/GeoAlignment.java",
+        "app/src/main/java/dev/jboehm/vectorvio/GpsRoutesActivity.java",
+        "app/src/main/java/dev/jboehm/vectorvio/MainActivity.java",
+        "app/src/main/java/dev/jboehm/vectorvio/SessionBundle.java",
+        "app/src/main/java/dev/jboehm/vectorvio/StorePlannerActivity.java",
+        "app/src/main/java/dev/jboehm/vectorvio/geo/GeoFusionTracker.java",
+        "app/src/main/java/dev/jboehm/vectorvio/geo/PoseFixSynchronizer.java",
+        "app/src/main/java/dev/jboehm/vectorvio/gps/IntersectionAdvisor.java",
+        "app/src/main/java/dev/jboehm/vectorvio/store/StoreRoutePlanner.java",
+        "app/src/main/java/dev/jboehm/vectorvio/vision/TrailAppearanceBaseline.java",
+        "app/src/main/java/dev/jboehm/vectorvio/vision/VisionTriggerPolicy.java",
+        "app/src/test/java/dev/jboehm/vectorvio/GeoAlignmentTest.java",
+        "app/src/test/java/dev/jboehm/vectorvio/StorePlannerActivityTest.java",
+        "app/src/test/java/dev/jboehm/vectorvio/TraceGuideTest.java",
+        "app/src/test/java/dev/jboehm/vectorvio/geo/GeoFusionTrackerTest.java",
+        "app/src/test/java/dev/jboehm/vectorvio/geo/PoseFixSynchronizerTest.java",
+        "app/src/test/java/dev/jboehm/vectorvio/gps/IntersectionAdvisorTest.java",
+        "app/src/test/java/dev/jboehm/vectorvio/store/StoreRoutePlannerTest.java",
+        "app/src/test/java/dev/jboehm/vectorvio/vision/VisionPrototypeTest.java",
+        "docs/EXPERIMENTS_AND_ACCEPTANCE.md",
+        "docs/ROADMAP_EXECUTION.md",
+        "docs/VECTOR_VIO_ATLAS_INTERACTIF_v3.html",
+        "docs/VECTOR_VIO_ATLAS_INTERACTIF_v4.html",
+        "docs/VECTOR_VIO_TASKS.json",
+        "tools/datasets/catalog.json",
+        "tools/datasets/dataset_inspector.py",
+        "tools/eval/trajectory_metrics.py",
+        "tools/quality_report.py",
+        "tools/tests/test_dataset_catalog.py",
+        "tools/tests/test_quality_report.py"
+      ]
+    },
+    {
+      "ref": "origin/feature/three-validation-campaigns",
+      "sha": "5ee0a974e0887b0fe889621bcdbb35ca88b1018a",
+      "common_base": "1b2c59ecf6b17ae9740881834d603f91472c25a9",
+      "ahead": 3,
+      "behind": 0,
+      "changed_files": [
+        "app/src/main/java/dev/jboehm/vectorvio/MainActivity.java",
+        "tools/campaigns/imu_pdr.py",
+        "tools/campaigns/tests/test_imu_pdr.py"
+      ]
+    }
+  ],
+  "shared_paths": {
+    "app/src/main/AndroidManifest.xml": [
+      "origin/feature/camera-free-pdr",
+      "origin/work/slam-roadmap-b1-b2-b8"
+    ],
+    "app/src/main/java/dev/jboehm/vectorvio/MainActivity.java": [
+      "origin/feature/camera-free-pdr",
+      "origin/work/slam-roadmap-b1-b2-b8",
+      "origin/feature/three-validation-campaigns"
+    ]
+  },
+  "merges": [
+    {
+      "left": "origin/feature/slam-explorer",
+      "right": "origin/feature/camera-free-pdr",
+      "clean": true,
+      "tree": "ddfeaf498aab5f4702353b3bb9bbdf94e2c4ffbc",
+      "conflict_paths": []
+    },
+    {
+      "left": "origin/feature/slam-explorer",
+      "right": "origin/work/slam-roadmap-b1-b2-b8",
+      "clean": true,
+      "tree": "d53bf8e13659b855bc8f7183e0505fe133d3ff5d",
+      "conflict_paths": []
+    },
+    {
+      "left": "origin/feature/slam-explorer",
+      "right": "origin/feature/three-validation-campaigns",
+      "clean": true,
+      "tree": "5929548a4620abe12ded9f62c9b54a6253680e52",
+      "conflict_paths": []
+    },
+    {
+      "left": "origin/feature/camera-free-pdr",
+      "right": "origin/work/slam-roadmap-b1-b2-b8",
+      "clean": false,
+      "tree": "d7eac981613d6c29b5a4a4ac4eec12c5e48a3484",
+      "conflict_paths": [
+        "app/src/main/AndroidManifest.xml",
+        "app/src/main/java/dev/jboehm/vectorvio/MainActivity.java"
+      ]
+    },
+    {
+      "left": "origin/feature/camera-free-pdr",
+      "right": "origin/feature/three-validation-campaigns",
+      "clean": false,
+      "tree": "4ed66824c801ffc7eb6d70a87725db106386b2fb",
+      "conflict_paths": [
+        "app/src/main/java/dev/jboehm/vectorvio/MainActivity.java"
+      ]
+    },
+    {
+      "left": "origin/work/slam-roadmap-b1-b2-b8",
+      "right": "origin/feature/three-validation-campaigns",
+      "clean": false,
+      "tree": "90ee89c658eae8d48bbe1ae555a5d6fd9ad42fd3",
+      "conflict_paths": [
+        "app/src/main/java/dev/jboehm/vectorvio/MainActivity.java"
+      ]
+    }
+  ],
+  "limits": [
+    "Snapshot of local refs; run git fetch explicitly first",
+    "Clean text merge is not runtime validation",
+    "No CI, dataset or physical-device success inferred"
+  ]
+}

@@ -1,0 +1,4 @@
+loop,truth_distance_m,estimated_distance_m,distance_error_pct,closure_error_m,position_rmse_m,landmarks
+1,29.533251,29.708877,0.595,0.397126,0.686012,1400
+2,59.066501,59.338986,0.461,0.626432,0.555214,1400
+3,88.599752,88.969058,0.417,0.878856,0.554804,1400

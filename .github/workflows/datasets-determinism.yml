@@ -1,0 +1,67 @@
+name: Deterministic datasets - real provenance contract and PDR smoke
+on:
+  pull_request:
+    paths:
+      - "tools/datasets/repro_manifest.py"
+      - "tools/tests/test_dataset_repro_manifest.py"
+      - "tools/testenv/suites/deterministic-pdr-smoke.json"
+      - ".github/workflows/datasets-determinism.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dataset-contract-and-exact-java-pdr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Run reproducibility/tamper tests
+        run: python -m unittest discover -s tools/tests -p 'test_dataset_repro_manifest.py' -v
+      - name: Prove a local deterministic input lock and unchanged-source verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p campaign_results/dataset_repro
+          python tools/datasets/repro_manifest.py lock             --suite tools/testenv/suites/deterministic-pdr-smoke.json             --receipt campaign_results/dataset_repro/receipt.json
+          python tools/datasets/repro_manifest.py verify             --suite tools/testenv/suites/deterministic-pdr-smoke.json             --receipt campaign_results/dataset_repro/receipt.json
+          # Synthetic fixtures must be rejected when requesting real local data.
+          if python tools/datasets/repro_manifest.py verify              --suite tools/testenv/suites/deterministic-pdr-smoke.json              --receipt campaign_results/dataset_repro/receipt.json              --require-real-local; then
+            echo "::error::Synthetic fixture was mislabelled real data"
+            exit 1
+          fi
+      - name: Reuse existing testenv canonical sensor runner (Java and Python)
+        run: |
+          python testenv.py plan --suite tools/testenv/suites/deterministic-pdr-smoke.json
+          python testenv.py run --suite tools/testenv/suites/deterministic-pdr-smoke.json             --out campaign_results/dataset_repro/executions
+      - name: Assert original engine identity is preserved
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("campaign_results/dataset_repro/executions/latest.json").read_text())
+          assert d["status"]=="PASS", d
+          assert d["counts"]["PASS"]==2, d
+          assert all(c["dataset"]=="canonical" and c["actual_estimator_executed"]
+                     and not c["reference_used_to_score"]
+                     for c in d["cases"])
+          print("JAVA_AND_PYTHON_PDR_SYNTHETIC_ONLY", d["counts"])
+          PY
+      - name: Upload small, explicit synthetic-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vector-dataset-contracts-and-synthetic-pdr
+          path: |
+            campaign_results/dataset_repro/receipt.json
+            campaign_results/dataset_repro/executions/latest.json
+            campaign_results/dataset_repro/executions/index.html
+            campaign_results/dataset_repro/executions/runs/*/summary.json
+          if-no-files-found: ignore
+          retention-days: 14

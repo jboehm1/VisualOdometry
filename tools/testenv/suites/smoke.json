@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "smoke",
+  "description": "No-network synthetic IMU regression (Python baseline only; no real-world accuracy claim)",
+  "jobs": [
+    {
+      "id": "synthetic-python",
+      "dataset": "canonical",
+      "engine": "python-pdr",
+      "fixture": "canonical_imu",
+      "timeout_s": 90,
+      "checks": [
+        {
+          "field": "status",
+          "equals": "PASS"
+        },
+        {
+          "field": "actual_estimator_executed",
+          "equals": true
+        },
+        {
+          "field": "reference_used_to_score",
+          "equals": false
+        },
+        {
+          "field": "metrics.frames_processed",
+          "min": 1000
+        }
+      ]
+    }
+  ]
+}

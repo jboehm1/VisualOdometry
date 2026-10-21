@@ -1,0 +1,245 @@
+{
+  "schema_version": 1,
+  "last_reviewed": "2026-10-18",
+  "scope": "Prioritized relevant datasets, not an exhaustive index of all public odometry corpora",
+  "entries": [
+    {
+      "id": "euroc",
+      "name": "EuRoC MAV",
+      "rank": 1,
+      "scenario": "controlled VIO with metric optical truth",
+      "sensors": [
+        "mono/stereo camera",
+        "accel",
+        "gyro"
+      ],
+      "truth": "Vicon/Leica; see sequence and timestamp caveats",
+      "adapter": "implemented",
+      "risk": "MAV global shutter unlike a phone",
+      "license": "check original ETH repository terms",
+      "url": "https://projects.asl.ethz.ch/datasets/euroc-mav/"
+    },
+    {
+      "id": "tumvi",
+      "name": "TUM VI",
+      "rank": 2,
+      "scenario": "handheld VIO and corridor tracking",
+      "sensors": [
+        "mono/stereo fisheye",
+        "accel",
+        "gyro"
+      ],
+      "truth": "partial motion-capture coverage only",
+      "adapter": "implemented_native_index_only",
+      "risk": "fisheye rectification, sparse truth intervals",
+      "license": "check TUM dataset terms",
+      "url": "https://cvg.cit.tum.de/data/datasets/visual-inertial-dataset"
+    },
+    {
+      "id": "advio",
+      "name": "ADVIO",
+      "rank": 3,
+      "scenario": "realistic smartphone pedestrian indoors/outdoors",
+      "sensors": [
+        "phone cameras",
+        "accelerometer",
+        "gyroscope",
+        "magnetometer",
+        "barometer"
+      ],
+      "truth": "reference from inertial reconstruction plus surveyed fix points",
+      "adapter": "planned",
+      "risk": "reference less independent for inertial evaluation",
+      "license": "CC BY-NC 4.0 (verify source files)",
+      "url": "https://github.com/AaltoVision/ADVIO"
+    },
+    {
+      "id": "vector_capture",
+      "name": "VECTOR app Camera2 + IMU recordings",
+      "rank": 4,
+      "scenario": "exact target phone sensor behavior, walking/running",
+      "sensors": [
+        "phone MP4",
+        "accelerometer",
+        "gyroscope",
+        "optional GNSS"
+      ],
+      "truth": "none unless independently surveyed",
+      "adapter": "implemented_index_only",
+      "risk": "clock offset and extrinsics currently unknown; no native ARCore playback",
+      "license": "user-controlled; check privacy",
+      "url": "https://github.com/jboehm1/VisualOdometry"
+    },
+    {
+      "id": "ronin",
+      "name": "RoNIN",
+      "rank": 5,
+      "scenario": "camera-free PDR across people and carrying positions",
+      "sensors": [
+        "smartphone accelerometer",
+        "gyroscope",
+        "orientation"
+      ],
+      "truth": "visual-inertial trajectory reference; limited public subset",
+      "adapter": "planned",
+      "risk": "research-only dataset and model restrictions; held-out subjects",
+      "license": "research-only data (official site)",
+      "url": "https://ronin.cs.sfu.ca/"
+    },
+    {
+      "id": "oxiod",
+      "name": "OxIOD",
+      "rank": 6,
+      "scenario": "IMU-only handheld, bag, pocket, trolley",
+      "sensors": [
+        "accelerometer",
+        "gyroscope",
+        "magnetometer"
+      ],
+      "truth": "Vicon subset; Tango-based proxy for longer runs",
+      "adapter": "planned",
+      "risk": "different truth quality by sequence",
+      "license": "verify dataset license before redistribution/commercial use",
+      "url": "https://deepio.cs.ox.ac.uk/"
+    },
+    {
+      "id": "ridi",
+      "name": "RIDI",
+      "rank": 7,
+      "scenario": "pedestrian IMU-only motion and phone placement",
+      "sensors": [
+        "smartphone accelerometer",
+        "gyroscope"
+      ],
+      "truth": "Tango-derived reference in portions",
+      "adapter": "planned",
+      "risk": "Tango pose is not independent ground truth",
+      "license": "check dataset separately from MIT-licensed code",
+      "url": "https://yanhangpublic.github.io/ridi/index.html"
+    },
+    {
+      "id": "tlio",
+      "name": "TLIO golden",
+      "rank": 8,
+      "scenario": "learned IMU-only inertial odometry/filter baseline",
+      "sensors": [
+        "accel",
+        "gyro"
+      ],
+      "truth": "preprocessed VIO reference",
+      "adapter": "planned",
+      "risk": "requires pretrained/retrained model and licensing check",
+      "license": "released dataset CC BY-NC (see dataset archive)",
+      "url": "https://github.com/CathIAS/TLIO"
+    },
+    {
+      "id": "kitti",
+      "name": "KITTI Odometry",
+      "rank": 9,
+      "scenario": "driving monocular/stereo geometric VO",
+      "sensors": [
+        "stereo cameras",
+        "GPS/IMU reference"
+      ],
+      "truth": "poses 00–10 only; hidden for 11–21",
+      "adapter": "planned",
+      "risk": "standard odometry subset does not supply a synchronized raw IMU stream for VIO",
+      "license": "check KITTI benchmark data terms",
+      "url": "https://www.cvlibs.net/datasets/kitti/eval_odometry.php"
+    },
+    {
+      "id": "hilti26",
+      "name": "Hilti x Trimble SLAM 2026",
+      "rank": 10,
+      "scenario": "building interiors and 360 visual-inertial SLAM",
+      "sensors": [
+        "360 video",
+        "IMU embedded in video metadata"
+      ],
+      "truth": "LiDAR-inertial reference, not independent of inertial processing",
+      "adapter": "planned",
+      "risk": "360 camera and floor plan conditions differ from phone",
+      "license": "CC BY-NC-SA 3.0",
+      "url": "https://hilti-challenge.com/dataset-2026"
+    },
+    {
+      "id": "hilti21",
+      "name": "Hilti SLAM Challenge 2021",
+      "rank": 11,
+      "scenario": "difficult interiors and construction sites",
+      "sensors": [
+        "camera",
+        "IMU",
+        "lidar"
+      ],
+      "truth": "sparse total station or optical 6DoF per sequence",
+      "adapter": "planned_rosbag",
+      "risk": "multi-GB ROS bags",
+      "license": "CC BY-NC-SA 3.0",
+      "url": "https://hilti-challenge.com/dataset-2021"
+    },
+    {
+      "id": "hilti22",
+      "name": "Hilti-Oxford SLAM 2022",
+      "rank": 12,
+      "scenario": "handheld large construction sites",
+      "sensors": [
+        "camera",
+        "IMU",
+        "lidar"
+      ],
+      "truth": "3DoF / 6DoF depends on sequence",
+      "adapter": "planned_rosbag",
+      "risk": "large ROS bags, uneven truth",
+      "license": "CC BY-NC-SA 3.0",
+      "url": "https://hilti-challenge.com/dataset-2022"
+    },
+    {
+      "id": "ntuviral",
+      "name": "NTU VIRAL",
+      "rank": 13,
+      "scenario": "GPS-poor indoor/outdoor sensor fusion",
+      "sensors": [
+        "stereo",
+        "multiple IMUs",
+        "lidar",
+        "UWB"
+      ],
+      "truth": "laser tracker",
+      "adapter": "planned_rosbag",
+      "risk": "aerial vehicle motion and many unavailable phone sensors",
+      "license": "verify official terms",
+      "url": "https://ntu-aris.github.io/ntu_viral_dataset/"
+    },
+    {
+      "id": "tumvie",
+      "name": "TUM-VIE",
+      "rank": 14,
+      "scenario": "fast motions, difficult illumination, running",
+      "sensors": [
+        "stereo grayscale",
+        "stereo event cameras",
+        "IMU"
+      ],
+      "truth": "mocap at start/end only",
+      "adapter": "planned",
+      "risk": "special event cameras; sparse truth",
+      "license": "verify official terms",
+      "url": "https://arxiv.org/abs/2108.07329"
+    },
+    {
+      "id": "euroc_external",
+      "name": "OpenVINS/ORB-SLAM3 EuRoC outputs",
+      "rank": 15,
+      "scenario": "external baseline comparison on the same sequences",
+      "sensors": [
+        "same EuRoC frame/IMU observations"
+      ],
+      "truth": "independent EuRoC GT; do not share during inference",
+      "adapter": "planned_engine_integration",
+      "risk": "external results do not validate ARCore code; ORB-SLAM3 GPLv3",
+      "license": "respective algorithm license",
+      "url": "https://docs.openvins.com/gs-datasets.html"
+    }
+  ]
+}

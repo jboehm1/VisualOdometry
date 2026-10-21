@@ -1,0 +1,15 @@
+{
+  "workflow_run_id": 39555701592,
+  "artifact_id": 12326926561,
+  "artifact_zip_sha256": "2fb291f0b4a73086b881cbad3e61f114f7656364650560e8b498fb59fbb9d9d8",
+  "verified_project_sha": "cf4e51943c439db12b3d0693dea15e58feb1776b",
+  "files_sha256": {
+    "build.json": "d77a71cf972d5806aff9296aef1b6febd198267b1ce7451da061cd49950d3147",
+    "dataset-source.json": "48cff6bb899304ca59cb1d1558ebbfeb4fdd4ace7946c576a77f805a88653a05",
+    "host-image.txt": "ca512b6ad1d70a57472b59c060c5950ffda64368b0b57adfe0ac8b9bc0b79d55",
+    "runtime.json": "de7d55f0d07c351ce805faf83976b75d1f7126ab6f47133a8a7102efadb54d4b",
+    "score.json": "3b4ecd3fc45f0a7d13a938255e7cf8c06d5677a09e107dfe1274f555dda8db45",
+    "staged.json": "2c5c47bad53a005e1eee44d80c7c5ab05b46cdf8ae7574642eb998cd7103aec9",
+    "trajectory.tum": "d61abbd59dac07edbb586d5a22ba778cf4ad68894a874f51701bd6483c64958e"
+  }
+}

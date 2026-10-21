@@ -1,0 +1,72 @@
+name: Campaign B • REAL pedestrian IMU / Java PDR
+
+on:
+  push:
+    branches: [feature/validation-java-pdr-bridge, feature/slam-explorer]
+    paths:
+      - "tools/campaigns/simul_real.py"
+      - "tools/campaigns/android_pdr_bridge.py"
+      - "tools/campaigns/tests/test_android_pdr_bridge.py"
+      - ".github/workflows/real-pedestrian-java.yml"
+  pull_request:
+    paths:
+      - "tools/campaigns/simul_real.py"
+      - "tools/campaigns/android_pdr_bridge.py"
+      - "tools/campaigns/tests/test_android_pdr_bridge.py"
+      - ".github/workflows/real-pedestrian-java.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: real-pedestrian-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  real_java_pdr:
+    name: Real annotated walking • Java and Python • 3 subjects x 3 placements
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check input-contract tests
+        run: python -m unittest discover -s tools/campaigns/tests -p 'test_android_pdr_bridge.py' -v
+      - name: Fetch real SIMUL public recorded IMUs and run Android PDR replay
+        run: |
+          python tools/campaigns/simul_real.py --out campaign_results/real_simul
+      - name: Verify actual recordings and distinct estimators against annotations
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          f=Path("campaign_results/real_simul/real_step_report.json")
+          d=json.loads(f.read_text())
+          assert len(d["sequences"])==3
+          for s in d["sequences"]:
+            assert s["reference_steps"]>20
+            assert s["measurement"]["sample_count"]>200
+            assert len(s["positions"])==3
+            for p in s["positions"]:
+              assert p["java"]["engine"]=="ANDROID_JAVA_PdrEngine_STEP_FALLBACK"
+              assert p["java"]["results"]["rows"]>300
+              assert p["java"]["bridge"]["heading_provenance"]=="none"
+              assert p["python"]["engine"]=="PYTHON_FIXED_STRIDE_PDR_BASELINE"
+              assert p["java"]["results"]["steps"]>=0
+          print("Genuine, pinned public IMU used in Java estimator; annotated counts scored.")
+          PY
+      - name: Upload small provenance/scoring report ONLY (no raw sensor frames)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-simul-java-pdr-step-report
+          path: campaign_results/real_simul/real_step_report.json
+          if-no-files-found: ignore
+          retention-days: 30

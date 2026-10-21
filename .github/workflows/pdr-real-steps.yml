@@ -1,0 +1,35 @@
+name: Camera-free PDR - real SIMUL paired step regression
+on:
+  push:
+    branches: [feature/camera-free-pdr]
+    paths:
+      - 'tools/pdr/**'
+      - 'app/src/main/java/dev/jboehm/vectorvio/pdr/**'
+      - '.github/workflows/pdr-real-steps.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-simul-java-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Paired real SIMUL four known + two additional participants
+        run: |
+          python3 tools/pdr/simul_compare.py --out app/build/reports/pdr-real-steps
+      - name: Archive small numeric results and source provenance only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdr-real-simul-paired-scores
+          path: app/build/reports/pdr-real-steps/*.json
+          retention-days: 21
+          if-no-files-found: warn

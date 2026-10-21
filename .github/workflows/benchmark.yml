@@ -1,0 +1,98 @@
+name: Odometry • Real Dataset Harness
+
+on:
+  push:
+    branches: [feature/slam-explorer, feature/real-dataset-benchmark]
+    paths:
+      - "tools/benchmark/**"
+      - ".github/workflows/benchmark.yml"
+  pull_request:
+    paths:
+      - "tools/benchmark/**"
+      - ".github/workflows/benchmark.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Smoke or audit one real public ZIP"
+        type: choice
+        options: [smoke, real-file-audit]
+        default: smoke
+      dataset_kind:
+        description: "Native dataset structure"
+        type: choice
+        options: [euroc, tumvi]
+        default: euroc
+      dataset_url:
+        description: "HTTPS ZIP URL; never downloaded automatically"
+        type: string
+      dataset_sha256:
+        description: "64 hex SHA256 of ZIP"
+        type: string
+      estimate_url:
+        description: "Optional TUM trajectory HTTPS URL, already transformed into IMU frame"
+        type: string
+      estimate_sha256:
+        description: "64 hex SHA256 of estimate"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench-${{ github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned metric dependency
+        run: python -m pip install -r tools/benchmark/requirements.txt
+      - name: Unit tests for formats and metrics
+        run: python -m unittest discover -s tools/benchmark/tests -v
+      - name: Dataset registry smoke
+        run: |
+          python tools/benchmark/bench.py catalog > /tmp/catalog.json
+          python -c "import json; a=json.load(open('/tmp/catalog.json')); assert len(a['entries']) >= 10"
+      - name: Manual real-data ingest and optional score
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'real-file-audit' }}
+        env:
+          DATA_URL: ${{ inputs.dataset_url }}
+          DATA_SHA: ${{ inputs.dataset_sha256 }}
+          DATA_KIND: ${{ inputs.dataset_kind }}
+          EST_URL: ${{ inputs.estimate_url }}
+          EST_SHA: ${{ inputs.estimate_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DATA_URL" && test -n "$DATA_SHA" || { echo "ZIP URL and checksum required"; exit 2; }
+          mkdir -p benchmark
+          python tools/benchmark/fetch.py "$DATA_URL" --sha256 "$DATA_SHA" --out benchmark/dataset.zip --unzip-to benchmark/data
+          found="$(find benchmark/data -type d -name mav0 | wc -l)"
+          test "$found" -eq 1 || { echo "Exactly one mav0 directory required"; exit 2; }
+          native="$(find benchmark/data -type d -name mav0 -print -quit)"
+          python tools/benchmark/bench.py prepare --dataset "$DATA_KIND" --root "$(dirname "$native")" --out benchmark/prepared | tee benchmark/prepare.log
+          if [ -n "$EST_URL" ] || [ -n "$EST_SHA" ]; then
+            test -n "$EST_URL" && test -n "$EST_SHA" || { echo "Estimate URL and checksum both required"; exit 2; }
+            python tools/benchmark/fetch.py "$EST_URL" --sha256 "$EST_SHA" --out benchmark/estimate.tum --max-download-gb 0.2
+            truth="$(python -c "import json; print(json.load(open('benchmark/prepared/manifest.json'))['truth'] or '')")"
+            test -n "$truth" || { echo "No independent GT in this sequence"; exit 2; }
+            python tools/benchmark/bench.py evaluate --truth "$truth" --truth-format euroc --truth-frame imu --estimate benchmark/estimate.tum --estimate-format tum --estimate-frame imu --out benchmark/report.json
+          fi
+      - name: Upload tiny metadata/results only, not datasets or videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: odometry-benchmark-${{ github.run_id }}
+          path: |
+            benchmark/prepared/manifest.json
+            benchmark/prepare.log
+            benchmark/report.json
+          if-no-files-found: ignore
+          retention-days: 14
