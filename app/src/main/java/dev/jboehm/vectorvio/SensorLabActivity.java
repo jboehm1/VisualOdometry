@@ -49,6 +49,7 @@ public final class SensorLabActivity extends Activity implements SensorEventList
     private TextView status,live,inventory;
     private Button start,stop,export;
     private boolean recording;
+    private boolean stopRequested;
     private boolean resumed;
     private int sampleCount;
     private long lastEventNs,initialSensorNs;
@@ -190,7 +191,7 @@ public final class SensorLabActivity extends Activity implements SensorEventList
             Handler h=new Handler(ht.getLooper());
             counts.clear();lastTimestamps.clear();measuredHz.clear();lastValues.clear();
             sampleCount=0;lastEventNs=initialSensorNs=0;
-            directory=dir;csv=w;sensorWorker=ht;worker=h;recording=true;
+            directory=dir;csv=w;sensorWorker=ht;worker=h;recording=true;stopRequested=false;
             int registered=0;
             for(int type:SENSOR_TYPES){
                 Sensor sensor=manager.getDefaultSensor(type);
@@ -210,7 +211,7 @@ public final class SensorLabActivity extends Activity implements SensorEventList
         render();
     }
     @Override public synchronized void onSensorChanged(SensorEvent e){
-        if(!recording||csv==null)return;
+        if(!recording||stopRequested||csv==null)return;
         if(e==null||e.sensor==null||e.values.length==0)return;
         try{
             int type=e.sensor.getType();
@@ -231,8 +232,12 @@ public final class SensorLabActivity extends Activity implements SensorEventList
             for(int i=0;i<4;i++)csv.write(i<e.values.length?","+e.values[i]:",");
             csv.write(","+e.accuracy+"\n");
             sampleCount++;
-            if(sampleCount>=MAX_SAMPLES)runOnUiThread(()->stopRun("Sample limit reached"));
+            if(sampleCount>=MAX_SAMPLES){
+                stopRequested=true; // strict bounded count and exactly one UI stop task
+                runOnUiThread(()->stopRun("Sample limit reached"));
+            }
         }catch(IOException e1){
+            stopRequested=true;
             runOnUiThread(()->stopRun("STORAGE ERROR: capture stopped"));
         }
     }
@@ -244,7 +249,7 @@ public final class SensorLabActivity extends Activity implements SensorEventList
     }
     private synchronized void stopRun(String reason){
         if(!recording)return;
-        recording=false;
+        recording=false;stopRequested=true;
         manager.unregisterListener(this);
         if(sensorWorker!=null)sensorWorker.quitSafely();
         sensorWorker=null;worker=null;
