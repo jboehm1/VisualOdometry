@@ -676,7 +676,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private void submitRequest(){
         CameraDevice camera=device;CameraCaptureSession session=capture;
         Surface target=output;Handler work=handler;
-        if(camera==null||session==null||target==null||work==null)return;
+        if(!foreground||camera==null||session==null||target==null||work==null)return;
         long shutter=manualCapable?Camera2ExposurePolicy.clampShutter(desiredExposure,
             shutterRange.getLower(),shutterRange.getUpper(),frameDuration):0;
         int iso=manualCapable?Camera2ExposurePolicy.clampIso(desiredIso,isoRange.getLower(),isoRange.getUpper()):0;
@@ -722,7 +722,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                     });
                 }
             },work);
-        }catch(CameraAccessException|IllegalStateException exception){
+        }catch(CameraAccessException|IllegalStateException|IllegalArgumentException exception){
             if(manualCapable){
                 // Some phones falsely advertise manual control or reject requests
                 // at runtime. Keep preview usable with native system AE.

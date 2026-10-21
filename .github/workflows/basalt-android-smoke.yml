@@ -35,7 +35,8 @@ jobs:
         run: |
           SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" --install 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.3.13750724' 'emulator' 'system-images;android-30;default;x86_64'
+          "$SDKMANAGER" --install 'platform-tools' 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.3.13750724' 'emulator' 'system-images;android-30;default;x86_64'
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/vector-native-x86-cache
@@ -47,9 +48,13 @@ jobs:
         timeout-minutes: 15
         run: |
           set -euo pipefail
+          export ANDROID_USER_HOME="$RUNNER_TEMP/vector-android-user"
+          export ANDROID_EMULATOR_HOME="$ANDROID_USER_HOME"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           sudo chmod a+rw /dev/kvm
           AVDMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n 1)
-          echo no | "$AVDMANAGER" create avd --force -n vector-native -k 'system-images;android-30;default;x86_64' --device pixel_2
+          echo no | "$AVDMANAGER" create avd --force -n vector-native -k 'system-images;android-30;default;x86_64' --device pixel_2 --path "$ANDROID_AVD_HOME/vector-native.avd"
           "$ANDROID_HOME/emulator/emulator" -avd vector-native -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect -accel on > "$RUNNER_TEMP/emulator.log" 2>&1 &
           timeout 180 adb wait-for-device
           booted=false
