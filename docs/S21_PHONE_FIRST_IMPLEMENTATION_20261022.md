@@ -23,6 +23,24 @@
 
 **No GPU model runtime dependency was added.** The existing `PortableInertialModel` already supports a SHA-256-verified, tiny MLP *diagnostic* checkpoint for PDR; we do not relabel it as EqNIO/TLIO. To integrate actual learned models, implement proper input preprocessing and coordinate-frame contracts for each, benchmark on same raw S21 logs against GT, select only models with distributable weights, and keep any inference diagnostic until validation.
 
+## Host replay bridge: reuse the actual Java PDR engine
+
+The sensor lab ZIP can now feed **the existing PdrEngine exactly**, rather than an unrelated Python dead-reckoning proxy:
+
+```sh
+# Unzip an explicitly exported Sensor Lab run into a local private directory.
+python3 tools/phone/sensor_lab_to_pdr.py sensor_samples.csv \
+    --stride-m 0.74 --out /tmp/s21-events.csv
+bash tools/pdr/run.sh /tmp/s21-events.csv > /tmp/s21-java-pdr-summary.json
+# Tracking availability diagnostics from a separately exported real ARCore bundle:
+python3 tools/phone/assess_observability.py vector_vio_..._visual_observability.csv \
+    --source PHONE_UNVERIFIED --output /tmp/s21-tracking-availability.json
+```
+
+The **0.74 m is an EXAMPLE**; users must replace it with externally measured stride length. Converter emits **only real accelerometer and pressure measurements**, sorted by `SensorEvent.timestamp`, plus explicit START/stride setting. It emits **no STEP, GNSS, magnetic heading, body pose, velocity, position or independent ground truth**. The Java `PdrEngine` is still the source of estimated steps/distance and `DISTANCE ONLY` must remain the safe default when heading is missing. Each converter output has SHA256 and input provenance JSON. `assess_observability.py` reports device-tracking availability (not actual ATE/RPE), excludes gaps greater than 2 seconds and refuses any inertial translation claim.
+
+**CI host tests** added under `tools/tests/test_phone_observability.py` and `tools/tests/test_sensor_lab_to_pdr.py`; existing Android workflow automatically invokes `python -m unittest discover -s tools/tests` before Gradle.
+
 ## Safety/consistency guards
 
 - Gate only emits observations: ARCore currently reports pose but could still drift. If camera opaque or lost, **no inferred obstacle map or safe exit**.
