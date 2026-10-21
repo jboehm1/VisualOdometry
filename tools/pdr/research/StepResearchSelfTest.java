@@ -16,7 +16,11 @@ public final class StepResearchSelfTest {
                     b.accept(t-1_000_000_000L,0,0,9.81);
                     boolean one=a.accept(t,0,0,z), two=b.accept(t,0,0,z);
                     if(one!=two)throw new AssertionError("rejected sample mutates state");
-                    if(one)steps++;
+                    if(one) {
+                        if(a.eventTimestampNs()<=0 || a.eventTimestampNs()>t)
+                            throw new AssertionError("event timestamp is not an observed past sample");
+                        steps++;
+                    }
                 }
                 if(steps<17 || steps>20)throw new AssertionError("synthetic gait "+hz+": "+steps);
                 if(expected>=0 && Math.abs(steps-expected)>1)throw new AssertionError("sample-rate inconsistency");
@@ -26,6 +30,20 @@ public final class StepResearchSelfTest {
                     if(a.accept(t,0,0,i==hz?18:9.81))throw new AssertionError("isolated impact counted");
             }
         }
+        CausalArbitration arb=new CausalArbitration();
+        long last=-1;int count=0;
+        for(int i=0;i<1200;i++) {
+            long t=1_000_000_000L+i*20_000_000L;
+            if(arb.accept(t,i%20==0,i%30==0)) {
+                if(last>0 && t-last<270_000_000L)throw new AssertionError("duplicate on model switch");
+                last=t;count++;
+            }
+            if(arb.accept(t,true,true))throw new AssertionError("duplicate callback accepted");
+        }
+        if(arb.switches()<1 || count>=60 || count<35)throw new AssertionError("causal arbitration guard");
+        arb.reset();
+        for(int i=0;i<600;i++)arb.accept(1_000_000_000L+i*20_000_000L,i%30==0,i%30==0);
+        if(arb.switches()!=0)throw new AssertionError("unnecessary switch on agreement");
         System.out.println("Research challenger causal/reset/rate guard rails pass; not human accuracy.");
     }
 }

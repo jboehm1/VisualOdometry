@@ -183,4 +183,4 @@ The isolated [Basalt host pipeline](docs/NATIVE_VIO_HOST_BASELINE_V017.md) build
 Benchmark correction: standard EuRoC state quaternions use wxyz; TUM uses xyzw. [Parser audit](docs/work/EUROC_QUATERNION_FIX_20261021.md). Previous rotational/RPE results need re-scoring.
 
 ### PDR/VIO comparison and conservative challenger selection
-See [actual engines, comparison protocols and experimental gates](docs/PDR_VIO_COMPARISON_20261021.md). The host Basalt VO/VIO ablation and subject-disjoint Java PDR challengers are research experiments; neither proves ARCore superiority or changes Android PDR automatically.
+See [actual engines, comparison protocols and experimental gates](docs/PDR_VIO_COMPARISON_20261021.md). The host Basalt VO/VIO ablation and subject-disjoint Java PDR challengers are research experiments; no ARCore superiority is implied. A later frozen consensus130 fallback passed reserved-subject step gates and is integrated with actual-Java parity, plus a pause/resume watermark fix. Phone metric accuracy remains unqualified.

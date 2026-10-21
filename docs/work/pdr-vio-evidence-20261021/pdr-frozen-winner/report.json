@@ -1,0 +1,242 @@
+{
+  "schema": "vector-pdr-research-selection/1",
+  "dataset_sha": "ee7eb4e89bf33a17cafb4268207b802773427493",
+  "engine": "exact Java PdrEngine baseline; isolated PeakCandidate challengers",
+  "selection": "consensus_130",
+  "selection_receipt_sha256": "851713312ea81139f30307fbcce0b3dfd6feddeb64345df9aa28d9643f5e1dbb",
+  "reserved": {
+    "baseline": {
+      "trials": 6,
+      "mean_f1": 0.946675,
+      "mean_abs_count_error_pct": 5.115,
+      "total_predicted": 6548,
+      "total_reference": 6342,
+      "total_false_positives": 330,
+      "total_missed": 124
+    },
+    "candidate": {
+      "trials": 6,
+      "mean_f1": 0.957695,
+      "mean_abs_count_error_pct": 3.025,
+      "total_predicted": 6468,
+      "total_reference": 6342,
+      "total_false_positives": 240,
+      "total_missed": 114
+    },
+    "delta_f1": 0.011019999999999919,
+    "count_mae_reduction_pp": 2.0900000000000003,
+    "worst_trial_delta_f1": 0.0,
+    "nonregression": true,
+    "strict_gain": true
+  },
+  "reserved_trials": [
+    {
+      "participant": "15",
+      "placement": "front_pocket",
+      "event_confirmation_delay": {
+        "count": 676,
+        "mean_ms": 38.35059171597633,
+        "max_ms": 125.0
+      },
+      "metrics": {
+        "current": {
+          "count": 789,
+          "reference": 638,
+          "matched": 614,
+          "false_positives": 175,
+          "missed_steps": 24,
+          "count_error_pct": 23.668,
+          "precision": 0.7782,
+          "recall": 0.962382,
+          "f1": 0.860547
+        },
+        "consensus_130": {
+          "count": 713,
+          "reference": 638,
+          "matched": 622,
+          "false_positives": 91,
+          "missed_steps": 16,
+          "count_error_pct": 11.755,
+          "precision": 0.87237,
+          "recall": 0.974922,
+          "f1": 0.920799
+        }
+      }
+    },
+    {
+      "participant": "15",
+      "placement": "hand",
+      "event_confirmation_delay": {
+        "count": 687,
+        "mean_ms": 50.41848617176128,
+        "max_ms": 175.0
+      },
+      "metrics": {
+        "current": {
+          "count": 657,
+          "reference": 638,
+          "matched": 609,
+          "false_positives": 48,
+          "missed_steps": 29,
+          "count_error_pct": 2.978,
+          "precision": 0.926941,
+          "recall": 0.954545,
+          "f1": 0.940541
+        },
+        "consensus_130": {
+          "count": 657,
+          "reference": 638,
+          "matched": 609,
+          "false_positives": 48,
+          "missed_steps": 29,
+          "count_error_pct": 2.978,
+          "precision": 0.926941,
+          "recall": 0.954545,
+          "f1": 0.940541
+        }
+      }
+    },
+    {
+      "participant": "15",
+      "placement": "back_pocket",
+      "event_confirmation_delay": {
+        "count": 658,
+        "mean_ms": 48.06231003039513,
+        "max_ms": 137.5
+      },
+      "metrics": {
+        "current": {
+          "count": 656,
+          "reference": 638,
+          "matched": 577,
+          "false_positives": 79,
+          "missed_steps": 61,
+          "count_error_pct": 2.821,
+          "precision": 0.879573,
+          "recall": 0.904389,
+          "f1": 0.891808
+        },
+        "consensus_130": {
+          "count": 652,
+          "reference": 638,
+          "matched": 579,
+          "false_positives": 73,
+          "missed_steps": 59,
+          "count_error_pct": 2.194,
+          "precision": 0.888037,
+          "recall": 0.907524,
+          "f1": 0.897674
+        }
+      }
+    },
+    {
+      "participant": "16",
+      "placement": "front_pocket",
+      "event_confirmation_delay": {
+        "count": 1479,
+        "mean_ms": 29.056795131845842,
+        "max_ms": 87.5
+      },
+      "metrics": {
+        "current": {
+          "count": 1482,
+          "reference": 1476,
+          "matched": 1472,
+          "false_positives": 10,
+          "missed_steps": 4,
+          "count_error_pct": 0.407,
+          "precision": 0.993252,
+          "recall": 0.99729,
+          "f1": 0.995267
+        },
+        "consensus_130": {
+          "count": 1482,
+          "reference": 1476,
+          "matched": 1472,
+          "false_positives": 10,
+          "missed_steps": 4,
+          "count_error_pct": 0.407,
+          "precision": 0.993252,
+          "recall": 0.99729,
+          "f1": 0.995267
+        }
+      }
+    },
+    {
+      "participant": "16",
+      "placement": "hand",
+      "event_confirmation_delay": {
+        "count": 1481,
+        "mean_ms": 103.17353139770425,
+        "max_ms": 162.5
+      },
+      "metrics": {
+        "current": {
+          "count": 1482,
+          "reference": 1476,
+          "matched": 1472,
+          "false_positives": 10,
+          "missed_steps": 4,
+          "count_error_pct": 0.407,
+          "precision": 0.993252,
+          "recall": 0.99729,
+          "f1": 0.995267
+        },
+        "consensus_130": {
+          "count": 1482,
+          "reference": 1476,
+          "matched": 1472,
+          "false_positives": 10,
+          "missed_steps": 4,
+          "count_error_pct": 0.407,
+          "precision": 0.993252,
+          "recall": 0.99729,
+          "f1": 0.995267
+        }
+      }
+    },
+    {
+      "participant": "16",
+      "placement": "back_pocket",
+      "event_confirmation_delay": {
+        "count": 1479,
+        "mean_ms": 30.5104800540906,
+        "max_ms": 100.0
+      },
+      "metrics": {
+        "current": {
+          "count": 1482,
+          "reference": 1476,
+          "matched": 1474,
+          "false_positives": 8,
+          "missed_steps": 2,
+          "count_error_pct": 0.407,
+          "precision": 0.994602,
+          "recall": 0.998645,
+          "f1": 0.996619
+        },
+        "consensus_130": {
+          "count": 1482,
+          "reference": 1476,
+          "matched": 1474,
+          "false_positives": 8,
+          "missed_steps": 2,
+          "count_error_pct": 0.407,
+          "precision": 0.994602,
+          "recall": 0.998645,
+          "f1": 0.996619
+        }
+      }
+    }
+  ],
+  "measured_step_gain": true,
+  "apk_changed": false,
+  "metric_distance_or_position_validated": false,
+  "limitations": [
+    "Step intervals only, no metric trajectory ground truth",
+    "Two reserved participants do not establish population/S21 generalization",
+    "Reserved IDs consumed only if actually scored; future tuning then requires new people",
+    "Event-time mode dates a measured threshold crossing, decided later at a peak; no GT clock fit",
+    "No trained body-heading/displacement model or automatic Android promotion"
+  ]
+}

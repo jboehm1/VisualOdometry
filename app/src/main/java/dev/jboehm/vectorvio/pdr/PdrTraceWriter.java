@@ -90,6 +90,8 @@ public final class PdrTraceWriter {
                     "GNSS is NOT used to calculate PDR distance; no position fix applied.\n"+
                     "Pressure altitude: relative, weather drift possible.\n"+
                     "Step mode: "+stepMode+"\n"+
+                    "Accelerometer fallback algorithm: "+snap.fallbackAlgorithm+"\n"+
+                    "Check stride calibration after changing gait, carry mode or step source/algorithm.\n"+
                     "Gait profile: "+gaitProfile+"\n"+
                     "Direction policy: "+headingPolicy+"\n"+
                     "Step length m: "+snap.stepLengthM+"\n"+

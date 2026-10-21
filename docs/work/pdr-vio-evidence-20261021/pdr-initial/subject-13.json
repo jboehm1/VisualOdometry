@@ -1,0 +1,66 @@
+{
+  "source": {
+    "sha256": "7d544a7752d95e6a03bfe62545a36cc112e245db4ce02c13fb9dd55b9a95b718",
+    "bytes": 52961986,
+    "url": "https://raw.githubusercontent.com/simpleLoc/SIMUL-dataset/ee7eb4e89bf33a17cafb4268207b802773427493/data/by-person/13/awindaRecording_20230320161307.csv"
+  },
+  "annotation": {
+    "sha256": "41d9c27cbc33d3293dea8209bb7d51ef7a041c115757e9c69afba1fe0436db3c",
+    "bytes": 8714,
+    "url": "https://raw.githubusercontent.com/simpleLoc/SIMUL-dataset/ee7eb4e89bf33a17cafb4268207b802773427493/data/by-person/13/awindaRecording_20230320161307.csv.stepNonoverlap"
+  },
+  "samples": 54674,
+  "trials": [
+    {
+      "participant": "13",
+      "placement": "front_pocket",
+      "metrics": {
+        "current": {
+          "count": 832,
+          "reference": 749,
+          "matched": 721,
+          "false_positives": 111,
+          "missed_steps": 28,
+          "count_error_pct": 11.081,
+          "precision": 0.866587,
+          "recall": 0.962617,
+          "f1": 0.912081
+        }
+      }
+    },
+    {
+      "participant": "13",
+      "placement": "hand",
+      "metrics": {
+        "current": {
+          "count": 866,
+          "reference": 749,
+          "matched": 695,
+          "false_positives": 171,
+          "missed_steps": 54,
+          "count_error_pct": 15.621,
+          "precision": 0.80254,
+          "recall": 0.927904,
+          "f1": 0.860681
+        }
+      }
+    },
+    {
+      "participant": "13",
+      "placement": "back_pocket",
+      "metrics": {
+        "current": {
+          "count": 967,
+          "reference": 749,
+          "matched": 688,
+          "false_positives": 279,
+          "missed_steps": 61,
+          "count_error_pct": 29.105,
+          "precision": 0.711479,
+          "recall": 0.918558,
+          "f1": 0.801865
+        }
+      }
+    }
+  ]
+}

@@ -128,4 +128,4 @@ Basalt host baseline separates source/toolchain build, predeclared sensor-only s
 The generic benchmark pose parser distinguishes EuRoC wxyz from TUM xyzw before forming IMU/body rotations. Mixed-format RPE now has an explicit orientation regression; input clocks, frames and scale stay unchanged.
 
 ### PDR/VIO comparison and conservative challenger selection
-See [actual engines, comparison protocols and experimental gates](PDR_VIO_COMPARISON_20261021.md). The host Basalt VO/VIO ablation and subject-disjoint Java PDR challengers are research experiments; neither proves ARCore superiority or changes Android PDR automatically.
+See [actual engines, comparison protocols and experimental gates](PDR_VIO_COMPARISON_20261021.md). The host Basalt VO/VIO ablation and subject-disjoint Java PDR challengers are research experiments; no ARCore superiority is implied. A later frozen consensus130 fallback passed reserved-subject step gates and is integrated with actual-Java parity, plus a pause/resume watermark fix. Phone metric accuracy remains unqualified.

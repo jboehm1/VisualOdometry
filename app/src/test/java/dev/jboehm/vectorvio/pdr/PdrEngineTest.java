@@ -4,6 +4,48 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public final class PdrEngineTest {
+    @Test public void resumePreservesWatermarksAndCannotAppendAnOlderPathPoint() {
+        PdrEngine p=new PdrEngine();p.start(1);
+        p.deviceHeading(1_000_000_000L,0);p.step(1_500_000_000L);
+        p.deviceHeading(2_000_000_000L,0);p.step(2_500_000_000L);
+        p.pause();p.resume();
+        p.deviceHeading(1_100_000_000L,Math.PI/2);
+        assertFalse(p.step(1_800_000_000L));
+        assertFalse(p.step(2_500_000_000L));
+        assertEquals(2,p.snapshot(3_000_000_000L).steps);
+        assertEquals(PdrEngine.HeadingSource.UNAVAILABLE,p.snapshot(3_000_000_000L).headingSource);
+        p.deviceHeading(3_100_000_000L,0);
+        assertTrue(p.step(3_500_000_000L));
+        assertEquals(0,p.snapshot(3_500_000_000L).cadenceStepsPerMin,0);
+        assertTrue(p.path().get(3).gapBefore);
+        long previous=0;
+        for(PdrEngine.Point point:p.path()) {
+            assertTrue(point.timeNs>previous);previous=point.timeNs;
+        }
+    }
+    @Test public void timedResumeRejectsSamplesCollectedWhilePausedBeforeTheyPrimeFallback() {
+        PdrEngine p=new PdrEngine();p.start(1_000_000_000L);
+        p.step(1_500_000_000L);p.pause();p.resume(6_000_000_000L);
+        p.deviceHeading(5_900_000_000L,0);
+        p.gpsCourse(5_900_000_000L,0,3f,2f,2f);
+        p.pressure(5_900_000_000L,1000);
+        for(long t=2_000_000_000L;t<6_000_000_000L;t+=20_000_000L)
+            assertFalse(p.acceleration(t,0,0,t%600_000_000L==0?15:9.81));
+        assertFalse(p.step(5_900_000_000L));
+        assertEquals(1,p.snapshot(6_000_000_000L).steps);
+        assertTrue(Double.isNaN(p.snapshot(6_000_000_000L).elevationM));
+        for(int i=0;i<30;i++)assertFalse(p.acceleration(6_000_000_000L+i*20_000_000L,0,0,i==10?15:9.81));
+    }
+    @Test public void failedResumeAndInvalidFutureAccelerationDoNotPoisonAcceptedState() {
+        PdrEngine p=new PdrEngine();p.start(1_000_000_000L);p.step(2_000_000_000L);
+        assertFalse(p.acceleration(20_000_000_000L,Double.NaN,0,0));
+        p.pause();
+        try {p.resume(1_900_000_000L);fail();}catch(IllegalArgumentException expected){}
+        assertFalse(p.isRecording());
+        p.resume(2_500_000_000L);
+        assertTrue(p.step(3_000_000_000L));
+        assertEquals(2,p.snapshot(3_000_000_000L).steps);
+    }
     @Test public void distanceAccumulatesWithoutCameraOrHeading() {
         PdrEngine p=new PdrEngine();p.start(1);
         for(int i=1;i<=10;i++)assertTrue(p.step(i*500_000_000L));

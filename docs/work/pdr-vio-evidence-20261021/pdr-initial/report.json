@@ -1,0 +1,145 @@
+{
+  "schema": "vector-pdr-research-selection/1",
+  "dataset_sha": "ee7eb4e89bf33a17cafb4268207b802773427493",
+  "engine": "exact Java PdrEngine baseline; isolated PeakCandidate challengers",
+  "selection": "current",
+  "selection_receipt_sha256": "acb25f2580f47e5f9125042de7f71e4dbfcf2cf33bb5c5d9d96c5f65838cbf50",
+  "reserved": {
+    "baseline": {
+      "trials": 6,
+      "mean_f1": 0.906165,
+      "mean_abs_count_error_pct": 10.107,
+      "total_predicted": 4661,
+      "total_reference": 4233,
+      "total_false_positives": 657,
+      "total_missed": 229
+    },
+    "candidate": {
+      "trials": 6,
+      "mean_f1": 0.906165,
+      "mean_abs_count_error_pct": 10.107,
+      "total_predicted": 4661,
+      "total_reference": 4233,
+      "total_false_positives": 657,
+      "total_missed": 229
+    },
+    "delta_f1": 0.0,
+    "count_mae_reduction_pp": 0.0,
+    "worst_trial_delta_f1": 0.0,
+    "nonregression": true,
+    "strict_gain": false
+  },
+  "reserved_trials": [
+    {
+      "participant": "13",
+      "placement": "front_pocket",
+      "metrics": {
+        "current": {
+          "count": 832,
+          "reference": 749,
+          "matched": 721,
+          "false_positives": 111,
+          "missed_steps": 28,
+          "count_error_pct": 11.081,
+          "precision": 0.866587,
+          "recall": 0.962617,
+          "f1": 0.912081
+        }
+      }
+    },
+    {
+      "participant": "13",
+      "placement": "hand",
+      "metrics": {
+        "current": {
+          "count": 866,
+          "reference": 749,
+          "matched": 695,
+          "false_positives": 171,
+          "missed_steps": 54,
+          "count_error_pct": 15.621,
+          "precision": 0.80254,
+          "recall": 0.927904,
+          "f1": 0.860681
+        }
+      }
+    },
+    {
+      "participant": "13",
+      "placement": "back_pocket",
+      "metrics": {
+        "current": {
+          "count": 967,
+          "reference": 749,
+          "matched": 688,
+          "false_positives": 279,
+          "missed_steps": 61,
+          "count_error_pct": 29.105,
+          "precision": 0.711479,
+          "recall": 0.918558,
+          "f1": 0.801865
+        }
+      }
+    },
+    {
+      "participant": "14",
+      "placement": "front_pocket",
+      "metrics": {
+        "current": {
+          "count": 679,
+          "reference": 662,
+          "matched": 649,
+          "false_positives": 30,
+          "missed_steps": 13,
+          "count_error_pct": 2.568,
+          "precision": 0.955817,
+          "recall": 0.980363,
+          "f1": 0.967934
+        }
+      }
+    },
+    {
+      "participant": "14",
+      "placement": "hand",
+      "metrics": {
+        "current": {
+          "count": 651,
+          "reference": 662,
+          "matched": 604,
+          "false_positives": 47,
+          "missed_steps": 58,
+          "count_error_pct": -1.662,
+          "precision": 0.927803,
+          "recall": 0.912387,
+          "f1": 0.92003
+        }
+      }
+    },
+    {
+      "participant": "14",
+      "placement": "back_pocket",
+      "metrics": {
+        "current": {
+          "count": 666,
+          "reference": 662,
+          "matched": 647,
+          "false_positives": 19,
+          "missed_steps": 15,
+          "count_error_pct": 0.604,
+          "precision": 0.971471,
+          "recall": 0.977341,
+          "f1": 0.974398
+        }
+      }
+    }
+  ],
+  "measured_step_gain": false,
+  "apk_changed": false,
+  "metric_distance_or_position_validated": false,
+  "limitations": [
+    "Step intervals only, no metric trajectory ground truth",
+    "Two reserved participants do not establish population/S21 generalization",
+    "Reserved IDs consumed by this run; future tuning requires new people",
+    "No trained body-heading/displacement model or automatic Android promotion"
+  ]
+}

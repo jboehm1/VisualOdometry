@@ -1,0 +1,132 @@
+{
+  "source": {
+    "sha256": "b354bacae79fda56aeb6b3d15a97ab007ebe6e887de27d2a74913dcea08d7cbd",
+    "bytes": 15297308,
+    "url": "https://raw.githubusercontent.com/simpleLoc/SIMUL-dataset/ee7eb4e89bf33a17cafb4268207b802773427493/data/by-person/12/awindaRecording_20230124153538.csv"
+  },
+  "annotation": {
+    "sha256": "6d778eea50a4ee20aebcdeab691b2de3170cc40dbb1aa21c46f6fba4fb176215",
+    "bytes": 2569,
+    "url": "https://raw.githubusercontent.com/simpleLoc/SIMUL-dataset/ee7eb4e89bf33a17cafb4268207b802773427493/data/by-person/12/awindaRecording_20230124153538.csv.stepNonoverlap"
+  },
+  "samples": 16579,
+  "trials": [
+    {
+      "participant": "12",
+      "placement": "front_pocket",
+      "metrics": {
+        "current": {
+          "count": 269,
+          "reference": 246,
+          "matched": 241,
+          "false_positives": 28,
+          "missed_steps": 5,
+          "count_error_pct": 9.35,
+          "precision": 0.895911,
+          "recall": 0.979675,
+          "f1": 0.935922
+        },
+        "smooth": {
+          "count": 251,
+          "reference": 246,
+          "matched": 235,
+          "false_positives": 16,
+          "missed_steps": 11,
+          "count_error_pct": 2.033,
+          "precision": 0.936255,
+          "recall": 0.955285,
+          "f1": 0.945674
+        },
+        "adaptive": {
+          "count": 248,
+          "reference": 246,
+          "matched": 235,
+          "false_positives": 13,
+          "missed_steps": 11,
+          "count_error_pct": 0.813,
+          "precision": 0.947581,
+          "recall": 0.955285,
+          "f1": 0.951417
+        }
+      }
+    },
+    {
+      "participant": "12",
+      "placement": "hand",
+      "metrics": {
+        "current": {
+          "count": 235,
+          "reference": 246,
+          "matched": 230,
+          "false_positives": 5,
+          "missed_steps": 16,
+          "count_error_pct": -4.472,
+          "precision": 0.978723,
+          "recall": 0.934959,
+          "f1": 0.956341
+        },
+        "smooth": {
+          "count": 234,
+          "reference": 246,
+          "matched": 229,
+          "false_positives": 5,
+          "missed_steps": 17,
+          "count_error_pct": -4.878,
+          "precision": 0.978632,
+          "recall": 0.930894,
+          "f1": 0.954167
+        },
+        "adaptive": {
+          "count": 240,
+          "reference": 246,
+          "matched": 231,
+          "false_positives": 9,
+          "missed_steps": 15,
+          "count_error_pct": -2.439,
+          "precision": 0.9625,
+          "recall": 0.939024,
+          "f1": 0.950617
+        }
+      }
+    },
+    {
+      "participant": "12",
+      "placement": "back_pocket",
+      "metrics": {
+        "current": {
+          "count": 294,
+          "reference": 246,
+          "matched": 229,
+          "false_positives": 65,
+          "missed_steps": 17,
+          "count_error_pct": 19.512,
+          "precision": 0.778912,
+          "recall": 0.930894,
+          "f1": 0.848148
+        },
+        "smooth": {
+          "count": 266,
+          "reference": 246,
+          "matched": 233,
+          "false_positives": 33,
+          "missed_steps": 13,
+          "count_error_pct": 8.13,
+          "precision": 0.87594,
+          "recall": 0.947154,
+          "f1": 0.910156
+        },
+        "adaptive": {
+          "count": 257,
+          "reference": 246,
+          "matched": 242,
+          "false_positives": 15,
+          "missed_steps": 4,
+          "count_error_pct": 4.472,
+          "precision": 0.941634,
+          "recall": 0.98374,
+          "f1": 0.962227
+        }
+      }
+    }
+  ]
+}
