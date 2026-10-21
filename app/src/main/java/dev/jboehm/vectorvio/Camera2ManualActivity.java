@@ -65,10 +65,8 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private TextView customStatus;
     private Sensor accelSensor;
     private static final int EXPORT_CUSTOM_ZIP=221;
-    private final SensorEventListener customImuListener=new SensorEventListener(){
-        @Override public void onSensorChanged(SensorEvent event){CustomVioSession s=customSession;if(s!=null)s.sensor(event);}
-        @Override public void onAccuracyChanged(Sensor sensor,int accuracy){}
-    };
+    private SensorEventListener customImuListener;
+    private volatile java.util.concurrent.CompletableFuture<Void> customClosing=java.util.concurrent.CompletableFuture.completedFuture(null);
     private final Runnable updateCustomStatus=new Runnable(){
         @Override public void run(){
             if(!foreground||!customMode)return;
@@ -94,8 +92,8 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private Range<Integer> isoRange;
     private long frameDuration=33_333_333L, desiredExposure=8_333_333L;
     private int desiredIso=400;
-    private boolean foreground;
-    private int captureGeneration=0;
+    private volatile boolean foreground;
+    private volatile int captureGeneration=0;
     private SeekBar shutterBar,isoBar;
     private int isoProgress=40;
     private int actualWidth=1280,actualHeight=720;
@@ -307,13 +305,18 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             root.addView(customStatus);
             Button startCustom=new Button(this);startCustom.setText("START NEW BASALT RUN");root.addView(startCustom);
             startCustom.setOnClickListener(v->{Handler h=handler;if(h==null)return;h.post(()->{
-                if(!foreground||customSession!=null)return;
+                if(!foreground||handler!=h||customSession!=null)return;
+                if(!customClosing.isDone()){runOnUiThread(()->customStatus.setText("Closing previous run; please retry shortly"));return;}
                 if(factoryCalibration==null||capture==null||gyroSensor==null||accelSensor==null){runOnUiThread(()->customStatus.setText("Camera, bootstrap, gyroscope and accelerometer required"));return;}
-                try{CustomVioSession s=new CustomVioSession(this,factoryCalibration);customSession=s;lastCustomDirectory=s.directory;}
+                try{
+                    CustomVioSession s=new CustomVioSession(this,factoryCalibration);lastCustomDirectory=s.directory;
+                    if(foreground&&handler==h)customSession=s;else s.close();
+                }
                 catch(Exception e){runOnUiThread(()->customStatus.setText("Basalt unavailable: "+e.getMessage()));}
             });});
             Button stopCustom=new Button(this);stopCustom.setText("STOP + EXPORT BASALT RUN (ZIP)");root.addView(stopCustom);
             stopCustom.setOnClickListener(v->{Handler h=handler;if(h==null)return;h.post(()->{
+                if(!foreground||handler!=h)return;
                 closeCustomSession();java.io.File dir=lastCustomDirectory;
                 runOnUiThread(()->{
                     if(dir==null){customStatus.setText("No Basalt recording yet");return;}
@@ -488,6 +491,14 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         lastCameraThumbnail=null;lastCameraThumbnailNs=0;
         worker=new HandlerThread("manual-camera2");worker.start();handler=new Handler(worker.getLooper());
         if(customMode){
+            final Handler owner=handler;
+            customImuListener=new SensorEventListener(){
+                @Override public void onSensorChanged(SensorEvent event){
+                    CustomVioSession s=customSession;
+                    if(foreground&&handler==owner&&s!=null)s.sensor(event);
+                }
+                @Override public void onAccuracyChanged(Sensor sensor,int accuracy){}
+            };
             ui.post(updateCustomStatus);
             if(accelSensor!=null)sensorManager.registerListener(customImuListener,accelSensor,5000,0,handler);
             if(gyroSensor!=null)sensorManager.registerListener(customImuListener,gyroSensor,5000,0,handler);
@@ -510,13 +521,12 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         if(sensorManager!=null){
             sensorManager.unregisterListener(lightListener);
             sensorManager.unregisterListener(gyroListener);
-            sensorManager.unregisterListener(customImuListener);
+            if(customImuListener!=null)sensorManager.unregisterListener(customImuListener);
         }
         synchronized(this){captureGeneration++;opening=false;if(capture!=null){capture.close();capture=null;}
             if(device!=null){device.close();device=null;}
             if(output!=null){output.release();output=null;}}
-        Handler h=handler;
-        if(h!=null)h.post(()->{closeCustomSession();if(imageReader!=null){imageReader.close();imageReader=null;}});
+        stopCustomAsync();
         if(worker!=null){worker.quitSafely();worker=null;handler=null;}
         super.onPause();
     }
@@ -529,8 +539,9 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             if(clock==null||clock!=CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME){fail("Basalt requires a REALTIME camera clock");return null;}
             StreamConfigurationMap stream=c.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             Size expected=new Size(factoryCalibration.width,factoryCalibration.height);
-            if(stream==null||!Arrays.asList(stream.getOutputSizes(ImageFormat.YUV_420_888)).contains(expected)
-                ||!Arrays.asList(stream.getOutputSizes(SurfaceTexture.class)).contains(expected)){
+            Size[] yuv=stream==null?null:stream.getOutputSizes(ImageFormat.YUV_420_888);
+            Size[] texture=stream==null?null:stream.getOutputSizes(SurfaceTexture.class);
+            if(yuv==null||texture==null||!Arrays.asList(yuv).contains(expected)||!Arrays.asList(texture).contains(expected)){
                 fail("Factory CPU image dimensions are not available through Camera2");return null;
             }
             shutterRange=c.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
@@ -628,7 +639,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                     c.close();opening=false;if(generation==captureGeneration)fail("Camera2 open error "+code);
                 }
             },handler);
-        }catch(CameraAccessException|SecurityException ex){
+        }catch(CameraAccessException|SecurityException|IllegalArgumentException ex){
             opening=false;fail("Camera2 unavailable: "+ex.getClass().getSimpleName());
         }
     }
@@ -692,6 +703,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 private long lastUiMs;
                 @Override public void onCaptureCompleted(CameraCaptureSession ses,
                     CaptureRequest request,TotalCaptureResult result){
+                    if(!foreground||ses!=capture)return;
                     CustomVioSession nativeSession=customSession;
                     if(nativeSession!=null&&foreground)nativeSession.result(result);
                     long now=android.os.SystemClock.elapsedRealtime();
@@ -747,15 +759,27 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     }
     private void fail(String message){runOnUiThread(()->{if(diagnostics!=null)diagnostics.setText(message);});}
     private void closeCustomSession(){CustomVioSession s=customSession;customSession=null;if(s!=null)s.close();}
+    private void stopCustomAsync(){
+        // Capture the old generation's objects; a rapid resume may create new
+        // objects before this worker has finished native teardown.
+        CustomVioSession old=customSession;customSession=null;
+        ImageReader reader=imageReader;imageReader=null;
+        if(old==null&&reader==null)return;
+        java.util.concurrent.CompletableFuture<Void> done=new java.util.concurrent.CompletableFuture<>();customClosing=done;
+        Runnable close=()->{try{if(reader!=null)reader.close();if(old!=null)old.close();}finally{done.complete(null);}};
+        Handler h=handler;if(h==null||!h.post(close))new Thread(close,"basalt-close").start();
+    }
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
         super.onRequestPermissionsResult(request,permissions,results);
         if(request==209&&results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED)openIfReady();
     }
     @Override public void onSurfaceTextureAvailable(SurfaceTexture st,int width,int height){openIfReady();}
     @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture st){
+        captureGeneration++;
         if(capture!=null){capture.close();capture=null;}
         if(device!=null){device.close();device=null;}
         if(output!=null){output.release();output=null;}
+        stopCustomAsync();
         return true;
     }
     @Override public void onSurfaceTextureSizeChanged(SurfaceTexture st,int width,int height){}

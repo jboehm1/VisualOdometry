@@ -1,6 +1,6 @@
 import copy
 import unittest
-from report import summarize
+from report import summarize,read_export
 
 
 class ReportTest(unittest.TestCase):
@@ -38,6 +38,21 @@ class ReportTest(unittest.TestCase):
     def test_partial_collection_cannot_look_complete(self):
         self.meta['status']='PARTIAL_IO_ERROR'
         self.assertIn('partial/error',summarize(self.rows,self.meta)['warnings'][-1])
+
+    def test_custom_failed_run_keeps_qualification_and_failure_visible(self):
+        import tempfile,csv,io,json,zipfile
+        from pathlib import Path
+        self.meta['engine']='BASALT_CUSTOM_FACTORY_EXPERIMENTAL'
+        raw=io.StringIO();writer=csv.DictWriter(raw,fieldnames=self.rows[0]);writer.writeheader();writer.writerows(self.rows)
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'custom.zip'
+            with zipfile.ZipFile(path,'w') as z:
+                z.writestr('session_resources.csv',raw.getvalue());z.writestr('session_resources_metadata.json',json.dumps(self.meta))
+                z.writestr('custom_metadata.json',json.dumps({'verified_calibration':False,'failed':True,'qualification':'EXPERIMENTAL','status':'STOPPED: IMU gap'}))
+            result=read_export(path)
+            self.assertFalse(result['custom_run']['verified_calibration'])
+            self.assertTrue(result['custom_run']['failed'])
+            self.assertIn('not a successful tracking trial',result['warnings'][-1])
 
 
 if __name__=='__main__':unittest.main()

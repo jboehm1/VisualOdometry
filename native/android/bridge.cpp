@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <cmath>
 #include <tbb/global_control.h>
+#include <opencv2/core.hpp>
 
 namespace {
 struct Engine {
@@ -42,6 +43,7 @@ struct Engine {
     calibration.gyro_noise_std.setConstant(p[22]);calibration.accel_noise_std.setConstant(p[23]);
     calibration.gyro_bias_std.setConstant(p[24]);calibration.accel_bias_std.setConstant(p[25]);
     calibration.imu_update_rate=p[26];
+    cv::setNumThreads(2);
     basalt::VioConfig config;
     config.vio_debug=false;config.vio_extended_logging=false;config.vio_enforce_realtime=true;
     flow=basalt::OpticalFlowFactory::getOpticalFlow(config,calibration);
@@ -134,7 +136,9 @@ Java_dev_jboehm_vectorvio_nativevio_BasaltBridge_nativeImu(JNIEnv* env,jclass,jl
 }
 extern "C" JNIEXPORT jboolean JNICALL
 Java_dev_jboehm_vectorvio_nativevio_BasaltBridge_nativeFrame(JNIEnv* env,jclass,jlong handle,jlong time,jbyteArray pixels,jlong exposure) {
-  if(!handle||exposure<=0)return false;auto* e=get(handle);
+  // Zero is permitted for dataset replay with unavailable exposure metadata.
+  // Live Camera2 ingestion separately rejects absent/nonpositive exposure.
+  if(!handle||exposure<0)return false;auto* e=get(handle);
   if(env->GetArrayLength(pixels)!=e->width*e->height)return false;
   jbyte* p=env->GetByteArrayElements(pixels,nullptr);if(!p)return false;
   bool ok=false;

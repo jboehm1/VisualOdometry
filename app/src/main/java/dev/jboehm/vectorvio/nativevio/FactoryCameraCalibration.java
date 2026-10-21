@@ -21,13 +21,15 @@ public final class FactoryCameraCalibration {
     public final JSONObject provenance;
     private FactoryCameraCalibration(JSONObject json)throws Exception {
         provenance=json;
-        if(!"ARCORE_FACTORY_BOOTSTRAP_UNVERIFIED".equals(json.getString("source")))throw new IllegalArgumentException("Calibration provenance");
+        if(!"ARCORE_FACTORY_BOOTSTRAP_UNVERIFIED".equals(json.getString("source"))||json.optBoolean("verified",true)
+            ||!android.os.Build.FINGERPRINT.equals(json.getString("device_fingerprint")))throw new IllegalArgumentException("Calibration provenance");
         cameraId=json.getString("camera_id");width=json.getInt("width");height=json.getInt("height");
         focus=(float)json.getDouble("focus_diopters");ois=json.getInt("ois");videoStabilization=json.getInt("video_stabilization");
         JSONArray c=json.getJSONArray("crop_xywh");crop=new int[]{c.getInt(0),c.getInt(1),c.getInt(2),c.getInt(3)};
         JSONArray p=json.getJSONArray("native_parameters");parameters=new double[27];
         if(p.length()!=27||width<32||height<32||width>1920||height>1080||!Float.isFinite(focus)||focus<0)throw new IllegalArgumentException("Unsupported bootstrap");
         for(int i=0;i<27;i++)parameters[i]=p.getDouble(i);
+        if(parameters[0]!=width||parameters[1]!=height||crop[2]<=0||crop[3]<=0)throw new IllegalArgumentException("Inconsistent image geometry");
         // Validate geometry without declaring it externally verified.
         double[] transform=new double[16];System.arraycopy(parameters,6,transform,0,16);
         new NativeVioInputGate.Calibration(cameraId,"factory-bootstrap",width,height,0,false,

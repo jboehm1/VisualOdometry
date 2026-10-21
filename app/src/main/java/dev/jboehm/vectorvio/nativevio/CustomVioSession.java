@@ -11,7 +11,6 @@ import dev.jboehm.vectorvio.AppIdentity;
 import dev.jboehm.vectorvio.Odometer;
 import dev.jboehm.vectorvio.metrics.SessionTelemetry;
 import java.io.*;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.zip.*;
@@ -54,6 +53,7 @@ public final class CustomVioSession implements AutoCloseable {
         captures=writer("camera.csv","start_ns,mid_row_mid_exposure_ns,exposure_ns,iso,frame_duration_ns,rolling_shutter_skew_ns,status");
         poses=writer("poses.csv","time_ns,received_elapsed_ns,x,y,z,qx,qy,qz,qw,observed_features,landmarks,quality_heuristic,distance_m,odometer_result");
         metadata=new JSONObject().put("schema",1).put("engine",BasaltBridge.version())
+            .put("started_elapsed_ns",started)
             .put("source_commit",AppIdentity.sourceCommit(activity)).put("version",AppIdentity.version(activity))
             .put("calibration",calibration.provenance).put("verified_calibration",false)
             .put("qualification","EXPERIMENTAL_FACTORY_BOOTSTRAP_NOT_DEVICE_VALIDATED")
@@ -183,12 +183,26 @@ public final class CustomVioSession implements AutoCloseable {
             .put("status",status).put("failed",failed);writeMetadata();}catch(Exception ignored){}
     }
     public static void export(File directory,OutputStream output,String opticalCsv)throws IOException {
+        final long start,end;
+        try{
+            JSONObject meta=new JSONObject(new String(java.nio.file.Files.readAllBytes(new File(directory,"custom_metadata.json").toPath()),StandardCharsets.UTF_8));
+            start=meta.getLong("started_elapsed_ns");end=meta.getLong("finished_elapsed_ns");
+        }catch(Exception e){throw new IOException("Session must be stopped before export",e);}
         try(ZipOutputStream zip=new ZipOutputStream(output)){
             File[] files=directory.listFiles();if(files==null)throw new IOException("Session unavailable");
             byte[] buffer=new byte[16384];
             for(File f:files){if(!f.isFile())continue;zip.putNextEntry(new ZipEntry(f.getName()));
                 try(InputStream in=new FileInputStream(f)){int n;while((n=in.read(buffer))!=-1)zip.write(buffer,0,n);}zip.closeEntry();}
-            zip.putNextEntry(new ZipEntry("optical_quality.csv"));zip.write(opticalCsv.getBytes(StandardCharsets.UTF_8));zip.closeEntry();
+            zip.putNextEntry(new ZipEntry("optical_quality.csv"));
+            String[] lines=opticalCsv.split("\n");
+            if(lines.length>0)zip.write((lines[0]+"\n").getBytes(StandardCharsets.UTF_8));
+            for(int i=1;i<lines.length;i++){
+                int comma=lines[i].indexOf(',');if(comma<=0)continue;
+                try{long time=Long.parseLong(lines[i].substring(0,comma));
+                    if(time>=start&&time<=end)zip.write((lines[i]+"\n").getBytes(StandardCharsets.UTF_8));
+                }catch(NumberFormatException ignored){}
+            }
+            zip.closeEntry();
         }
     }
 }

@@ -13,7 +13,7 @@ find_package(magic_enum CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(basalt-headers CONFIG REQUIRED)
 find_package(opengv CONFIG REQUIRED)
-set(OpenCV_STATIC OFF)
+set(OpenCV_STATIC ON)
 find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc features2d)
 set(BASALT_CORE
   src/linearization/landmark_block.cpp
