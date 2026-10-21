@@ -16,7 +16,11 @@ public final class StepResearchSelfTest {
                     b.accept(t-1_000_000_000L,0,0,9.81);
                     boolean one=a.accept(t,0,0,z), two=b.accept(t,0,0,z);
                     if(one!=two)throw new AssertionError("rejected sample mutates state");
-                    if(one)steps++;
+                    if(one) {
+                        if(a.eventTimestampNs()<=0 || a.eventTimestampNs()>t)
+                            throw new AssertionError("event timestamp is not an observed past sample");
+                        steps++;
+                    }
                 }
                 if(steps<17 || steps>20)throw new AssertionError("synthetic gait "+hz+": "+steps);
                 if(expected>=0 && Math.abs(steps-expected)>1)throw new AssertionError("sample-rate inconsistency");

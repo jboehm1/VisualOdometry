@@ -12,7 +12,7 @@ public final class StepResearchTrace {
     public static void main(String[] args) throws Exception {
         PdrEngine current = new PdrEngine();
         PeakCandidate smooth = new PeakCandidate(false), adaptive = new PeakCandidate(true);
-        List<Long> a = new ArrayList<>(), b = new ArrayList<>(), c = new ArrayList<>();
+        List<Long> a = new ArrayList<>(), b = new ArrayList<>(), c = new ArrayList<>(), events=new ArrayList<>(), delays=new ArrayList<>();
         long previous = -1; int samples = 0;
         try (BufferedReader in = Files.newBufferedReader(Path.of(args[0]))) {
             if (!"t_ns,ax,ay,az".equals(in.readLine())) throw new IllegalArgumentException("schema");
@@ -28,10 +28,14 @@ public final class StepResearchTrace {
                 if(samples++==0)current.start(t);
                 if(current.acceleration(t,x,y,z))a.add(t);
                 if(smooth.accept(t,x,y,z))b.add(t);
-                if(adaptive.accept(t,x,y,z))c.add(t);
+                if(adaptive.accept(t,x,y,z)) {
+                    c.add(t);events.add(adaptive.eventTimestampNs());
+                    delays.add(t-adaptive.eventTimestampNs());
+                }
             }
         }
         if(samples<500)throw new IllegalArgumentException("too few samples");
-        System.out.println("{\"current\":"+a+",\"smooth\":"+b+",\"adaptive\":"+c+"}");
+        System.out.println("{\"current\":"+a+",\"smooth\":"+b+",\"adaptive\":"+c+
+            ",\"adaptive_event_time\":"+events+",\"event_confirmation_delay_ns\":"+delays+"}");
     }
 }

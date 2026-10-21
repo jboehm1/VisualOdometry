@@ -5,15 +5,18 @@ public final class PeakCandidate {
     private final boolean adaptive;
     private boolean initialized, rising;
     private double gravity, filtered, previous, variance;
-    private long last = -1, first = -1, candidate = -1;
+    private long last = -1, first = -1, candidate = -1, crossing = -1, event = -1;
 
     public PeakCandidate(boolean adaptive) { this.adaptive = adaptive; }
 
     public void reset() {
         initialized = rising = false;
         gravity = filtered = previous = variance = 0;
-        last = first = candidate = -1;
+        last = first = candidate = crossing = event = -1;
     }
+
+    /** Observed threshold-crossing time, available only after peak confirmation. */
+    public long eventTimestampNs() { return event; }
 
     public boolean accept(long time, double x, double y, double z) {
         if (time <= 0 || time <= last || !Double.isFinite(x)
@@ -31,8 +34,11 @@ public final class PeakCandidate {
         filtered += (1-Math.exp(-dt/20_000_000.0))*(high-filtered);
         variance += (1-Math.exp(-dt/2_000_000_000.0))*(high*high-variance);
         double threshold = adaptive ? Math.max(.8, Math.min(2., .65*Math.sqrt(variance))) : 1.15;
+        if(filtered>previous && filtered>threshold && crossing<0)crossing=time;
         boolean peak = rising && filtered < previous && previous > threshold;
+        long observedCrossing=crossing;
         rising = filtered > previous;
+        if(!rising)crossing=-1;
         previous = filtered;
         if (!peak || time-first < 200_000_000L) return false;
         if (candidate < 0) { candidate = time; return false; }
@@ -41,6 +47,8 @@ public final class PeakCandidate {
         candidate = time;
         // Require two physically plausible peaks, but no inferred fixed rhythm:
         // changes of gait and asymmetric hand motion need not have equal periods.
-        return period <= 1_250_000_000L;
+        if(period>1_250_000_000L)return false;
+        event=observedCrossing>0?observedCrossing:time;
+        return true;
     }
 }
