@@ -31,6 +31,7 @@ final class SettingsPresentation {
             case OVERLAY_RENDER:return "Moteur d'affichage";
             case CAMERA_CAPTURE_PROFILE:return "Profil caméra AR";
             case CAMERA2_MANUAL_LAB:return "Camera2 : shutter et ISO manuels";
+            case CUSTOM_VIO:return "VIO custom : Basalt expérimental";
             case VIDEO_TRAINING:return "Enregistrer les données caméra + IMU";
             case COLLECT_ONLY:return "Collecte sans affichage";
             case ARCORE_REPLAY:return "Rejouer un enregistrement ARCore";
@@ -64,6 +65,7 @@ final class SettingsPresentation {
             case OVERLAY_RENDER:return "Choisir le rendu graphique automatique ou de secours. N'affecte pas l'estimation des poses.";
             case CAMERA_CAPTURE_PROFILE:return "Choisir le profil AR 30 ou 60 FPS, selon les capacités du téléphone. Le réglage ne force pas le shutter et ne prend effet qu’après redémarrage de l’application.";
             case CAMERA2_MANUAL_LAB:return "Piloter vraiment la vitesse d’obturation et la sensibilité ISO avec Camera2, dans un mode séparé où ARCore et le GPX 3D sont suspendus.";
+            case CUSTOM_VIO:return "Comparer ARCore à Basalt avec les contrôles caméra optimisés. Calibration usine expérimentale non vérifiée ; enregistrement séparé des poses, IMU, métadonnées caméra et ressources. ARCore est suspendu pendant ce test.";
             case VIDEO_TRAINING:return "Enregistrer explicitement une séquence ARCore pour améliorer les tests. Consomme de l'espace et de la batterie.";
             case COLLECT_ONLY:return "Collecter les mesures avec moins d'affichage. Le service et les autorisations sont gérés séparément.";
             case ARCORE_REPLAY:return "Rejouer une capture MP4 produite par l'API ARCore. Une vidéo MP4 classique n'est pas compatible.";
