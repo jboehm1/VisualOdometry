@@ -6,7 +6,9 @@
 #include <algorithm>
 #include <stdexcept>
 #include <cmath>
+#include <chrono>
 #include <tbb/global_control.h>
+#include <opencv2/core.hpp>
 
 namespace {
 struct Engine {
@@ -42,6 +44,7 @@ struct Engine {
     calibration.gyro_noise_std.setConstant(p[22]);calibration.accel_noise_std.setConstant(p[23]);
     calibration.gyro_bias_std.setConstant(p[24]);calibration.accel_bias_std.setConstant(p[25]);
     calibration.imu_update_rate=p[26];
+    cv::setNumThreads(2);
     basalt::VioConfig config;
     config.vio_debug=false;config.vio_extended_logging=false;config.vio_enforce_realtime=true;
     flow=basalt::OpticalFlowFactory::getOpticalFlow(config,calibration);
@@ -99,7 +102,10 @@ struct Engine {
     // for its first image. Blocking on IMU EOS first would deadlock teardown.
     if(vio->finished)vio->drain_input_queues();
     flow->input_queue.push(nullptr);
-    if(!vio->finished)vio->imu_data_queue.push(nullptr);
+    // The estimator can exit on camera EOS without consuming a full IMU queue.
+    // Never block an EOS push while its consumer is about to exit.
+    while(!vio->finished&&!vio->imu_data_queue.try_push(nullptr))
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
     vio->maybe_join();vio->drain_input_queues();flow.reset();vio->drain_input_queues();
     if(state_thread.joinable())state_thread.join();
     if(visual_thread.joinable())visual_thread.join();
@@ -134,7 +140,9 @@ Java_dev_jboehm_vectorvio_nativevio_BasaltBridge_nativeImu(JNIEnv* env,jclass,jl
 }
 extern "C" JNIEXPORT jboolean JNICALL
 Java_dev_jboehm_vectorvio_nativevio_BasaltBridge_nativeFrame(JNIEnv* env,jclass,jlong handle,jlong time,jbyteArray pixels,jlong exposure) {
-  if(!handle||exposure<=0)return false;auto* e=get(handle);
+  // Zero is permitted for dataset replay with unavailable exposure metadata.
+  // Live Camera2 ingestion separately rejects absent/nonpositive exposure.
+  if(!handle||exposure<0)return false;auto* e=get(handle);
   if(env->GetArrayLength(pixels)!=e->width*e->height)return false;
   jbyte* p=env->GetByteArrayElements(pixels,nullptr);if(!p)return false;
   bool ok=false;

@@ -127,7 +127,17 @@ def read_export(path):
         if raw.file_size > 32*1024*1024 or z.getinfo(meta_name).file_size > 1024*1024:
             raise ValueError('Oversized resource export')
         rows = list(csv.DictReader(io.StringIO(z.read(raw).decode('utf-8'))))
-        return summarize(rows, json.loads(z.read(meta_name)))
+        metadata=json.loads(z.read(meta_name))
+        result=summarize(rows,metadata)
+        if metadata.get('engine')=='BASALT_CUSTOM_FACTORY_EXPERIMENTAL':
+            custom_name=str(Path(raw.filename).parent/'custom_metadata.json')
+            if z.getinfo(custom_name).file_size>1024*1024:raise ValueError('Oversized custom metadata')
+            custom=json.loads(z.read(custom_name))
+            result['custom_run']={k:custom.get(k) for k in ('engine','qualification','verified_calibration','failed','status','frames_enqueued','pose_rows','drops','imu_pairs','imu_pairing_drops')}
+            result['warnings'].append('Custom Basalt uses unverified factory calibration; resource statistics do not validate camera/IMU calibration or trajectory accuracy.')
+            if custom.get('failed') is not False:
+                result['warnings'].append('Custom acquisition failed or its completion status is missing; this is not a successful tracking trial.')
+        return result
 
 
 if __name__ == '__main__':

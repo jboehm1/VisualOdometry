@@ -84,4 +84,14 @@ public final class SettingsActivityTest {
             assertEquals("GPX_AR",Shadows.shadowOf(a).getResultIntent().getStringExtra(SettingsActivity.EXTRA_ACTION));
         }finally{c.pause().stop().destroy();}
     }
+    @Test public void searchFindsCustomBasaltAndReturnsDistinctAction(){
+        ActivityController<SettingsActivity> c=open();
+        try{
+            SettingsActivity a=c.get();
+            ((EditText)a.getWindow().getDecorView().findViewWithTag("settings_search")).setText("Basalt");
+            View custom=a.getWindow().getDecorView().findViewWithTag("setting_CUSTOM_VIO");
+            assertNotNull(custom);custom.performClick();
+            assertEquals("CUSTOM_VIO",Shadows.shadowOf(a).getResultIntent().getStringExtra(SettingsActivity.EXTRA_ACTION));
+        }finally{c.pause().stop().destroy();}
+    }
 }

@@ -18,5 +18,12 @@ benchmark_results/
 *.pyc
 .venv/
 
+# Generated native build outputs and runner-only real-image test fixture
+app/src/main/jniLibs/
+app/src/main/assets/native_build.json
+app/src/main/assets/native-notices/
+app/src/main/assets/build_provenance.json
+app/src/androidTest/assets/mono_fixture.bin
+
 # Generated campaign runs; may temporarily contain large/private sensor data
 campaign_results/

@@ -11,7 +11,6 @@ import dev.jboehm.vectorvio.AppIdentity;
 import dev.jboehm.vectorvio.Odometer;
 import dev.jboehm.vectorvio.metrics.SessionTelemetry;
 import java.io.*;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.zip.*;
@@ -54,6 +53,7 @@ public final class CustomVioSession implements AutoCloseable {
         captures=writer("camera.csv","start_ns,mid_row_mid_exposure_ns,exposure_ns,iso,frame_duration_ns,rolling_shutter_skew_ns,status");
         poses=writer("poses.csv","time_ns,received_elapsed_ns,x,y,z,qx,qy,qz,qw,observed_features,landmarks,quality_heuristic,distance_m,odometer_result");
         metadata=new JSONObject().put("schema",1).put("engine",BasaltBridge.version())
+            .put("started_elapsed_ns",started)
             .put("source_commit",AppIdentity.sourceCommit(activity)).put("version",AppIdentity.version(activity))
             .put("calibration",calibration.provenance).put("verified_calibration",false)
             .put("qualification","EXPERIMENTAL_FACTORY_BOOTSTRAP_NOT_DEVICE_VALIDATED")
@@ -175,20 +175,61 @@ public final class CustomVioSession implements AutoCloseable {
     }
     @Override public void close(){
         if(closed)return;closed=true;odometer.pause(SystemClock.elapsedRealtime());metrics.close();
-        try{bridge.close();}catch(Exception e){status="Native shutdown failed: "+e.getMessage();}
-        for(BufferedWriter w:new BufferedWriter[]{raw,paired,captures,poses})try{w.close();}catch(IOException ignored){}
+        try{bridge.close();}catch(Exception e){failed=true;status="Native shutdown failed: "+e.getMessage();}
+        for(BufferedWriter w:new BufferedWriter[]{raw,paired,captures,poses})try{w.close();}catch(IOException e){failed=true;status="Recording close failed: "+e.getMessage();}
+        try{metadata.put("pending_images_at_close",images.size()).put("pending_results_at_close",results.size()).put("pending_imu_brackets_at_close",pending.size());}catch(Exception ignored){}
         images.clear();results.clear();pending.clear();
         try{metadata.put("finished_elapsed_ns",SystemClock.elapsedRealtimeNanos()).put("frames_enqueued",frames)
             .put("pose_rows",poseRows).put("drops",drops).put("imu_pairs",sync.paired).put("imu_pairing_drops",sync.dropped)
             .put("status",status).put("failed",failed);writeMetadata();}catch(Exception ignored){}
     }
+    private static JSONObject readMetadata(File directory)throws IOException {
+        File file=new File(directory,"custom_metadata.json");
+        if(file.length()>1024*1024)throw new IOException("Oversized session metadata");
+        try{return new JSONObject(new String(java.nio.file.Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8));}
+        catch(Exception e){throw new IOException("Session metadata unavailable",e);}
+    }
+    private static String opticalWindow(String csv,long start,long end){
+        String[] lines=csv.split("\n");StringBuilder selected=new StringBuilder();
+        if(lines.length>0)selected.append(lines[0]).append('\n');
+        for(int i=1;i<lines.length;i++){
+            int comma=lines[i].indexOf(',');if(comma<=0)continue;
+            try{long time=Long.parseLong(lines[i].substring(0,comma));
+                if(time>=start&&time<=end)selected.append(lines[i]).append('\n');
+            }catch(NumberFormatException ignored){}
+        }
+        return selected.toString();
+    }
+    /** Persist before leaving Activity so later exports never use another run's preview. */
+    public static void persistOptical(File directory,String csv)throws IOException {
+        JSONObject meta=readMetadata(directory);
+        if(!meta.has("finished_elapsed_ns"))throw new IOException("Recording not stopped");
+        String selected=opticalWindow(csv,meta.optLong("started_elapsed_ns"),meta.optLong("finished_elapsed_ns"));
+        try(Writer out=new OutputStreamWriter(new FileOutputStream(new File(directory,"optical_quality.csv")),StandardCharsets.UTF_8)){out.write(selected);}
+    }
     public static void export(File directory,OutputStream output,String opticalCsv)throws IOException {
+        export(directory,output,opticalCsv,false);
+    }
+    /** Explicit recovery is for inactive historical sessions only, never a live recording. */
+    public static void export(File directory,OutputStream output,String opticalCsv,boolean recoverInterrupted)throws IOException {
+        JSONObject meta=readMetadata(directory);String original=meta.toString();
+        long start=meta.optLong("started_elapsed_ns",-1),end=meta.optLong("finished_elapsed_ns",-1);
+        if(start<=0||end<0&&!recoverInterrupted)throw new IOException("Session must be stopped before export");
+        try{
+            if(end<0)meta.put("failed",true).put("status","INTERRUPTED_NO_CLEAN_STOP").put("recovered_export",true);
+            meta.put("optical_trace_available",new File(directory,"optical_quality.csv").isFile()||opticalCsv!=null&&end>=start);
+        }catch(Exception e){throw new IOException("Invalid recovery metadata",e);}
         try(ZipOutputStream zip=new ZipOutputStream(output)){
             File[] files=directory.listFiles();if(files==null)throw new IOException("Session unavailable");
             byte[] buffer=new byte[16384];
-            for(File f:files){if(!f.isFile())continue;zip.putNextEntry(new ZipEntry(f.getName()));
+            for(File f:files){if(!f.isFile()||f.getName().equals("custom_metadata.json"))continue;zip.putNextEntry(new ZipEntry(f.getName()));
                 try(InputStream in=new FileInputStream(f)){int n;while((n=in.read(buffer))!=-1)zip.write(buffer,0,n);}zip.closeEntry();}
-            zip.putNextEntry(new ZipEntry("optical_quality.csv"));zip.write(opticalCsv.getBytes(StandardCharsets.UTF_8));zip.closeEntry();
+            zip.putNextEntry(new ZipEntry("custom_metadata.json"));zip.write(meta.toString().getBytes(StandardCharsets.UTF_8));zip.closeEntry();
+            zip.putNextEntry(new ZipEntry("custom_metadata_original.json"));zip.write(original.getBytes(StandardCharsets.UTF_8));zip.closeEntry();
+            if(!new File(directory,"optical_quality.csv").isFile()&&opticalCsv!=null&&end>=start){
+                zip.putNextEntry(new ZipEntry("optical_quality.csv"));
+                zip.write(opticalWindow(opticalCsv,start,end).getBytes(StandardCharsets.UTF_8));zip.closeEntry();
+            }
         }
     }
 }

@@ -5,7 +5,7 @@ public final class BasaltBridge implements AutoCloseable {
     private static final String unavailable;
     static {
         String error=null;
-        try {System.loadLibrary("c++_shared");System.loadLibrary("opencv_java4");System.loadLibrary("vector_basalt");}
+        try {System.loadLibrary("c++_shared");System.loadLibrary("vector_basalt");}
         catch(UnsatisfiedLinkError|SecurityException e){error=e.toString();}
         unavailable=error;
     }
