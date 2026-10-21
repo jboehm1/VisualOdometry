@@ -90,6 +90,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private TextView powerButton;
     private int boostPointer=-1;
     private ImuMonitor imu;
+    private AuxSensorMonitor environmental;
+    private long lastEnvironmentReportMs;
     private final SceneMapper mapper=new SceneMapper();
     private volatile boolean estimatedGround;
     private WorldOverlayRenderer worldOverlay;
@@ -253,6 +255,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         keyframeMinRotation=preferences.getFloat("keyframe_rotation",20f);
         pointConfidenceThreshold=preferences.getFloat("point_confidence",.2f);
         imu=new ImuMonitor(this);
+        environmental=new AuxSensorMonitor(this);
         imu.setListener((type,t,x,y,z)->{
             if(odometer.isRecording()){
                 recorder.imu(type,t,x,y,z);
@@ -1265,7 +1268,10 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         gpxExtendedPreview=currentSettings.getBoolean("gpx_extended_preview",true);
         hud.setLayers(currentSettings.getInt("overlay_layers",0));
         hud.setSensors(currentSettings.getBoolean("imu_overlay_enabled",false));
-        if(!playbackMode){imu.start();gps.start();if(gpxArEnabled&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);}
+        if(!playbackMode){
+            imu.start();environmental.start();gps.start();
+            if(gpxArEnabled&&!gpxLocationMuted)gpxLocation.start(gpxLocationMode);
+        }
         refreshHud();
         gpsBadgeHandler.removeCallbacks(gpsBadgeRefresh);
         gpsBadgeHandler.post(gpsBadgeRefresh);
@@ -1391,6 +1397,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         endGpxManualMode();
         frameScheduler.stop();boostPointer=-1;updatePowerLabel();
         imu.stop();
+        if(environmental!=null)environmental.stop();
         gps.stopUpdates();
         long now=SystemClock.elapsedRealtime();
         if(odometer.snapshot(now).recording){
@@ -1609,6 +1616,16 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                         latestLowTexture!=null,Boolean.TRUE.equals(latestLowTexture),
                         visualDecision.state,visualDecision.arcorePoseAvailable,
                         visualDecision.translationFromInertial,visualDecision.visualAgeMs,visualDecision.reason));
+            }
+            // Raw environmental sensors are observed alongside ARCore, never
+            // used as independent position fixes or as a false smoke detector.
+            if(!playbackMode&&environmental!=null&&odometer.isRecording()&&
+                    recorder.currentFile()!=null&&qualityMs-lastEnvironmentReportMs>=1_000L){
+                lastEnvironmentReportMs=qualityMs;
+                AuxSensorMonitor.Sample aux=environmental.snapshot();
+                long elapsedNs=SystemClock.elapsedRealtimeNanos();
+                recorder.sidecar(recorder.currentFile(),"_phone_environment.csv",
+                    AuxSensorMonitor.CSV_HEADER,aux.csv(elapsedNs));
             }
             if(camera.getTrackingState()==TrackingState.TRACKING && frame.getTimestamp()>0) {
                 if (!"TRACKING".equals(trackingLabel))
