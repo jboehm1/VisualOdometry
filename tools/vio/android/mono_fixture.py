@@ -44,7 +44,7 @@ def prepare(source, output, count=400):
             if not row or row[0].startswith('#'):continue
             t=int(row[0]);v=list(map(float,row[1:]));
             if frames[0][0]-50_000_000<=t<=frames[-1][0]+50_000_000:samples.append((t,[*v[3:],*v[:3]]))
-    if not samples or samples[0][0]>=frames[0][0] or samples[-1][0]<=frames[-1][0]:raise ValueError('IMU bracket')
+    if not samples or samples[0][0]>frames[0][0] or samples[-1][0]<frames[-1][0]:raise ValueError('IMU bracket')
     if any(a[0]>=b[0] for a,b in zip(samples,samples[1:])):raise ValueError('IMU order')
     output.parent.mkdir(parents=True,exist_ok=True)
     maps=cv2.initUndistortRectifyMap(k,np.array(cam['distortion_coefficients']),np.eye(3),k,(width,height),cv2.CV_32FC1)
