@@ -75,7 +75,7 @@ section[hidden]{display:none!important}
 @media(max-width:640px){.top{padding:11px 14px}.atlasEditorial{padding:19px;gap:21px;border-radius:16px}.atlasEditorial h1{font-size:clamp(32px,9vw,48px)}.atlasLead{font-size:14px}.atlasVisual{padding:10px}.atlasVisual svg{max-height:170px}.atlasFocus{padding:11px}.atlasFocusButtons{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.atlasFocusButtons button{padding:9px 5px}.atlasProofline{gap:8px}.marketSideBySide{grid-template-columns:1fr}main{padding-top:16px}}
 @media (prefers-reduced-motion:reduce){.valuecard,.card{transition:none!important}html{scroll-behavior:auto!important}}
 @media print{.atlasFocus,.atlasHistoricLinks,#marketSearch,#marketPriority,#marketDomain,.marketCompareActions{display:none!important}.atlasVisual{break-inside:avoid}section[hidden]{display:block!important}#marketComparison{display:none!important}}
-</style></head><body><header><div class="top"><div><div class="brand">VECTOR <span>VIO</span> <span style="font-weight:400;color:#9fb3ca">/ ATLAS</span></div><div class="sub">V5.3 · STRATEGY STUDIO · AUTO ADAPTATIF PROPOSÉ · HISTORIQUE V1→V4</div></div><div class="actions"><button onclick="document.getElementById('ideas').scrollIntoView({behavior:'smooth'})">💡 Idées</button><button onclick="document.getElementById('execution').scrollIntoView({behavior:'smooth'})">▥ Avancement</button><button onclick="addIdea()">＋ Ajouter une idée</button><button onclick="exportJSON()">⇩ Sauver JSON</button><button onclick="document.getElementById('importer').click()">⇧ Importer JSON</button><button onclick="window.print()">⎙ Imprimer / PDF</button></div></div></header><input id="importer" type="file" accept=".json,application/json" hidden onchange="importJSON(event)"><main>
+</style></head><body><header><div class="top"><div><div class="brand">VECTOR <span>VIO</span> <span style="font-weight:400;color:#9fb3ca">/ ATLAS</span></div><div class="sub">V5.3 · STRATEGY STUDIO · AUTO ADAPTATIF PROPOSÉ · HISTORIQUE V1→V4</div></div><div class="actions"><button onclick="setAtlasFocus('product',true);document.getElementById('ideas').scrollIntoView({behavior:'smooth'})">💡 Idées</button><button onclick="setAtlasFocus('engineering',true);document.getElementById('execution').scrollIntoView({behavior:'smooth'})">▥ Avancement</button><button onclick="addIdea()">＋ Ajouter une idée</button><button onclick="exportJSON()">⇩ Sauver JSON</button><button onclick="document.getElementById('importer').click()">⇧ Importer JSON</button><button onclick="window.print()">⎙ Imprimer / PDF</button></div></div></header><input id="importer" type="file" accept=".json,application/json" hidden onchange="importJSON(event)"><main>
 <div class="atlasEditorial">
   <div class="atlasEditorialCopy"><div class="atlasEyebrow"><span class="atlasSignal"></span> VECTOR VIO / STRATEGY STUDIO <span class="atlasEdition">V5.3 · 21/10/2026</span></div>
   <h1>De la trajectoire à la <em>preuve terrain.</em></h1>
@@ -607,13 +607,12 @@ const groups={
 const groupNames={market:'Marchés et niches',product:'Produit et idées',science:'Recherche et précision',engineering:'Développement et preuves',all:'Toutes les sections'};
 const sections=Array.from(main.children).filter(el=>el.tagName==='SECTION');
 sections.forEach(section=>{
- let key='engineering';
- for(const [candidate,ids] of Object.entries(groups))if(ids.has(section.id)){key=candidate;break;}
- section.dataset.atlasTopic=key;
+ const memberships=Object.entries(groups).filter(([,ids])=>ids.has(section.id)).map(([category])=>category);
+ section.dataset.atlasTopic=(memberships.length?memberships:['engineering']).join(' ');
 });
 window.setAtlasFocus=function(mode,quiet){
  if(!groupNames[mode])mode='market';
- sections.forEach(s=>{s.hidden=mode!=='all'&&s.dataset.atlasTopic!==mode;});
+ sections.forEach(s=>{s.hidden=mode!=='all'&&!s.dataset.atlasTopic.split(' ').includes(mode);});
  nav.querySelectorAll('button[data-atlas-focus]').forEach(button=>{
    button.setAttribute('aria-pressed',String(button.dataset.atlasFocus===mode));
  });
@@ -634,7 +633,7 @@ const hashId=window.location.hash.slice(1);
 if(hashId){
  const t=document.getElementById(decodeURIComponent(hashId));
  const s=t&&t.closest('section');
- if(s&&s.parentElement===main&&(!groups[initial]||!groups[initial].has(s.id)))initial='all';
+ if(s&&s.parentElement===main&&initial!=='all'&&!groups[initial]?.has(s.id))initial='all';
 }
 setAtlasFocus(initial,true);
 })();
