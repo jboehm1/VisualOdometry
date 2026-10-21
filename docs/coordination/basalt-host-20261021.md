@@ -21,3 +21,6 @@
 
 ## First actual CI finding and acquisition adjustment
 Official ETH V2_01 download timed out after 60 seconds in run 39554931508, before native build or any accuracy result. The next attempt uses the pinned HF V1_01 archive above (Git LFS metadata verified). This is an availability-driven sequence substitution, not a result-driven choice. Original V1_01 reference attitude is documented as inaccurate by OpenVINS; orientation and first-pose-gauge results are explicitly diagnostics, not authoritative field accuracy. Source: https://github.com/rpng/open_vins/blob/master/docs/gs-datasets.dox . Raw sources remain excluded from artifacts.
+
+## Second actual CI finding
+Run 39555347370 verified the 1,149,702,102-byte mirror archive, staged 1200 real stereo frames and IMU, fetched exact upstream source and pulled its tooling image. Configuration then failed because shallow vcpkg lacked the registry baseline commit. Restore full vcpkg history and verify `05442024...:versions/baseline.json` before configuration, as upstream CI does. Tooling image is now fixed to digest `sha256:3553facf6bf25baf283547fab7fad0dd74d47ba79fb9a9c9f9c11fb777d3a502`, observed in that run. No engine poses or accuracy result yet.

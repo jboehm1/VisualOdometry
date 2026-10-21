@@ -50,8 +50,13 @@ jobs:
           set -euo pipefail
           test "$(git -C third_party/basalt rev-parse HEAD)" = "$BASALT_SHA"
           test "$(git -C third_party/basalt/thirdparty/vcpkg rev-parse HEAD)" = "$VCPKG_SHA"
-          docker pull vladyslavusenko/basalt-ci:ubuntu22
-          resolved_image=$(docker image inspect vladyslavusenko/basalt-ci:ubuntu22 --format '{{index .RepoDigests 0}}')
+          if test "$(git -C third_party/basalt/thirdparty/vcpkg rev-parse --is-shallow-repository)" = true; then
+            git -C third_party/basalt/thirdparty/vcpkg fetch --unshallow
+          fi
+          git -C third_party/basalt/thirdparty/vcpkg show 05442024c3fda64320bd25d2251cc9807b84fb6f:versions/baseline.json > /dev/null
+          pinned_image=vladyslavusenko/basalt-ci@sha256:3553facf6bf25baf283547fab7fad0dd74d47ba79fb9a9c9f9c11fb777d3a502
+          docker pull "$pinned_image"
+          resolved_image=$(docker image inspect "$pinned_image" --format '{{index .RepoDigests 0}}')
           test -n "$resolved_image"
           echo "BASALT_IMAGE=$resolved_image" >> "$GITHUB_ENV"
           echo "digest=${resolved_image##*@}" >> "$GITHUB_OUTPUT"
