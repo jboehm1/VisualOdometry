@@ -25,3 +25,11 @@
 - **Amélioration ultérieure** : raccourcis en-tête vers des sections masquées initialement et multi-appartenance des catégories corrigés sur `e02cce1a474c82cd57ff2f31551bd6d1693d2cf1`, à revalider en CI.
 - **Base a avancé indépendamment** : PR #47 observée à `a3de1dbe3c8cd7ecc907f53b0c48ed1dbcc603ca`. Son changement porte sur Android/native, non sur l'Atlas selon comparaison de commits consultée. Avant intégration finale, réconcilier la branche #48 avec la nouvelle base via merge fast-forward/merge commit non destructif, puis revalider.
 - Recherche et prototype restent distincts des chiffres de précision : calibration native expérimentale, aucun benchmark S21/GT/ROI/entretiens métier produits ici.
+
+## Troisième itération : décision produit fondée sur contraintes plutôt que sur scores fictifs
+
+- Documentation ajoutée : `docs/PRODUCT_DISCOVERY_DECISION_LAB_20261021.md`, analyse M0 (QR/NFC/plan/observations) ↔ M1 (+ ARCore relatif) ↔ M2 (relocalisation pérenne après redémarrage), six micro-niches, solutions existantes et méthodes d'entretiens. Sources officielles OpenSpace Field, Raptor Maps, LiteLog, Navenio, ARCore/Cloud Anchors, NIST mai 2026.
+- HTML section **25** : cinq questions sur autorisation caméra, scène exploitable, position absolue réglementaire, ID d'actif et revisite, avec résultat qualitatif explicite; trois tests pilotes (PV, réseaux cachés, micro-site). Prioriser l'abstention et les alternatives sans VIO. Aucun score de marché inventé.
+- Branche #48 dérivée de #47; base vérifiée au SHA `eb4ef55cedfcccc6c4a35c7f6618f665027ba7d8`; merge non destructif `766c4f4dbd65a7d04201cc2c62537885f2513ba8` contient les modifications de la branche #47 de cet instant, aucun changement Android réalisé par ce chantier.
+- Test navigateur étendu : cinq scénarios Playwright, y compris garde-fous caméra refusée, précision absolue, absence de texture, identité ambiguë et revisite; capture mobile supplémentaire `atlas-mobile-decision.png`. CI GitHub sur le SHA final à vérifier avant fusion.
+- Limites : aucune tâche métier exécutée avec un client réel, absence de KPI terrain / économie prouvée, aucun relevé métrique contractuel ni progrès VIO natif attribuable à ce chantier. Les concurrents ne sont pas benchmarkés indépendamment. La décision de créer un produit reste conditionnée aux pilotes M0/M1.
