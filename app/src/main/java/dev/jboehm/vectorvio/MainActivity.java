@@ -68,6 +68,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     /** v0.14 exposure telemetry only; ARCore still owns its AE/shutter settings. */
     private long lastCameraExposureDiagnosticMs;
     private volatile String cameraQualityLabel="";
+    /** Diagnostic only; not part of ARCore's internal filter or odometry. */
+    private final VisualObservabilityGate visualObservability=new VisualObservabilityGate();
+    private CameraCaptureQuality.State latestOpticalState;
+    private Boolean latestLowTexture;
+    private volatile String visualGateLabel=" · POSITION UNKNOWN";
+    private long lastVisualGateReportMs;
     private final AnchoredOdometry anchoredOdometry=new AnchoredOdometry();
     private final TraceGuide traceGuide=new TraceGuide();
     private volatile boolean returnTraceRequested;
@@ -1420,6 +1426,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
         if(arSession!=null) arSession.pause();
         odometer.lostTracking();
+        visualObservability.reset();latestOpticalState=null;latestLowTexture=null;
+        visualGateLabel=" · POSITION UNKNOWN";
         super.onPause();
     }
     @Override protected void onDestroy() {
@@ -1477,6 +1485,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config) {
         GLES20.glClearColor(.025f,.07f,.105f,1);
         latestFrame=null;poseRate.reset();lastSceneMs=0;lastPoseReceivedMs=0;cameraHz=0;
+        visualObservability.reset();latestOpticalState=null;latestLowTexture=null;
+        visualGateLabel=" · POSITION UNKNOWN";
         background=new CameraBackground();background.initialize();
         // Previous handles belong to a lost EGL context; never delete them in this new one.
         worldOverlay=null;configureWorldOverlay();textureAssigned=false;
@@ -1534,6 +1544,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 CameraCaptureQuality.Assessment quality=CameraCaptureQuality.classify(
                     exposureNs,iso,angularSpeed,
                     frame.getCamera().getTrackingState()==TrackingState.TRACKING);
+                latestOpticalState=quality.state;
+                latestLowTexture=null; // do not reuse a stale low-light image after CPU acquisition fails.
                 cameraQualityLabel=quality.state==CameraCaptureQuality.State.NORMAL ||
                     quality.state==CameraCaptureQuality.State.UNKNOWN ||
                     quality.state==CameraCaptureQuality.State.TRACKING_LOST?"":" · "+quality.label();
@@ -1553,6 +1565,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                         cameraImage=frame.acquireCameraImage();
                         CameraImageQuality.Metrics m=ArCoreFrameLuma.measure(cameraImage);
                         if(m!=null){
+                            latestLowTexture=m.lacksTexture();
                             String reason=frame.getCamera().getTrackingState()==TrackingState.TRACKING?
                                 "NONE":frame.getCamera().getTrackingFailureReason().name();
                             recorder.sidecar(recorder.currentFile(),"_arcore_luma.csv",
@@ -1570,6 +1583,33 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
             Odometer.Result poseResult=Odometer.Result.INACTIVE;
 
             Camera camera=frame.getCamera();
+            float[] freshness=imu.snapshot();
+            boolean freshImu=freshness[6]>0 && freshness[7]>0;
+            VisualObservabilityGate.Decision visualDecision=visualObservability.update(
+                SystemClock.elapsedRealtimeNanos(),frame.getTimestamp(),
+                camera.getTrackingState()==TrackingState.TRACKING,freshImu,
+                !playbackMode && qualityMs-lastCameraExposureDiagnosticMs<2_000L?
+                    latestOpticalState:null,
+                !playbackMode && qualityMs-lastCameraExposureDiagnosticMs<2_000L?
+                    latestLowTexture:null);
+            visualGateLabel=visualDecision.state==VisualObservabilityGate.State.VISUAL_OBSERVED?
+                " · VISUAL OBSERVED":visualDecision.state==VisualObservabilityGate.State.VISUAL_CAUTION?
+                " · VISUAL CAUTION":visualDecision.state==VisualObservabilityGate.State.ORIENTATION_ONLY?
+                " · ORIENTATION ONLY":" · POSITION UNKNOWN";
+            if(odometer.isRecording()&&recorder.currentFile()!=null&&
+                    qualityMs-lastVisualGateReportMs>=1_000L){
+                lastVisualGateReportMs=qualityMs;
+                recorder.sidecar(recorder.currentFile(),"_visual_observability.csv",
+                    "frame_time_ns,elapsed_ns,arcore_tracking,arcore_failure,imu_fresh,camera_quality,low_texture_known,low_texture,gate_state,arcore_pose_available,inertial_translation,visual_age_ms,reason",
+                    String.format(Locale.US,"%d,%d,%b,%s,%b,%s,%b,%b,%s,%b,%b,%d,%s",
+                        frame.getTimestamp(),SystemClock.elapsedRealtimeNanos(),
+                        camera.getTrackingState()==TrackingState.TRACKING,
+                        camera.getTrackingFailureReason(),freshImu,
+                        latestOpticalState==null?"UNKNOWN":latestOpticalState,
+                        latestLowTexture!=null,Boolean.TRUE.equals(latestLowTexture),
+                        visualDecision.state,visualDecision.arcorePoseAvailable,
+                        visualDecision.translationFromInertial,visualDecision.visualAgeMs,visualDecision.reason));
+            }
             if(camera.getTrackingState()==TrackingState.TRACKING && frame.getTimestamp()>0) {
                 if (!"TRACKING".equals(trackingLabel))
                     message="Tracking active — slow, textured motion is best";
@@ -1702,7 +1742,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 lastHudUpdateMs=now;
                 if(recorder.problem()!=null) message="CSV ERROR: check Android logcat";
                 Odometer.Snapshot snap=odometer.snapshot(now);
-                String currentTracking=trackingLabel+cameraQualityLabel,currentMessage=message;
+                String currentTracking=trackingLabel+cameraQualityLabel+visualGateLabel,currentMessage=message;
                 int marks=markerCount;
                 runOnUiThread(()->{hud.update(snap,currentTracking,currentMessage,marks);hud.updateGuide(gpxArEnabled?gpxArText:guideText);hud.updateDataStatus(training.active?training.status:(trainingEnabled?training.status.equals("VIDEO OFF")?"VIDEO ARMED":training.status:"VIDEO OFF"),gps.status);hud.updateGps(gps.reading(SystemClock.elapsedRealtimeNanos()));});
             }
