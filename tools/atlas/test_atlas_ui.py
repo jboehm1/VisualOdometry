@@ -130,11 +130,41 @@ class AtlasBrowserTest(unittest.TestCase):
         self.page.get_by_role("button", name="🎯 Marchés").click()
         self.assertTrue(self.page.locator("#product-decision-lab").is_visible())
 
+    def test_smartphone_only_low_visibility_honest_fallback(self):
+        phone = self.page.locator("#phone-first-degraded")
+        self.assertTrue(phone.is_visible())
+        self.assertTrue(self.page.locator("#phoneFirstResult").is_visible())
+        self.assertFalse(self.page.locator("#phoneExternalHardware").evaluate(
+            "(el) => el.open"))
+        self.page.locator("#phoneVisibility").select_option("opaque")
+        self.assertIn("AUCUNE GÉOMÉTRIE OPTIQUE", self.page.locator("#phoneFirstResult").inner_text())
+        self.assertIn("POSITION_UNKNOWN", self.page.locator("#phoneFirstResult").inner_text())
+        self.page.locator("#phoneMode").select_option("bike")
+        self.assertIn("VITESSE NON OBSERVABLE", self.page.locator("#phoneFirstResult").inner_text())
+        self.page.locator("#phoneMode").select_option("pocket")
+        self.assertIn("VISION INDISPONIBLE", self.page.locator("#phoneFirstResult").inner_text())
+        self.page.locator("#phoneMode").select_option("walk")
+        self.page.locator("#phoneVisibility").select_option("dim")
+        self.assertIn("CAMERA2", self.page.locator("#phoneFirstResult").inner_text())
+        self.page.locator("#phoneAnchor").select_option("site")
+        self.assertIn("S1 (et non S0 autonome)", self.page.locator("#phoneFirstResult").inner_text())
+        self.page.locator("#phoneAnchor").select_option("none")
+        self.page.locator("#phoneVisibility").select_option("night")
+        self.assertIn("Torche LED intégrée", self.page.locator("#phoneFirstResult").inner_text())
+        self.page.locator("#phoneExternalHardware summary").click()
+        self.assertIn("Galaxy S21", self.page.locator("#phoneExternalHardware").inner_text())
+        self.page.get_by_role("button", name="🔬 Recherche").click()
+        self.assertTrue(phone.is_visible())
+        self.page.get_by_role("button", name="🧩 Produit").click()
+        self.assertTrue(phone.is_visible())
+
     def test_mobile_layout_and_keyboard(self):
         self.page.set_viewport_size({"width": 390, "height": 844})
         self.page.screenshot(path="atlas-mobile.png", animations="disabled")
         self.page.locator("#product-decision-lab").scroll_into_view_if_needed()
         self.page.screenshot(path="atlas-mobile-decision.png", animations="disabled")
+        self.page.locator("#phone-first-degraded").scroll_into_view_if_needed()
+        self.page.screenshot(path="atlas-mobile-smartphone.png", animations="disabled")
         metrics = self.page.evaluate("""() => ({
             innerWidth: window.innerWidth,
             body: document.body.scrollWidth,
