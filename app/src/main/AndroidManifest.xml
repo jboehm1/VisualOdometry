@@ -25,6 +25,7 @@
         <meta-data android:name="com.google.ar.core" android:value="optional" />
         <service android:name=".GpsNavigationService" android:exported="false" android:foregroundServiceType="location" />
         <activity android:name=".GpsRoutesActivity" android:exported="false" />
+        <activity android:name=".SensorLabActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".Camera2ManualActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".SettingsActivity" android:exported="false" android:screenOrientation="portrait" />
         <!-- Offline manual store plan, no camera or background location. -->
