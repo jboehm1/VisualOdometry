@@ -7,6 +7,11 @@ import java.nio.charset.StandardCharsets;
 import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
+import android.widget.FrameLayout;
+import dev.jboehm.vectorvio.pdr.PdrActivity;
 import android.graphics.Bitmap;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -65,6 +70,11 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private java.io.File pendingCustomExport;
     private boolean recoverPendingExport;
     private TextView customStatus;
+    private HudView sharedHud;
+    private android.app.AlertDialog cameraSettingsDialog;
+    private Button startCustomButton,stopCustomButton;
+    private final float[] customLiveImu=new float[8];
+    private volatile String customEngineMessage="BASALT · waiting for camera & sensors";
     private Sensor accelSensor;
     private static final int EXPORT_CUSTOM_ZIP=221;
     private SensorEventListener customImuListener;
@@ -74,6 +84,20 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             if(!foreground||!customMode)return;
             CustomVioSession s=customSession;
             if(s!=null&&customStatus!=null)customStatus.setText(s.status());
+            if(sharedHud!=null){
+                Odometer.Snapshot snap=s==null?null:s.snapshotForHud();
+                boolean tracked=snap!=null&&snap.tracking;
+                String status=s==null?(
+                    factoryCalibration==null?"BASALT CALIBRATION MISSING":"BASALT READY · PRESS START"):
+                    tracked?"BASALT TRACKING":"BASALT INIT / LOST";
+                String details=s==null?(
+                    factoryCalibration==null?"Return to ARCore fixed focus, acquire tracking, then select Basalt.":
+                    "Experimental independent Camera2/IMU VIO — press START."):
+                    s.status().split("\\n",2)[0];
+                sharedHud.update(snap,status,details,0);
+                sharedHud.updateDataStatus(s==null?"DATA OFF":"BASALT RUN","GPS OFF");
+                sharedHud.updateScene(null,customImuReadout(),0);
+            }
             ui.postDelayed(this,500);
         }
     };
@@ -311,6 +335,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 "Ready to attempt Basalt using factory geometry. Keep phone still initially, then move slowly with visible texture. Calibration and accuracy remain unverified.",13);
             root.addView(customStatus);
             Button startCustom=new Button(this);startCustom.setText("START NEW BASALT RUN");root.addView(startCustom);
+            startCustomButton=startCustom;
             startCustom.setOnClickListener(v->{Handler h=handler;if(h==null)return;h.post(()->{
                 if(!foreground||handler!=h||customSession!=null)return;
                 if(!customClosing.isDone()){runOnUiThread(()->customStatus.setText("Closing previous run; please retry shortly"));return;}
@@ -322,6 +347,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 catch(Exception e){runOnUiThread(()->customStatus.setText("Basalt unavailable: "+e.getMessage()));}
             });});
             Button stopCustom=new Button(this);stopCustom.setText("STOP + EXPORT BASALT RUN (ZIP)");root.addView(stopCustom);
+            stopCustomButton=stopCustom;
             stopCustom.setOnClickListener(v->{Handler h=handler;if(h==null)return;final String optical=opticalCsv.toString();h.post(()->{
                 if(!foreground||handler!=h)return;
                 closeCustomSession(optical);java.io.File dir=lastCustomDirectory;
@@ -462,9 +488,146 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             @Override public void onStartTrackingTouch(SeekBar b){}
             @Override public void onStopTrackingTouch(SeekBar b){}
         });
-        scroller.addView(root);setContentView(scroller);
+        scroller.addView(root);
+        if(customMode)installSharedHud(scroller,root);
+        else setContentView(scroller);
         configureAdaptiveControls();
         refreshLabels();
+    }
+
+    /** Shared ARCore HudView, with a real Basalt Odometer.Snapshot backing it.
+     * Camera2 remains exclusive; ARCore GPU planes/GPX anchors cannot be
+     * faked from experimental native Basalt poses.
+     */
+    private void installSharedHud(ScrollView controls,LinearLayout controlsRoot){
+        controlsRoot.removeView(preview);
+        FrameLayout stage=new FrameLayout(this);
+        stage.setBackgroundColor(0xFF091723);
+        preview.setTag("custom_camera_fullscreen");
+        stage.addView(preview,new FrameLayout.LayoutParams(-1,-1));
+
+        sharedHud=new HudView(this);
+        sharedHud.setTag("shared_vector_hud");
+        try{sharedHud.setVersion(getPackageManager().getPackageInfo(getPackageName(),0).versionName);}
+        catch(PackageManager.NameNotFoundException ex){sharedHud.setVersion("unknown");}
+        sharedHud.setRendererLabel("BASALT");
+        sharedHud.updateDataStatus("DATA OFF","GPS OFF");
+        stage.addView(sharedHud,new FrameLayout.LayoutParams(-1,-1));
+        sharedHud.setOnTouchListener((v,event)->{
+            if(event.getActionMasked()==android.view.MotionEvent.ACTION_DOWN)
+                return sharedHud.canToggleMapAt(event.getX(),event.getY());
+            if(event.getActionMasked()==android.view.MotionEvent.ACTION_UP &&
+                    sharedHud.canToggleMapAt(event.getX(),event.getY())){
+                sharedHud.toggleMap();
+                return true;
+            }
+            return false;
+        });
+
+        cameraSettingsDialog=new android.app.AlertDialog.Builder(this)
+            .setTitle("Basalt · Camera2 / exposition / enregistrements")
+            .setView(controls)
+            .setPositiveButton("FERMER",null).create();
+
+        LinearLayout top=new LinearLayout(this);
+        top.setGravity(Gravity.CENTER);
+        top.setPadding(dp(8),0,dp(8),0);
+        TextView choose=unifiedButton("ENGINE",true);
+        TextView layers=unifiedButton("SENSORS",false);
+        TextView menu=unifiedButton("CAMERA",false);
+        TextView maps=unifiedButton("MAPS",false);
+        TextView gpx=unifiedButton("GPX",false);
+        TextView flash=unifiedButton("FLASH",false);
+        for(TextView b:new TextView[]{choose,layers,menu,maps,gpx,flash})top.addView(b,unifiedWeight());
+        choose.setTag("engine_switcher");
+        choose.setOnClickListener(v->showSharedEngineSelector());
+        layers.setOnClickListener(v->sharedHud.toggleSensors());
+        menu.setOnClickListener(v->cameraSettingsDialog.show());
+        maps.setOnClickListener(v->explainCustomLimit("ARCore 3D maps and AR anchors are not yet available in the Basalt estimator. Local Basalt odometry is drawn in the shared minimap."));
+        gpx.setOnClickListener(v->explainCustomLimit("3D GPX projection is ARCore-only until Basalt camera/world anchoring and uncertainty are validated. Switch to ARCore for GPX."));
+        flash.setOnClickListener(v->explainCustomLimit("Custom Camera2 flash is not wired as a safety-tested camera exposure control. Change ISO/shutter in CAMERA."));
+        FrameLayout.LayoutParams topParams=new FrameLayout.LayoutParams(-1,dp(40),Gravity.TOP);
+        topParams.topMargin=dp(72);topParams.leftMargin=dp(12);topParams.rightMargin=dp(12);
+        stage.addView(top,topParams);
+
+        LinearLayout bottom=new LinearLayout(this);
+        bottom.setGravity(Gravity.CENTER);
+        bottom.setPadding(dp(8),0,dp(8),0);
+        TextView start=unifiedButton("START",true);
+        TextView stop=unifiedButton("STOP",false);
+        TextView settings=unifiedButton("ISO / AUTO",false);
+        TextView reset=unifiedButton("RESET",false);
+        TextView export=unifiedButton("EXPORT",false);
+        for(TextView b:new TextView[]{start,stop,settings,reset,export})bottom.addView(b,unifiedWeight());
+        start.setTag("custom_start");
+        stop.setTag("custom_stop");
+        export.setTag("custom_export");
+        start.setOnClickListener(v->{if(startCustomButton!=null)startCustomButton.performClick();});
+        stop.setOnClickListener(v->stopWithoutExport());
+        settings.setOnClickListener(v->cameraSettingsDialog.show());
+        reset.setOnClickListener(v->explainCustomLimit(
+            "To reset Basalt, STOP first, then START a new session. Native state and world reference are never silently reused."));
+        export.setOnClickListener(v->{
+            if(customSession!=null) {
+                if(stopCustomButton!=null)stopCustomButton.performClick();
+            }else if(lastCustomDirectory!=null){
+                launchCustomExport(lastCustomDirectory,false);
+            }else customHistory();
+        });
+        FrameLayout.LayoutParams bottomParams=new FrameLayout.LayoutParams(-1,dp(48),Gravity.BOTTOM);
+        bottomParams.leftMargin=dp(9);bottomParams.rightMargin=dp(9);bottomParams.bottomMargin=dp(8);
+        stage.addView(bottom,bottomParams);
+        setContentView(stage);
+    }
+    private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
+    private LinearLayout.LayoutParams unifiedWeight(){
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(40),1);
+        p.setMargins(dp(3),0,dp(3),0);return p;
+    }
+    private TextView unifiedButton(String title,boolean primary){
+        TextView b=new TextView(this);
+        b.setGravity(Gravity.CENTER);
+        b.setText(title);b.setTextSize(10);
+        b.setTypeface(Typeface.create("sans-serif-medium",Typeface.BOLD));
+        b.setTextColor(primary?0xFF061723:Color.WHITE);
+        GradientDrawable shape=new GradientDrawable();
+        shape.setColor(primary?0xFF70FADE:0xCC102D39);
+        shape.setCornerRadius(dp(14));
+        shape.setStroke(dp(1),0x6649A1AB);
+        b.setBackground(shape);b.setClickable(true);
+        return b;
+    }
+    private void explainCustomLimit(String explanation){
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Basalt · experimental")
+            .setMessage(explanation)
+            .setPositiveButton("OK",null).show();
+    }
+    private float[] customImuReadout(){
+        synchronized(customLiveImu){return customLiveImu.clone();}
+    }
+    private void showSharedEngineSelector(){
+        EngineSwitcher.show(this,EngineSwitcher.Engine.BASALT,customSession!=null,
+            engine->{
+                switch(engine){
+                    case ARCORE:finish();break; // Camera2.onPause releases camera
+                    case PDR:
+                        startActivity(new Intent(this,PdrActivity.class));
+                        break;
+                    case BASALT:break;
+                }
+            });
+    }
+    private void stopWithoutExport(){
+        Handler workerHandler=handler;
+        if(workerHandler==null)return;
+        workerHandler.post(()->{
+            if(!foreground||workerHandler!=handler)return;
+            closeCustomSession(opticalCsv.toString());
+            runOnUiThread(()->{
+                if(customStatus!=null)customStatus.setText("Basalt stopped; use EXPORT to save the ZIP.");
+            });
+        });
     }
     private void refreshLabels(){
         if(shutterLabel!=null)shutterLabel.setText("Requested shutter: 1/"+Math.round(1e9/desiredExposure)+" s"+(shutterRange==null?"":" · hardware bounded"));
@@ -502,7 +665,18 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             customImuListener=new SensorEventListener(){
                 @Override public void onSensorChanged(SensorEvent event){
                     CustomVioSession s=customSession;
-                    if(foreground&&handler==owner&&s!=null)s.sensor(event);
+                    if(foreground&&handler==owner){
+                        if(event!=null&&event.values.length>=3){
+                            int off=event.sensor.getType()==Sensor.TYPE_ACCELEROMETER?0:
+                                event.sensor.getType()==Sensor.TYPE_GYROSCOPE?3:-1;
+                            if(off>=0)synchronized(customLiveImu){
+                                customLiveImu[off]=event.values[0];
+                                customLiveImu[off+1]=event.values[1];
+                                customLiveImu[off+2]=event.values[2];
+                            }
+                        }
+                        if(s!=null)s.sensor(event);
+                    }
                 }
                 @Override public void onAccuracyChanged(Sensor sensor,int accuracy){}
             };
@@ -535,6 +709,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             if(output!=null){output.release();output=null;}}
         stopCustomAsync();
         if(worker!=null){worker.quitSafely();worker=null;handler=null;}
+        if(cameraSettingsDialog!=null&&cameraSettingsDialog.isShowing())cameraSettingsDialog.dismiss();
         super.onPause();
     }
     private String selectManualCamera() throws CameraAccessException {
