@@ -22,8 +22,10 @@ RUN git clone https://github.com/stevenlovegrove/Pangolin.git /opt/Pangolin \
 
 WORKDIR /opt/orb_slam3
 COPY . /opt/orb_slam3
-# Pangolin 0.9.2 installs sigslot headers requiring C++17; keep the pinned ORB source otherwise intact.
+# Pangolin's pinned sigslot headers need C++14. ORB's full-BA generation counter is
+# mistakenly bool upstream; promote it to int so increments and cancellation work.
 RUN sed -i 's/-std=c++11/-std=c++14/g; s/-std=c++0x/-std=c++14/g' CMakeLists.txt \
+    && sed -i 's/bool mnFullBAIdx;/int mnFullBAIdx;/' include/LoopClosing.h \
     && for dep in Thirdparty/DBoW2 Thirdparty/g2o Thirdparty/Sophus; do \
          cmake -S "$dep" -B "$dep/build" -DCMAKE_BUILD_TYPE=Release; \
          cmake --build "$dep/build" -j2; \
