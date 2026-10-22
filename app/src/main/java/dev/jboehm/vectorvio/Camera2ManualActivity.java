@@ -97,6 +97,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 }
                 boolean tracked=snap!=null&&snap.tracking;
                 String status=s==null?(
+                    !customEngineMessage.startsWith("BASALT ·")?"BASALT NOT READY":
                     factoryCalibration==null?"BASALT CALIBRATION MISSING":"BASALT READY · PRESS START"):
                     tracked?"BASALT TRACKING":"BASALT INIT / LOST";
                 String details=s==null?(
