@@ -75,6 +75,8 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private Button startCustomButton,stopCustomButton;
     private final float[] customLiveImu=new float[8];
     private volatile String customEngineMessage="BASALT · waiting for camera & sensors";
+    private volatile long lastCaptureReceivedNs,lastImageReceivedNs,lastGyroReceivedNs,lastAccelReceivedNs;
+    private volatile boolean nativeStartRequested;
     private Sensor accelSensor;
     private static final int EXPORT_CUSTOM_ZIP=221;
     private SensorEventListener customImuListener;
@@ -339,16 +341,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             root.addView(customStatus);
             Button startCustom=new Button(this);startCustom.setText("START NEW BASALT RUN");root.addView(startCustom);
             startCustomButton=startCustom;
-            startCustom.setOnClickListener(v->{Handler h=handler;if(h==null)return;h.post(()->{
-                if(!foreground||handler!=h||customSession!=null)return;
-                if(!customClosing.isDone()){runOnUiThread(()->customStatus.setText("Closing previous run; please retry shortly"));return;}
-                if(factoryCalibration==null||capture==null||gyroSensor==null||accelSensor==null){runOnUiThread(()->customStatus.setText("Camera, bootstrap, gyroscope and accelerometer required"));return;}
-                try{
-                    CustomVioSession s=new CustomVioSession(this,factoryCalibration);lastCustomDirectory=s.directory;
-                    if(foreground&&handler==h)customSession=s;else s.close();
-                }
-                catch(Exception e){runOnUiThread(()->customStatus.setText("Basalt unavailable: "+e.getMessage()));}
-            });});
+            startCustom.setOnClickListener(v->requestBasaltStart());
             Button stopCustom=new Button(this);stopCustom.setText("STOP + EXPORT BASALT RUN (ZIP)");root.addView(stopCustom);
             stopCustomButton=stopCustom;
             stopCustom.setOnClickListener(v->{Handler h=handler;if(h==null)return;final String optical=opticalCsv.toString();h.post(()->{
@@ -439,7 +432,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         });
         diagnostics=text(this,"Checking Camera2 manual sensor capability…",12);
         root.addView(diagnostics);
-        TextView done=text(this,"← BACK TO ARCORE",15);root.addView(done);done.setOnClickListener(v->finish());
+        TextView done=text(this,"← BACK TO ARCORE",15);root.addView(done);done.setOnClickListener(v->returnToArcoreByUser());
         shutterBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             @Override public void onProgressChanged(SeekBar b,int p,boolean user){
                 desiredExposure=exposureChoicesNs[Math.max(0,Math.min(exposureChoicesNs.length-1,p))];
@@ -566,7 +559,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         start.setTag("custom_start");
         stop.setTag("custom_stop");
         export.setTag("custom_export");
-        start.setOnClickListener(v->{if(startCustomButton!=null)startCustomButton.performClick();});
+        start.setOnClickListener(v->requestBasaltStart());
         stop.setOnClickListener(v->stopWithoutExport());
         settings.setOnClickListener(v->cameraSettingsDialog.show());
         reset.setOnClickListener(v->explainCustomLimit(
@@ -614,7 +607,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         EngineSwitcher.show(this,EngineSwitcher.Engine.BASALT,customSession!=null,
             engine->{
                 switch(engine){
-                    case ARCORE:finish();break; // Camera2.onPause releases camera
+                    case ARCORE:returnToArcoreByUser();break; // deliberate exit, distinct from native crash
                     case PDR:
                         startActivity(new Intent(this,PdrActivity.class));
                         break;
@@ -622,6 +615,93 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 }
             });
     }
+    /** Dismisses Basalt only by explicit user choice (not a native crash). */
+    private void returnToArcoreByUser(){
+        if(customSession!=null || nativeStartRequested){
+            new android.app.AlertDialog.Builder(this)
+                .setTitle("Session Basalt en cours")
+                .setMessage("Arrêtez d'abord Basalt et exportez les mesures avant de revenir à ARCore.")
+                .setPositiveButton("OK",null).show();
+            return;
+        }
+        setResult(RESULT_OK,new Intent().putExtra("engine_exit","USER_SELECTED_ARCORE"));
+        finish();
+    }
+    @Override public void onBackPressed(){
+        if(customMode)returnToArcoreByUser();
+        else super.onBackPressed();
+    }
+    private void showNativeError(String reason){
+        customEngineMessage=reason;
+        runOnUiThread(()->{
+            if(customStatus!=null)customStatus.setText(reason);
+            if(sharedHud!=null&&customSession==null)
+                sharedHud.update(null,"BASALT NOT STARTED",reason,0);
+            android.widget.Toast.makeText(this,reason,android.widget.Toast.LENGTH_LONG).show();
+        });
+    }
+    private BasaltStartSafety.Reason checkBasaltStartup(boolean closing){
+        BasaltStartSafety.Inputs in=new BasaltStartSafety.Inputs();
+        in.nowNs=SystemClock.elapsedRealtimeNanos();
+        in.foreground=foreground;
+        in.cameraOpened=device!=null;
+        in.streamConfigured=capture!=null&&imageReader!=null&&output!=null;
+        in.bootstrapAvailable=factoryCalibration!=null;
+        in.gyroAvailable=gyroSensor!=null;in.accelAvailable=accelSensor!=null;
+        in.nativeLibraryAvailable=dev.jboehm.vectorvio.nativevio.BasaltBridge.unavailableReason()==null;
+        in.recording=customSession!=null||nativeStartRequested;
+        in.closing=closing;
+        in.lastCaptureReceivedNs=lastCaptureReceivedNs;
+        in.lastImageReceivedNs=lastImageReceivedNs;
+        in.lastGyroReceivedNs=lastGyroReceivedNs;
+        in.lastAccelReceivedNs=lastAccelReceivedNs;
+        return BasaltStartSafety.evaluate(in);
+    }
+    /** START must not depend on a detached dialog button. Reject stale sensor
+     * data before expensive JNI. No automatic ARCore fallback is triggered. */
+    private void requestBasaltStart(){
+        if(!customMode)return;
+        Handler owner=handler;
+        if(owner==null){
+            showNativeError("Basalt: caméra inactive. Aucun moteur démarré.");
+            return;
+        }
+        if(!owner.post(()->{
+            BasaltStartSafety.Reason state=checkBasaltStartup(!customClosing.isDone());
+            if(state!=BasaltStartSafety.Reason.READY){
+                showNativeError("Basalt: "+BasaltStartSafety.explanation(state));
+                return;
+            }
+            nativeStartRequested=true;
+            try{
+                CustomVioSession created=new CustomVioSession(this,factoryCalibration);
+                lastCustomDirectory=created.directory;
+                if(foreground&&owner==handler){
+                    customSession=created;
+                    customEngineMessage="BASALT · RECORDING";
+                    runOnUiThread(()->{if(customStatus!=null)customStatus.setText("Basalt démarré : attente poses natives");});
+                }else {
+                    created.close();
+                    showNativeError("Basalt: session stoppée pendant changement d'écran");
+                }
+            }catch(Exception|LinkageError ex){
+                showNativeError("Basalt: échec démarrage "+ex.getClass().getSimpleName()+
+                    (ex.getMessage()==null?"":": "+ex.getMessage()));
+            }finally{nativeStartRequested=false;}
+        })){
+            showNativeError("Basalt: worker Camera2 arrêté, démarrage annulé");
+        }
+    }
+    /** Java/JNI linkage faults remain inside the active Basalt screen.
+     * Native SIGSEGV/SIGABRT cannot be caught: isolated :basalt process protects ARCore. */
+    private void handleBasaltFailure(String source,Throwable ex){
+        showNativeError("Basalt "+source+": "+ex.getClass().getSimpleName());
+        try{closeCustomSession(opticalCsv.toString());}
+        catch(RuntimeException|LinkageError failedClose){
+            showNativeError("Basalt STOP: "+failedClose.getClass().getSimpleName());
+        }
+    }
+
     private void stopWithoutExport(){
         Handler workerHandler=handler;
         if(workerHandler==null)return;
@@ -670,7 +750,11 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 @Override public void onSensorChanged(SensorEvent event){
                     CustomVioSession s=customSession;
                     if(foreground&&handler==owner){
-                        if(event!=null&&event.values.length>=3){
+                        if(event!=null&&event.sensor!=null&&event.values.length>=3){
+                            if(event.sensor.getType()==Sensor.TYPE_GYROSCOPE)
+                                lastGyroReceivedNs=SystemClock.elapsedRealtimeNanos();
+                            if(event.sensor.getType()==Sensor.TYPE_ACCELEROMETER)
+                                lastAccelReceivedNs=SystemClock.elapsedRealtimeNanos();
                             int off=event.sensor.getType()==Sensor.TYPE_ACCELEROMETER?0:
                                 event.sensor.getType()==Sensor.TYPE_GYROSCOPE?3:-1;
                             if(off>=0)synchronized(customLiveImu){
@@ -679,7 +763,9 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                                 customLiveImu[off+2]=event.values[2];
                             }
                         }
-                        if(s!=null)s.sensor(event);
+                        if(s!=null)
+                            try{s.sensor(event);}
+                            catch(RuntimeException|LinkageError ex){handleBasaltFailure("IMU",ex);}
                     }
                 }
                 @Override public void onAccuracyChanged(Sensor sensor,int accuracy){}
@@ -703,6 +789,8 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         ui.removeCallbacks(observePreview);
         ui.removeCallbacks(updateCustomStatus);
         lastCameraThumbnail=null;lastCameraThumbnailNs=0;
+        lastCaptureReceivedNs=lastImageReceivedNs=lastGyroReceivedNs=lastAccelReceivedNs=0;
+        nativeStartRequested=false;
         if(sensorManager!=null){
             sensorManager.unregisterListener(lightListener);
             sensorManager.unregisterListener(gyroListener);
@@ -841,7 +929,11 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 imageReader.setOnImageAvailableListener(reader->{
                     try(Image image=reader.acquireLatestImage()){
                         CustomVioSession s=customSession;
-                        if(image!=null&&s!=null&&foreground&&generation==captureGeneration)s.image(image);
+                        if(image!=null&&foreground&&generation==captureGeneration){
+                            lastImageReceivedNs=SystemClock.elapsedRealtimeNanos();
+                            if(s!=null)try{s.image(image);}
+                            catch(RuntimeException|LinkageError ex){handleBasaltFailure("IMAGE",ex);}
+                        }
                     }catch(IllegalStateException|IllegalArgumentException error){fail("Raw image acquisition failed: "+error.getMessage());}
                 },handler);
                 surfaces.add(imageReader.getSurface());
@@ -890,7 +982,10 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                     CaptureRequest request,TotalCaptureResult result){
                     if(!foreground||ses!=capture)return;
                     CustomVioSession nativeSession=customSession;
-                    if(nativeSession!=null&&foreground)nativeSession.result(result);
+                    if(foreground&&customMode)lastCaptureReceivedNs=SystemClock.elapsedRealtimeNanos();
+                    if(nativeSession!=null&&foreground)
+                        try{nativeSession.result(result);}
+                        catch(RuntimeException|LinkageError ex){handleBasaltFailure("CAMERA_METADATA",ex);}
                     long now=android.os.SystemClock.elapsedRealtime();
                     if(now-lastUiMs<350)return;lastUiMs=now;
                     Long exposure=result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
