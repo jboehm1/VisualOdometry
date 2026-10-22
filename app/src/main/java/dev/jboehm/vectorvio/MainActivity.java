@@ -74,6 +74,9 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     private Boolean latestLowTexture;
     private volatile String visualGateLabel=" · POSITION UNKNOWN";
     private long lastVisualGateReportMs;
+    /** Real device-axis gyro rotation delta; never feeds pose, PDR or GPX. */
+    private final ShortHorizonGyro relativeGyro=new ShortHorizonGyro();
+    private long lastRelativeGyroReportMs;
     private final AnchoredOdometry anchoredOdometry=new AnchoredOdometry();
     private final TraceGuide traceGuide=new TraceGuide();
     private volatile boolean returnTraceRequested;
@@ -257,6 +260,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         imu=new ImuMonitor(this);
         environmental=new AuxSensorMonitor(this);
         imu.setListener((type,t,x,y,z)->{
+            if(!playbackMode && type==android.hardware.Sensor.TYPE_GYROSCOPE)
+                relativeGyro.gyro(t,x,y,z);
             if(odometer.isRecording()){
                 recorder.imu(type,t,x,y,z);
                 if(resourceTelemetry!=null)resourceTelemetry.sensor(type==android.hardware.Sensor.TYPE_ACCELEROMETER?"ACCEL":"GYRO",t);
@@ -1433,7 +1438,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         }
         if(arSession!=null) arSession.pause();
         odometer.lostTracking();
-        visualObservability.reset();latestOpticalState=null;latestLowTexture=null;
+        visualObservability.reset();relativeGyro.reset();
+        latestOpticalState=null;latestLowTexture=null;
         visualGateLabel=" · POSITION UNKNOWN";
         super.onPause();
     }
@@ -1492,7 +1498,8 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config) {
         GLES20.glClearColor(.025f,.07f,.105f,1);
         latestFrame=null;poseRate.reset();lastSceneMs=0;lastPoseReceivedMs=0;cameraHz=0;
-        visualObservability.reset();latestOpticalState=null;latestLowTexture=null;
+        visualObservability.reset();relativeGyro.reset();
+        latestOpticalState=null;latestLowTexture=null;
         visualGateLabel=" · POSITION UNKNOWN";
         background=new CameraBackground();background.initialize();
         // Previous handles belong to a lost EGL context; never delete them in this new one.
@@ -1599,10 +1606,35 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                     latestOpticalState:null,
                 !playbackMode && qualityMs-lastCameraExposureDiagnosticMs<2_000L?
                     latestLowTexture:null);
+            long gyroElapsedNs=SystemClock.elapsedRealtimeNanos();
+            // A successful live tracked frame defines zero *relative device*
+            // rotation. ARCore pose/extrinsics are NOT copied or predicted.
+            if(!playbackMode && visualDecision.arcorePoseAvailable)
+                relativeGyro.anchor(gyroElapsedNs);
+            ShortHorizonGyro.Estimate relative=relativeGyro.snapshot(gyroElapsedNs);
             visualGateLabel=visualDecision.state==VisualObservabilityGate.State.VISUAL_OBSERVED?
                 " · VISUAL OBSERVED":visualDecision.state==VisualObservabilityGate.State.VISUAL_CAUTION?
                 " · VISUAL CAUTION":visualDecision.state==VisualObservabilityGate.State.IMU_ONLY_NO_POSITION?
-                " · IMU ONLY · NO POSE":" · POSITION UNKNOWN";
+                relative.usable?
+                    String.format(Locale.US," · DEVICE ROT %.0f° · NO POS",relative.angleDegrees):
+                    " · IMU ONLY · NO POSE":" · POSITION UNKNOWN";
+            if(!playbackMode && odometer.isRecording() && recorder.currentFile()!=null &&
+                    qualityMs-lastRelativeGyroReportMs>=200L){
+                lastRelativeGyroReportMs=qualityMs;
+                recorder.sidecar(recorder.currentFile(),"_relative_gyro.csv",
+                    "frame_time_ns,elapsed_ns,arcore_tracking,gate_state,device_delta_usable,gyro_sample_count,visual_anchor_age_ms,gyro_sample_age_ms,device_delta_deg,qx,qy,qz,qw,reason",
+                    String.format(Locale.US,"%d,%d,%b,%s,%b,%d,%d,%d,%s,%s,%s,%s,%s,%s",
+                        frame.getTimestamp(),gyroElapsedNs,
+                        camera.getTrackingState()==TrackingState.TRACKING,
+                        visualDecision.state,relative.usable,relative.samples,
+                        relative.anchorAgeMs,relative.sensorAgeMs,
+                        relative.usable?Double.toString(relative.angleDegrees):"",
+                        relative.usable?Double.toString(relative.x):"",
+                        relative.usable?Double.toString(relative.y):"",
+                        relative.usable?Double.toString(relative.z):"",
+                        relative.usable?Double.toString(relative.w):"",
+                        relative.reason));
+            }
             if(odometer.isRecording()&&recorder.currentFile()!=null&&
                     qualityMs-lastVisualGateReportMs>=1_000L){
                 lastVisualGateReportMs=qualityMs;
