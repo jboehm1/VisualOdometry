@@ -931,7 +931,13 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                     c.close();opening=false;if(generation==captureGeneration)fail("Camera disconnected");
                 }
                 @Override public void onError(CameraDevice c,int code){
-                    c.close();opening=false;if(generation==captureGeneration)fail("Camera2 open error "+code);
+                    c.close();opening=false;
+                    if(generation==captureGeneration){
+                        if(code==CameraDevice.StateCallback.ERROR_CAMERA_IN_USE||
+                                code==CameraDevice.StateCallback.ERROR_MAX_CAMERAS_IN_USE)
+                            retryCameraAfterConflict("Caméra encore occupée");
+                        else fail("Camera2 open error "+code);
+                    }
                 }
             },handler);
         }catch(CameraAccessException|SecurityException|IllegalArgumentException ex){
