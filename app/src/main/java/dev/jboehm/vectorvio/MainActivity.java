@@ -315,12 +315,14 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         controls.leftMargin=dp(9);controls.rightMargin=dp(9);controls.bottomMargin=dp(8);
         root.addView(actions,controls);
         LinearLayout modes=new LinearLayout(this);
+        TextView engine=action("ENGINE",0xFF1F5B58,0xFF74FCE1);
+        engine.setTag("engine_switcher");
         TextView layers=action("LAYERS",0xCC102D39,Color.WHITE);
         TextView sensors=action("MENU",0xCC102D39,Color.WHITE);
         TextView map=action("MAPS",0xCC102D39,Color.WHITE);
         TextView simulation=action("GPX",0xCC102D39,Color.WHITE);
         torchButton=action("FLASH OFF",0xCC102D39,Color.WHITE);
-        modes.addView(layers,weighted());modes.addView(sensors,weighted());modes.addView(map,weighted());modes.addView(simulation,weighted());modes.addView(torchButton,weighted());
+        modes.addView(engine,weighted());modes.addView(layers,weighted());modes.addView(sensors,weighted());modes.addView(map,weighted());modes.addView(simulation,weighted());modes.addView(torchButton,weighted());
         FrameLayout.LayoutParams modeLayout=new FrameLayout.LayoutParams(-1,dp(40),Gravity.TOP);
         modeLayout.topMargin=dp(72);modeLayout.leftMargin=dp(12);modeLayout.rightMargin=dp(12);
         root.addView(modes,modeLayout);
@@ -345,6 +347,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         FrameLayout.LayoutParams powerLayout=new FrameLayout.LayoutParams(dp(164),dp(32),Gravity.TOP|Gravity.RIGHT);
         powerLayout.topMargin=dp(146);powerLayout.rightMargin=dp(12);
         root.addView(powerButton,powerLayout);powerButton.setOnClickListener(v->powerMenu());updatePowerLabel();
+        engine.setOnClickListener(v->openEngineSelector());
         layers.setOnClickListener(v->{hud.cycleLayers();preferences.edit().putInt("overlay_layers",hud.layers()).apply();});
         layers.setOnLongClickListener(v->{
             new AlertDialog.Builder(this).setTitle("Explore your local map")
@@ -946,6 +949,26 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
         angle=Math.atan2(Math.sin(angle),Math.cos(angle))*180/Math.PI;
         String turn=Math.hypot(axis[0],axis[2])<.2?"level camera":Math.abs(angle)<15?"ahead":(angle>0?"left ":"right ")+Math.round(Math.abs(angle))+"°";
         guideText=g.arrived?"RETURN — near start (estimated)":String.format(Locale.US,"%s · %.1f m left · trace %.1f m · %s",g.offRoute>1?"REJOIN":"RETURN",g.remaining,g.offRoute,turn);
+    }
+
+    /**
+     * One visible entrypoint; camera ownership is still exclusive. Switching
+     * never mixes independently scaled ARCore/Basalt/PDR coordinate frames.
+     */
+    private void openEngineSelector(){
+        EngineSwitcher.show(this,EngineSwitcher.Engine.ARCORE,
+            odometer.isRecording(),next->{
+                switch(next){
+                    case BASALT:
+                        performSettingsAction(SettingsCatalog.Action.CUSTOM_VIO);
+                        break;
+                    case PDR:
+                        performSettingsAction(SettingsCatalog.Action.PDR);
+                        break;
+                    case ARCORE:
+                        break;
+                }
+            });
     }
 
     private void cameraCaptureProfileMenu() {
