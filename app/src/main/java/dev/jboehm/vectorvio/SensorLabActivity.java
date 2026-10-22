@@ -14,6 +14,8 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -34,6 +36,11 @@ import java.util.zip.ZipOutputStream;
  */
 public final class SensorLabActivity extends Activity implements SensorEventListener {
     private static final int EXPORT_REQUEST=921;
+    private static final String[] CONDITIONS={
+        "STATIONARY_BRIGHT", "WALK_INDOOR_BRIGHT", "WALK_INDOOR_DIM",
+        "WALK_CAMERA_COVERED_SIMULATED", "BIKE_OUTDOOR_SAFE", "RUN_OUTDOOR_SAFE",
+        "PHONE_IN_POCKET", "CARRY_HAND_UNKNOWN"
+    };
     private static final int MAX_SAMPLES=180_000; // bounded on-device capture, not a guarantee of duration
     private static final int[] SENSOR_TYPES={
         Sensor.TYPE_ACCELEROMETER,Sensor.TYPE_GYROSCOPE,
@@ -48,6 +55,8 @@ public final class SensorLabActivity extends Activity implements SensorEventList
     private final Handler ui=new Handler(Looper.getMainLooper());
     private TextView status,live,inventory;
     private Button start,stop,export;
+    private Spinner conditionSpinner;
+    private String condition="UNSPECIFIED";
     private boolean recording;
     private boolean stopRequested;
     private boolean resumed;
@@ -82,6 +91,13 @@ public final class SensorLabActivity extends Activity implements SensorEventList
         page.addView(text("SENSOR LAB · PHONE ONLY",25,0xFF79F6DA));
         page.addView(text("Galaxy S21 / Android · hardware inventory, timestamps and local raw evidence. No camera, no recording without START, no cloud.",13,0xFFB2CDDA));
         status=text("READY",17,0xFFFFC98C);status.setPadding(0,dp(18),0,dp(13));page.addView(status);
+        page.addView(text("PROTOCOL · manually labeled, NOT an algorithmic classification",12,0xFF82DACA));
+        conditionSpinner=new Spinner(this);
+        ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,CONDITIONS);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        conditionSpinner.setAdapter(adapter);
+        conditionSpinner.setTag("sensor_lab_condition");
+        page.addView(conditionSpinner,new LinearLayout.LayoutParams(-1,dp(50)));
         LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);
         start=button("START SENSORS",row);
         stop=button("STOP",row);
@@ -182,7 +198,17 @@ public final class SensorLabActivity extends Activity implements SensorEventList
         try{
             // Snapshot before recording; do not mislabel advertised rates as actual delivery.
             capabilities=SensorCapabilityReport.collect(this);
+            condition=CONDITIONS[Math.max(0,Math.min(CONDITIONS.length-1,
+                conditionSpinner.getSelectedItemPosition()))];
             writeJson(new File(dir,"capabilities.json"),capabilities);
+            JSONObject context=new JSONObject();
+            context.put("schema",1)
+                .put("experiment_condition_user_label",condition)
+                .put("label_origin","MANUALLY_SELECTED_UNVERIFIED")
+                .put("camera_recorded",false).put("ground_truth_available",false)
+                .put("smoke_exposure_performed",false)
+                .put("precaution","Use CAMERA_COVERED_SIMULATED only in a safe ordinary location; never walk in a real fire or smoke.");
+            writeJson(new File(dir,"experiment_context.json"),context);
             w=new BufferedWriter(new OutputStreamWriter(
                 new FileOutputStream(new File(dir,"sensor_samples.csv")),StandardCharsets.UTF_8),32768);
             w.write("sensor_type,sensor_label,sensor_timestamp_ns,elapsed_arrival_ns,x,y,z,w,accuracy\n");
@@ -266,6 +292,8 @@ public final class SensorLabActivity extends Activity implements SensorEventList
         try{
             summary.put("schema",1).put("engine","raw_Android_SensorManager_NO_VIO")
                 .put("samples_written",sampleCount)
+                .put("experiment_condition_user_label",condition)
+                .put("condition_label_verified",false)
                 .put("first_sensor_timestamp_ns",initialSensorNs)
                 .put("last_sensor_timestamp_ns",lastEventNs)
                 .put("stop_reason",reason)
@@ -293,8 +321,10 @@ public final class SensorLabActivity extends Activity implements SensorEventList
         if(start!=null)start.setEnabled(!recording);
         if(stop!=null)stop.setEnabled(recording);
         if(export!=null)export.setEnabled(!recording&&lastCompleted!=null);
+        if(conditionSpinner!=null)conditionSpinner.setEnabled(!recording);
         StringBuilder msg=new StringBuilder();
         msg.append(recording?"LIVE RAW SENSOR MEASUREMENTS":"NO LIVE SAMPLING")
+            .append(" · context: ").append(recording?condition:"choose above")
             .append(" · ").append(sampleCount).append(" samples\n")
             .append("POSITION: UNKNOWN (NO CAMERA / NO MAP)\n")
             .append("Derived distance: NOT AVAILABLE\n");
@@ -338,7 +368,7 @@ public final class SensorLabActivity extends Activity implements SensorEventList
                 if(out==null)throw new IOException("Selected output is not writable");
                 try(ZipOutputStream zip=new ZipOutputStream(out)){
                     long total=0;
-                    for(String name:new String[]{"capabilities.json","sensor_samples.csv","summary.json"}){
+                    for(String name:new String[]{"capabilities.json","experiment_context.json","sensor_samples.csv","summary.json"}){
                         File source=new File(completed,name);
                         if(!source.isFile())continue;
                         if(source.length()>40_000_000L || (total+=source.length())>40_000_000L)
