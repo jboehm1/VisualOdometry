@@ -807,6 +807,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     }
     @Override public void onPause(){
         foreground=false;
+        ui.removeCallbacks(retryCamera);
         ui.removeCallbacks(observePreview);
         ui.removeCallbacks(updateCustomStatus);
         lastCameraThumbnail=null;lastCameraThumbnailNs=0;
