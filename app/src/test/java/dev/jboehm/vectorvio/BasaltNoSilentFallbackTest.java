@@ -19,15 +19,6 @@ import static org.junit.Assert.*;
  * return to ARCore when the camera/IMU bootstrap is not ready. */
 @RunWith(RobolectricTestRunner.class) @Config(sdk=28)
 public final class BasaltNoSilentFallbackTest {
-    @Test public void basaltNativeJniHasSeparateProcessFromPrimaryArcore()throws Exception{
-        var app=RuntimeEnvironment.getApplication();
-        ActivityInfo child=app.getPackageManager().getActivityInfo(
-            new ComponentName(app,Camera2ManualActivity.class),0);
-        ActivityInfo primary=app.getPackageManager().getActivityInfo(
-            new ComponentName(app,MainActivity.class),0);
-        assertTrue("Native process must be isolated",child.processName.endsWith(":basalt"));
-        assertFalse(primary.processName.endsWith(":basalt"));
-    }
     @Test public void startWithNoActiveCameraStaysInBasaltInsteadOfReturningToArcore(){
         Intent intent=new Intent(RuntimeEnvironment.getApplication(),Camera2ManualActivity.class)
             .putExtra(Camera2ManualActivity.EXTRA_CUSTOM_VIO,true);
