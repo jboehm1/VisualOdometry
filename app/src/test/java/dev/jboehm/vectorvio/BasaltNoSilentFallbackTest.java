@@ -56,7 +56,9 @@ public final class BasaltNoSilentFallbackTest {
             var dialog=ShadowAlertDialog.getLatestAlertDialog();
             assertNotNull(dialog);
             assertTrue(dialog.isShowing());
-            assertTrue(dialog.getMessage().toString().contains("BEFORE_NATIVE_SESSION_INIT"));
+            android.widget.TextView message=dialog.findViewById(android.R.id.message);
+            assertNotNull(message);
+            assertTrue(message.getText().toString().contains("BEFORE_NATIVE_SESSION_INIT"));
             assertFalse(a.isFinishing());
         }finally{c.destroy();}
     }
