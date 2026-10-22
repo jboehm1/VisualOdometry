@@ -940,9 +940,26 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                     }
                 }
             },handler);
-        }catch(CameraAccessException|SecurityException|IllegalArgumentException ex){
+        }catch(CameraAccessException ex){
+            opening=false;
+            if(ex.getReason()==CameraAccessException.CAMERA_IN_USE||
+                    ex.getReason()==CameraAccessException.MAX_CAMERAS_IN_USE)
+                retryCameraAfterConflict("Caméra ARCore en cours de libération");
+            else fail("Camera2 unavailable: "+ex.getClass().getSimpleName());
+        }catch(SecurityException|IllegalArgumentException ex){
             opening=false;fail("Camera2 unavailable: "+ex.getClass().getSimpleName());
         }
+    }
+    private void retryCameraAfterConflict(String reason){
+        if(!foreground||isFinishing())return;
+        if(cameraOpenRetries>=5){
+            showNativeError(reason+": cinq tentatives infructueuses. Basalt reste inactif.");
+            return;
+        }
+        cameraOpenRetries++;
+        customEngineMessage="BASALT CAMERA REOPEN "+cameraOpenRetries+"/5";
+        ui.removeCallbacks(retryCamera);
+        ui.postDelayed(retryCamera,650L);
     }
     private void createSession(int generation){
         CameraDevice c=device;TextureView tv=preview;
