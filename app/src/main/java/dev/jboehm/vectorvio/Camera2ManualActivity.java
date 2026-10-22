@@ -762,6 +762,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     }
     @Override public void onResume(){
         super.onResume();foreground=true;optimizer.reset();gradientController.reset();
+        cameraOpenRetries=0;ui.removeCallbacks(retryCamera);
         lastCameraThumbnail=null;lastCameraThumbnailNs=0;
         worker=new HandlerThread("manual-camera2");worker.start();handler=new Handler(worker.getLooper());
         if(customMode){
