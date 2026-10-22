@@ -77,6 +77,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private volatile String customEngineMessage="BASALT · waiting for camera & sensors";
     private volatile long lastCaptureReceivedNs,lastImageReceivedNs,lastGyroReceivedNs,lastAccelReceivedNs;
     private volatile boolean nativeStartRequested;
+    private boolean confirmedTrackingLogged;
     private Sensor accelSensor;
     private static final int EXPORT_CUSTOM_ZIP=221;
     private SensorEventListener customImuListener;
@@ -88,6 +89,10 @@ public final class Camera2ManualActivity extends Activity implements TextureView
             if(s!=null&&customStatus!=null)customStatus.setText(s.status());
             if(sharedHud!=null){
                 Odometer.Snapshot snap=s==null?null:s.snapshotForHud();
+                if(snap!=null && snap.tracking && !confirmedTrackingLogged){
+                    confirmedTrackingLogged=true;
+                    BasaltIncidentJournal.mark(Camera2ManualActivity.this,"NATIVE_POSE_TRACKING_REPORTED");
+                }
                 boolean tracked=snap!=null&&snap.tracking;
                 String status=s==null?(
                     factoryCalibration==null?"BASALT CALIBRATION MISSING":"BASALT READY · PRESS START"):
@@ -307,7 +312,10 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
         customMode=getIntent().getBooleanExtra(EXTRA_CUSTOM_VIO,false);
-        if(customMode)factoryCalibration=FactoryCameraCalibration.load(this);
+        if(customMode){
+            BasaltIncidentJournal.mark(this,"BASALT_ACTIVITY_CREATED");
+            factoryCalibration=FactoryCameraCalibration.load(this);
+        }
         if(state!=null){
             String name=state.getString("basalt_export_directory");
             if(name!=null&&name.matches("[0-9]{10,17}-[0-9a-f]{8}"))pendingCustomExport=new java.io.File(new java.io.File(getFilesDir(),"custom-vio"),name);
@@ -624,6 +632,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 .setPositiveButton("OK",null).show();
             return;
         }
+        BasaltIncidentJournal.mark(this,"USER_RETURN_ARCORE");
         setResult(RESULT_OK,new Intent().putExtra("engine_exit","USER_SELECTED_ARCORE"));
         finish();
     }
@@ -633,6 +642,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     }
     private void showNativeError(String reason){
         customEngineMessage=reason;
+        if(customMode)BasaltIncidentJournal.mark(this,"JAVA_GUARDED_ERROR");
         runOnUiThread(()->{
             if(customStatus!=null)customStatus.setText(reason);
             if(sharedHud!=null&&customSession==null)
@@ -669,15 +679,20 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         if(!owner.post(()->{
             BasaltStartSafety.Reason state=checkBasaltStartup(!customClosing.isDone());
             if(state!=BasaltStartSafety.Reason.READY){
+                BasaltIncidentJournal.mark(this,"BLOCKED_"+state.name());
                 showNativeError("Basalt: "+BasaltStartSafety.explanation(state));
                 return;
             }
             nativeStartRequested=true;
+            confirmedTrackingLogged=false;
+            BasaltIncidentJournal.mark(this,"BEFORE_NATIVE_SESSION_INIT");
             try{
                 CustomVioSession created=new CustomVioSession(this,factoryCalibration);
+                BasaltIncidentJournal.mark(this,"NATIVE_SESSION_ALLOCATED");
                 lastCustomDirectory=created.directory;
                 if(foreground&&owner==handler){
                     customSession=created;
+                    BasaltIncidentJournal.mark(this,"NATIVE_SESSION_STARTED_AWAITING_POSES");
                     customEngineMessage="BASALT · RECORDING";
                     runOnUiThread(()->{if(customStatus!=null)customStatus.setText("Basalt démarré : attente poses natives");});
                 }else {
@@ -685,6 +700,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                     showNativeError("Basalt: session stoppée pendant changement d'écran");
                 }
             }catch(Exception|LinkageError ex){
+                BasaltIncidentJournal.mark(this,"NATIVE_INIT_JAVA_ERROR");
                 showNativeError("Basalt: échec démarrage "+ex.getClass().getSimpleName()+
                     (ex.getMessage()==null?"":": "+ex.getMessage()));
             }finally{nativeStartRequested=false;}
@@ -695,6 +711,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     /** Java/JNI linkage faults remain inside the active Basalt screen.
      * Native SIGSEGV/SIGABRT cannot be caught: isolated :basalt process protects ARCore. */
     private void handleBasaltFailure(String source,Throwable ex){
+        BasaltIncidentJournal.mark(this,"DATA_CALLBACK_ERROR_"+source);
         showNativeError("Basalt "+source+": "+ex.getClass().getSimpleName());
         try{closeCustomSession(opticalCsv.toString());}
         catch(RuntimeException|LinkageError failedClose){
