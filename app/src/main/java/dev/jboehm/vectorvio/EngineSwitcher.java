@@ -30,10 +30,8 @@ public final class EngineSwitcher {
             choices[i]=(values[i]==current?"● ":"○ ")+values[i].label;
         new AlertDialog.Builder(host)
             .setTitle("VECTOR VIO · moteur de suivi")
-            .setMessage("Même compteur / HUD pour ARCore et Basalt. Le changement redémarre la caméra et réinitialise le repère. "
-                +"ARCore seul prend en charge le GPX 3D, les cartes/points AR et leur calage. "
-                +"Basalt produit des poses expérimentales indépendantes avec réglages Camera2. "
-                +"PDR conserve son écran sans caméra. Aucun basculement ne fusionne automatiquement les trajectoires.")
+            // Do not combine setMessage + setItems: the Android alert
+            // layout may hide the choice list when a message is supplied.
             .setItems(choices,(dialog,index)->{
                 Engine next=values[index];
                 if(next==current)return;
@@ -47,6 +45,15 @@ public final class EngineSwitcher {
                 }
                 onSelect.choose(next);
             })
+            .setNeutralButton("Limites", (dialog,which)->
+                new AlertDialog.Builder(host)
+                    .setTitle("Limites de chaque moteur")
+                    .setMessage("Même HUD d'odométrie pour ARCore et Basalt, mais leurs positions et échelles ne sont jamais fusionnées. "
+                        +"ARCore seul permet le GPX 3D, les cartes et points AR. Basalt contrôle ISO/shutter avec Camera2, "
+                        +"nécessite une calibration usine expérimentale et n'est pas validé sur S21. "
+                        +"Le mode PDR fonctionne sans caméra dans une vue dédiée. "
+                        +"Le changement de moteur relâche la caméra et recommence le repère local.")
+                    .setPositiveButton("OK",null).show())
             .setNegativeButton("Annuler",null).show();
     }
 }
