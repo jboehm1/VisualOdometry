@@ -169,6 +169,15 @@ public final class CustomVioSession implements AutoCloseable {
         failed=true;status="STOPPED: "+message;odometer.lostTracking();metrics.count("fatal_acquisition_errors");metrics.pause();
         bridge.close();
     }
+    /**
+     * Same immutable odometer snapshot contract used by ARCore's HudView.
+     * Caller cannot mutate the Basalt estimator or read private JNI state.
+     * ARCore and Basalt metric frames remain independent.
+     */
+    public Odometer.Snapshot snapshotForHud(){
+        return odometer.snapshot(SystemClock.elapsedRealtime());
+    }
+    public boolean active(){return !closed&&!failed;}
     public String status(){return status;}
     private void writeMetadata()throws Exception {
         try(Writer w=new OutputStreamWriter(new FileOutputStream(new File(directory,"custom_metadata.json")),StandardCharsets.UTF_8)){w.write(metadata.toString(2));}
