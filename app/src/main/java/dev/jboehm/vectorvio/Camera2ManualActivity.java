@@ -91,8 +91,11 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                     factoryCalibration==null?"BASALT CALIBRATION MISSING":"BASALT READY · PRESS START"):
                     tracked?"BASALT TRACKING":"BASALT INIT / LOST";
                 String details=s==null?(
-                    factoryCalibration==null?"Return to ARCore fixed focus, acquire tracking, then select Basalt.":
-                    "Experimental independent Camera2/IMU VIO — press START."):
+                    customEngineMessage.startsWith("BASALT ·")?
+                        factoryCalibration==null?
+                            "Camera preview only. Return to ARCore fixed focus, acquire tracking, then switch to Basalt.":
+                            "Independent Camera2/IMU VIO — press START.":
+                        customEngineMessage):
                     s.status().split("\\n",2)[0];
                 sharedHud.update(snap,status,details,0);
                 sharedHud.updateDataStatus(s==null?"DATA OFF":"BASALT RUN","GPS OFF");
@@ -715,8 +718,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     }
     private String selectManualCamera() throws CameraAccessException {
         if(manager==null)return null;
-        if(customMode){
-            if(factoryCalibration==null)return null;
+        if(customMode&&factoryCalibration!=null){
             CameraCharacteristics c=manager.getCameraCharacteristics(factoryCalibration.cameraId);
             Integer clock=c.get(CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE);
             if(clock==null||clock!=CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME){fail("Basalt requires a REALTIME camera clock");return null;}
@@ -834,7 +836,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
         Surface surface=new Surface(t);output=surface;
         try{
             java.util.List<Surface> surfaces=new java.util.ArrayList<>();surfaces.add(surface);
-            if(customMode){
+            if(customMode&&factoryCalibration!=null){
                 imageReader=ImageReader.newInstance(actualWidth,actualHeight,ImageFormat.YUV_420_888,3);
                 imageReader.setOnImageAvailableListener(reader->{
                     try(Image image=reader.acquireLatestImage()){
@@ -874,7 +876,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 req.set(CaptureRequest.SENSOR_SENSITIVITY,iso);
                 req.set(CaptureRequest.SENSOR_FRAME_DURATION,frameDuration);
             }
-            if(customMode){
+            if(customMode&&factoryCalibration!=null){
                 req.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_OFF);
                 req.set(CaptureRequest.LENS_FOCUS_DISTANCE,factoryCalibration.focus);
                 req.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,factoryCalibration.ois);
@@ -940,7 +942,14 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                 android.widget.Toast.LENGTH_LONG).show();
         }catch(Exception e){fail("Optical CSV export failed: "+e.getClass().getSimpleName());}
     }
-    private void fail(String message){runOnUiThread(()->{if(diagnostics!=null)diagnostics.setText(message);});}
+    private void fail(String message){
+        customEngineMessage=message;
+        runOnUiThread(()->{
+            if(diagnostics!=null)diagnostics.setText(message);
+            if(customMode&&sharedHud!=null&&customSession==null)
+                sharedHud.update(null,"BASALT UNAVAILABLE",message,0);
+        });
+    }
     private void closeCustomSession(String optical){
         CustomVioSession s=customSession;customSession=null;
         if(s!=null){s.close();try{CustomVioSession.persistOptical(s.directory,optical);}catch(java.io.IOException e){fail("Optical trace persistence failed: "+e.getMessage());}}
