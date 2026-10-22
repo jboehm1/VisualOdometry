@@ -26,7 +26,10 @@
         <service android:name=".GpsNavigationService" android:exported="false" android:foregroundServiceType="location" />
         <activity android:name=".GpsRoutesActivity" android:exported="false" />
         <activity android:name=".SensorLabActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".Camera2ManualActivity" android:exported="false" android:screenOrientation="portrait" />
+        <!-- Native Basalt is experimental C++: keep its JNI crash/OOM isolated from ARCore.
+             This also hosts Camera2-only LAB; app-private saved files are shared. -->
+        <activity android:name=".Camera2ManualActivity" android:exported="false"
+            android:process=":basalt" android:screenOrientation="portrait" />
         <activity android:name=".SettingsActivity" android:exported="false" android:screenOrientation="portrait" />
         <!-- Offline manual store plan, no camera or background location. -->
         <activity android:name=".StorePlannerActivity" android:exported="false" android:screenOrientation="portrait" />

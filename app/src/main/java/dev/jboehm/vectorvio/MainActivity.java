@@ -54,7 +54,7 @@ import javax.microedition.khronos.opengles.GL10;
  * Tracking is deliberately suspended across app backgrounding / relocalization.
  */
 public final class MainActivity extends Activity implements GLSurfaceView.Renderer {
-    private static final int CAMERA_REQUEST=140, EXPORT_REQUEST=141, IMPORT_MAP_REQUEST=142, LOCATION_REQUEST=143, IMPORT_REPLAY_REQUEST=144, IMPORT_GPX_AR_REQUEST=145, GPX_AR_LOCATION_REQUEST=146, SETTINGS_REQUEST=147;
+    private static final int CAMERA_REQUEST=140, EXPORT_REQUEST=141, IMPORT_MAP_REQUEST=142, LOCATION_REQUEST=143, IMPORT_REPLAY_REQUEST=144, IMPORT_GPX_AR_REQUEST=145, GPX_AR_LOCATION_REQUEST=146, SETTINGS_REQUEST=147, CUSTOM_VIO_REQUEST=148;
     private static final String EXTRA_REPLAY_PATH="dev.jboehm.vectorvio.replay.path";
     private File playbackFile;
     private boolean playbackMode=false,playbackFinished=false;
@@ -666,7 +666,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 }
                 new AlertDialog.Builder(this).setTitle("Basalt custom · experimental")
                     .setMessage("Runs independently from ARCore with the same shutter/ISO optimization controls as Camera2 Lab. Uses SDK factory camera geometry; timing, distortion and IMU noise are not calibrated for this phone. Accuracy is unverified. Record ARCore first, then the same measured route with Basalt. Basalt uses no ARCore trajectory. Raw IMU, poses, camera metadata and resource metrics are saved; images are not saved.")
-                    .setPositiveButton("Open Basalt",(dialog,which)->startActivity(new Intent(this,Camera2ManualActivity.class).putExtra(Camera2ManualActivity.EXTRA_CUSTOM_VIO,true)))
+                    .setPositiveButton("Open Basalt",(dialog,which)->{
+                        BasaltIncidentJournal.mark(this,"LAUNCH_REQUESTED");
+                        startActivityForResult(
+                            new Intent(this,Camera2ManualActivity.class)
+                                .putExtra(Camera2ManualActivity.EXTRA_CUSTOM_VIO,true),CUSTOM_VIO_REQUEST);
+                    })
                     .setNegativeButton("Cancel",null).show();break;
             case VIDEO_TRAINING:
                 if(odometer.isRecording()){
@@ -1102,6 +1107,27 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
     }
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if(request==CUSTOM_VIO_REQUEST){
+            if(result!=RESULT_OK){
+                // A native abort/OS kill in :basalt cannot be caught by Java,
+                // but may return RESULT_CANCELED to this intact ARCore process.
+                // Do not silently pretend the user selected ARCore.
+                message="Basalt exited unexpectedly — ARCore resumed (separate process)";
+                refreshHud();
+                new AlertDialog.Builder(this)
+                    .setTitle("Basalt s'est arrêté anormalement")
+                    .setMessage("Le moteur expérimental s'est fermé sans demande de changement. "
+                        +"Dernière étape enregistrée : "+BasaltIncidentJournal.read(this)+". "
+                        +"ARCore est disponible, mais le suivi Basalt précédent n'est PAS repris ni fusionné. "
+                        +"Les sessions interrompues peuvent être exportées depuis ENGINE → Basalt → HISTORY. "
+                        +"La cause exacte d'un éventuel crash natif demande un journal Android (logcat/tombstone).")
+                    .setPositiveButton("OK",null).show();
+            }else {
+                message="Retour volontaire à ARCore — repère Basalt non fusionné";
+                refreshHud();
+            }
+            return;
+        }
         if(request==SETTINGS_REQUEST){
             if(result==RESULT_OK&&data!=null){
                 String name=data.getStringExtra(SettingsActivity.EXTRA_ACTION);

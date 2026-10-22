@@ -1,0 +1,33 @@
+# VECTOR VIO v0.18.1-alpha1 — Basalt crash containment and startup robustness
+
+Date 2026-10-22. User-reported physical Samsung Galaxy S21 failure on v0.18: **START** sometimes crashes or returns to ARCore without an explicit engine switch. The exact native Android tombstone/logcat is not yet available; no false root cause is asserted. This patch hardens the identified unsafe lifecycle/start conditions. In a C++/camera app **zero future crashes cannot be guaranteed** without test evidence.
+
+Parent PR #54 v0.18 HEAD `089128513eb7123e7e2aa6090994a5af301d1e45`. Branch `fix/basalt-start-crash-guard-v0181-20261022`. Coordination instructions read from `AGENTS.md` and `docs/DEVELOPMENT_COORDINATION.md` integration `feature/slam-explorer`. Shared touch points: Camera2ManualActivity/MainActivity, AndroidManifest, Gradle; no deletion of GPX/PDR/other action controls.
+
+## Actual mitigations
+
+1. **Native process containment**: `Camera2ManualActivity` runs under app-private Android process `:basalt`; all JNI Basalt + camera setup is separated from ARCore main JVM/native process. A JNI SIGSEGV/SIGABRT or OOM cannot be caught by an in-process Java `catch`; the separate process reduces blast radius and preserves baseline ARCore recordings/process. It **does not** prevent native crash or guarantee survival of the activity.
+2. **No silent fake engine switch:** launch Basalt via `startActivityForResult(CUSTOM_VIO_REQUEST=148)`. Explicit BACK / ENGINE → ARCore returns `RESULT_OK` *only after custom recording stops*; a child process crash/unexpected close returns `RESULT_CANCELED` if Android delivers it, and MainActivity shows **Basalt s'est arrêté anormalement**, with last diagnostic stage, and no claim that Basalt tracking continued. Interrupted runs can be exported via HISTORY; ARCore may appear underneath as the OS returns to parent activity, but now it is clearly explained, not disguised as intentional selection.
+3. **Real stream/IMU readiness before JNI:** `BasaltStartSafety` checks that full Camera2 capture session and YUV image reader are open, factory-bootstrap exists, accelerometer/gyro sensors exist, both sensor callbacks have reported recent actual data (≤1s), and camera image + capture metadata have been delivered recently (≤2s). Reject if native unavailable, previous engine closing or run active. Gate is deliberately *not* a claim of calibrated extrinsics, synchronized timestamps, convergence or correctness.
+4. **Direct START handling:** no more `.performClick()` on a detached/off-screen advanced settings Button. UI and advanced START call the same guarded method on Camera2 worker. Explicit failure remains on Basalt view with status/toast, no `finish()`/ARCore fallback.
+5. **Native error surface and diagnostics:** catch recoverable Java RuntimeException/LinkageError from startup/camera result/IMU/image callback (native fatal signals remain uncatchable). Writes minimal synced `basalt_last_stage.txt` inside app-private data (no images/sensor/GPS) before JNI init, after allocation, when tracking and on guarded failure. Parent shows last checkpoint on unexpected exit. Debug artifacts and any real Android tombstone still needed for exact segmentation fault.
+6. **Camera ownership race:** Camera2 may be opened while ARCore has not yet fully released its camera hardware. For `CAMERA_IN_USE / MAX_CAMERAS_IN_USE`, the Camera2 activity now retries at most five times with a short delay, cancelling scheduled retries on pause; all other camera errors are surfaced and do not start JNI. On an unexpected camera disconnect, the active Basalt run is terminated rather than advertising stale tracking.
+7. **Real JNI breakpoint:** `CustomVioSession.pair()` records `BEFORE_NATIVE_VIO_ESTIMATOR_JNI` **immediately before** the first JNI estimator `nativeStart` (which only occurs when synchronized IMU samples arrive), and `NATIVE_VIO_ESTIMATOR_STARTED` after JNI returns. Java session allocation is distinct from native initialization. Guarded Java/Linkage exceptions in IMU callbacks and native shutdown are flagged and trigger fail-closed STOP.
+
+8. **App release:** `versionCode=20`, `versionName=0.18.1-alpha1`. Does not modify native pose estimates, 2025 camera exposure algorithm, Camera2 controls, ARCore odometer or GPX alignment.
+
+## Acceptance criteria, actual tests vs missing evidence
+
+JUnit: `BasaltStartSafetyTest` rejects stale/incomplete camera and IMU streams, missing bootstrap/library, concurrent close/run and future clock timestamps. Robolectric: `BasaltNoSilentFallbackTest` checks separate Android process manifest, START with no camera does not close the screen/switch motor, deliberate BACK is RESULT_OK, abnormal Basalt return produces a visible diagnostic. `BasaltIncidentJournalTest` checks durable/sanitized stage. Existing `UnifiedEngineHudTest` and `CustomVioHistoryUiTest` check same HUD and saved interrupted-run export. CI must pass **on the exact final PR SHA**, plus pinned native build and 3 campaigns.
+
+**Still missing:** physical Samsung S21 reproduction, Android SIGSEGV tombstone/stack, camera/IMU time offset and geometry calibration, memory/thermal stress at full S21 resolution, 30-minute multiple-start/stop scenarios. Cannot promise that native Basalt will now produce a valid trajectory or will never crash. A crash isolated to child will still reveal the parent ARCore activity but no longer silently. Do not represent this as a production safety-qualified estimator.
+
+## Field test (safe room, only after saving all existing sessions)
+
+1. Install v0.18.1 on S21. Debug signing key may differ; export old recordings *before uninstall*.
+2. Open ARCore first, choose fixed-focus profile, observe TRACKING, then ENGINE → Basalt. **START immediately**: if camera/IMU have not delivered fresh samples, expect a clear `Basalt: ...` status, not a crash. Retry START after preview/sensors stabilize.
+3. Start 3–5 times **only after STOP and any EXPORT**, check that VIEW stays in Basalt; then move slowly ~5m in a textured safe room. Compare odometry to independent measured displacement only if Basalt actually tracks.
+4. If screen returns to ARCore without explicit ENGINE → ARCore, **screenshot the abnormal-exit dialog containing the last stage**; if possible use Android USB debug capture `adb logcat -b crash -d` immediately after a failure and share the native abort/tombstone. Redact any location/personal data.
+5. Re-open ENGINE → Basalt → HISTORY to export interrupted Basalt run. This check does not modify ARCore sessions.
+
+Production-readiness and actual on-device crash-free rate remain **unverified** until real S21 runs; success on GitHub CI alone is insufficient.
