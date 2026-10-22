@@ -78,6 +78,8 @@ public final class Camera2ManualActivity extends Activity implements TextureView
     private volatile long lastCaptureReceivedNs,lastImageReceivedNs,lastGyroReceivedNs,lastAccelReceivedNs;
     private volatile boolean nativeStartRequested;
     private boolean confirmedTrackingLogged;
+    private int cameraOpenRetries;
+    private final Runnable retryCamera=()->openIfReady();
     private Sensor accelSensor;
     private static final int EXPORT_CUSTOM_ZIP=221;
     private SensorEventListener customImuListener;
