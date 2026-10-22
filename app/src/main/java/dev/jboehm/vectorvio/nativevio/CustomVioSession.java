@@ -1,6 +1,7 @@
 package dev.jboehm.vectorvio.nativevio;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Rect;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -9,6 +10,7 @@ import android.media.Image;
 import android.os.SystemClock;
 import dev.jboehm.vectorvio.AppIdentity;
 import dev.jboehm.vectorvio.Odometer;
+import dev.jboehm.vectorvio.BasaltIncidentJournal;
 import dev.jboehm.vectorvio.metrics.SessionTelemetry;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +25,7 @@ public final class CustomVioSession implements AutoCloseable {
         final byte[] y;final long time;Pixels(long t,byte[] y){time=t;this.y=y;}
     }
     private final FactoryCameraCalibration calibration;
+    private final Context diagnosticContext;
     private final BasaltBridge bridge=new BasaltBridge();
     private final ImuSynchronizer sync;
     private final Odometer odometer=new Odometer();
@@ -46,6 +49,7 @@ public final class CustomVioSession implements AutoCloseable {
     private final long started=SystemClock.elapsedRealtimeNanos();
     public CustomVioSession(Activity activity,FactoryCameraCalibration calibration)throws Exception {
         this.calibration=calibration;
+        this.diagnosticContext=activity.getApplicationContext();
         if(BasaltBridge.unavailableReason()!=null)throw new IllegalStateException(BasaltBridge.unavailableReason());
         directory=new File(activity.getFilesDir(),"custom-vio/"+System.currentTimeMillis()+"-"+UUID.randomUUID().toString().substring(0,8));
         if(!directory.mkdirs())throw new IOException("Cannot create session directory");
@@ -86,10 +90,21 @@ public final class CustomVioSession implements AutoCloseable {
         try {
             paired.write(t+csv(x)+"\n");
             if(lastPair>0&&t-lastPair>30_000_000L){fail("IMU gap >30ms; run stopped, reopen custom mode");return;}
-            if(!bridge.running()){bridge.start(calibration.parameters(),t,x);firstPair=t;}
-            else if(!bridge.imu(t,x)){fail("Native IMU queue rejected sample; run stopped");return;}
+            if(!bridge.running()){
+                // This is the REAL native estimator initialization (constructor
+                // above only allocated Java/file/session objects).
+                BasaltIncidentJournal.mark(diagnosticContext,"BEFORE_NATIVE_VIO_ESTIMATOR_JNI");
+                bridge.start(calibration.parameters(),t,x);
+                BasaltIncidentJournal.mark(diagnosticContext,"NATIVE_VIO_ESTIMATOR_STARTED");
+                firstPair=t;
+            }else if(!bridge.imu(t,x)){
+                fail("Native IMU queue rejected sample; run stopped");return;
+            }
             lastPair=t;drainFrames();
-        }catch(Exception e){fail("IMU: "+e.getMessage());}
+        }catch(Exception|LinkageError e){
+            BasaltIncidentJournal.mark(diagnosticContext,"NATIVE_VIO_IMU_JAVA_EXCEPTION");
+            fail("IMU: "+e.getClass().getSimpleName()+": "+e.getMessage());
+        }
     }
     public void sensor(SensorEvent event){
         if(closed||failed||event.values.length<3)return;
@@ -174,8 +189,15 @@ public final class CustomVioSession implements AutoCloseable {
             fresh?"visual state available":"initializing / weak or stale vision",odometer.snapshot(SystemClock.elapsedRealtime()).totalMeters,frames,poseRows,drops,sync.paired,values[7],values[8]);
     }
     private void fail(String message){
-        failed=true;status="STOPPED: "+message;odometer.lostTracking();metrics.count("fatal_acquisition_errors");metrics.pause();
-        bridge.close();
+        if(failed||closed)return;
+        failed=true;status="STOPPED: "+message;odometer.lostTracking();
+        BasaltIncidentJournal.mark(diagnosticContext,"NATIVE_VIO_ENGINE_FAILED");
+        if(metrics!=null){metrics.count("fatal_acquisition_errors");metrics.pause();}
+        try{bridge.close();}
+        catch(RuntimeException|LinkageError ex){
+            status="STOPPED after native failure: "+ex.getClass().getSimpleName();
+            BasaltIncidentJournal.mark(diagnosticContext,"NATIVE_VIO_CLOSE_JAVA_EXCEPTION");
+        }
     }
     /**
      * Same immutable odometer snapshot contract used by ARCore's HudView.
@@ -198,7 +220,10 @@ public final class CustomVioSession implements AutoCloseable {
     }
     @Override public void close(){
         if(closed)return;closed=true;odometer.pause(SystemClock.elapsedRealtime());metrics.close();
-        try{bridge.close();}catch(Exception e){failed=true;status="Native shutdown failed: "+e.getMessage();}
+        try{bridge.close();}catch(Exception|LinkageError e){
+            failed=true;status="Native shutdown failed: "+e.getClass().getSimpleName();
+            BasaltIncidentJournal.mark(diagnosticContext,"NATIVE_VIO_SHUTDOWN_JAVA_EXCEPTION");
+        }
         for(BufferedWriter w:new BufferedWriter[]{raw,paired,captures,poses})try{w.close();}catch(IOException e){failed=true;status="Recording close failed: "+e.getMessage();}
         try{metadata.put("pending_images_at_close",images.size()).put("pending_results_at_close",results.size()).put("pending_imu_brackets_at_close",pending.size());}catch(Exception ignored){}
         images.clear();results.clear();pending.clear();
