@@ -666,9 +666,12 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 }
                 new AlertDialog.Builder(this).setTitle("Basalt custom · experimental")
                     .setMessage("Runs independently from ARCore with the same shutter/ISO optimization controls as Camera2 Lab. Uses SDK factory camera geometry; timing, distortion and IMU noise are not calibrated for this phone. Accuracy is unverified. Record ARCore first, then the same measured route with Basalt. Basalt uses no ARCore trajectory. Raw IMU, poses, camera metadata and resource metrics are saved; images are not saved.")
-                    .setPositiveButton("Open Basalt",(dialog,which)->startActivityForResult(
-                        new Intent(this,Camera2ManualActivity.class)
-                            .putExtra(Camera2ManualActivity.EXTRA_CUSTOM_VIO,true),CUSTOM_VIO_REQUEST))
+                    .setPositiveButton("Open Basalt",(dialog,which)->{
+                        BasaltIncidentJournal.mark(this,"LAUNCH_REQUESTED");
+                        startActivityForResult(
+                            new Intent(this,Camera2ManualActivity.class)
+                                .putExtra(Camera2ManualActivity.EXTRA_CUSTOM_VIO,true),CUSTOM_VIO_REQUEST);
+                    })
                     .setNegativeButton("Cancel",null).show();break;
             case VIDEO_TRAINING:
                 if(odometer.isRecording()){
@@ -1114,6 +1117,7 @@ public final class MainActivity extends Activity implements GLSurfaceView.Render
                 new AlertDialog.Builder(this)
                     .setTitle("Basalt s'est arrêté anormalement")
                     .setMessage("Le moteur expérimental s'est fermé sans demande de changement. "
+                        +"Dernière étape enregistrée : "+BasaltIncidentJournal.read(this)+". "
                         +"ARCore est disponible, mais le suivi Basalt précédent n'est PAS repris ni fusionné. "
                         +"Les sessions interrompues peuvent être exportées depuis ENGINE → Basalt → HISTORY. "
                         +"La cause exacte d'un éventuel crash natif demande un journal Android (logcat/tombstone).")
