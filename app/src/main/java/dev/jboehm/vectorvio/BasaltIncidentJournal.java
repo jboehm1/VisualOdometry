@@ -21,7 +21,7 @@ public final class BasaltIncidentJournal {
     private static File file(Context context){return new File(context.getFilesDir(),NAME);}
     public static void mark(Context context,String stage){
         if(context==null||stage==null)return;
-        String safe=stage.replaceAll("[^A-Z0-9_:-]","_");
+        String safe=stage.toUpperCase(java.util.Locale.US).replaceAll("[^A-Z0-9_:-]","_");
         if(safe.length()>120)safe=safe.substring(0,120);
         byte[] data=(safe+"\n"+System.currentTimeMillis()+"\n").getBytes(StandardCharsets.UTF_8);
         try(FileOutputStream out=new FileOutputStream(file(context),false)){
