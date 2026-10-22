@@ -1,0 +1,171 @@
+name: Compare actual host VIO engines on identical EuRoC sensors
+
+on:
+  pull_request:
+    paths:
+      - 'tools/vio/**'
+      - '.github/workflows/vio-competitive-host.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vio-competitive-host-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  same-input-euroc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      BASALT_SHA: 0f3b2b52c807f70ff4e2973ce253c73329eea7bc
+      VCPKG_SHA: 1e199d32ad53aab1defda61ce41c380302e3f95c
+      ORB_SLAM3_SHA: 4452a3c4ab75b1cde34e5505a36ec3f9edcdc4c4
+      OPENVINS_SHA: 69488123ed9362dd44b6f28e7f4680abbff1442b
+      PANGOLIN_SHA: f55cb3e5e81cb7d58511fbc3ebadcf0610cae245
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned scorer and validate adapters
+        run: |
+          python -m pip install numpy==2.2.6
+          python -m unittest discover -s tools/vio/basalt/tests -v
+          python -m unittest discover -s tools/vio/openvins/tests -v
+          python -m unittest discover -s tools/vio/orb_slam3/tests -v
+          python -m unittest tools.vio.tests.test_compare_euroc_engine_runs -v
+      - name: Acquire identical real EuRoC sensors and stage 1200 stereo frames
+        run: |
+          mkdir -p "$RUNNER_TEMP/results"
+          python tools/vio/basalt/fetch_euroc.py --out "$RUNNER_TEMP/euroc"
+          cp "$RUNNER_TEMP/euroc/source.json" "$RUNNER_TEMP/results/dataset-source.json"
+          python tools/vio/basalt/euroc_adapter.py stage --source "$RUNNER_TEMP/euroc/raw" --target "$RUNNER_TEMP/sensors" --max-frames 1200 --out "$RUNNER_TEMP/results/staged.json"
+          python tools/vio/orb_slam3/euroc_times.py --staged "$RUNNER_TEMP/sensors" --out "$RUNNER_TEMP/results/orb-times.txt" --receipt "$RUNNER_TEMP/results/orb-times.json"
+      - uses: actions/checkout@v4
+        with:
+          repository: VladyslavUsenko/basalt
+          ref: 0f3b2b52c807f70ff4e2973ce253c73329eea7bc
+          path: third_party/basalt
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: UZ-SLAMLab/ORB_SLAM3
+          ref: 4452a3c4ab75b1cde34e5505a36ec3f9edcdc4c4
+          path: third_party/orb_slam3
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: rpng/open_vins
+          ref: 69488123ed9362dd44b6f28e7f4680abbff1442b
+          path: third_party/open_vins
+          submodules: recursive
+          persist-credentials: false
+      - name: Verify exact upstream source identities
+        run: |
+          test "$(git -C third_party/basalt rev-parse HEAD)" = "$BASALT_SHA"
+          test "$(git -C third_party/basalt/thirdparty/vcpkg rev-parse HEAD)" = "$VCPKG_SHA"
+          test "$(git -C third_party/orb_slam3 rev-parse HEAD)" = "$ORB_SLAM3_SHA"
+          test "$(git -C third_party/open_vins rev-parse HEAD)" = "$OPENVINS_SHA"
+          test "$(git -C third_party/orb_slam3/Thirdparty/DBoW2 rev-parse HEAD)" != ""
+          mkdir -p "$RUNNER_TEMP/results/basalt" "$RUNNER_TEMP/results/orb_slam3" "$RUNNER_TEMP/results/openvins"
+      - name: Build pinned ORB-SLAM3 host runner
+        run: |
+          docker build --pull --build-arg ORB_SLAM3_SHA="$ORB_SLAM3_SHA" --build-arg PANGOLIN_SHA="$PANGOLIN_SHA" -f tools/vio/orb_slam3/Dockerfile -t vector-orb-slam3:locked third_party/orb_slam3
+          docker image inspect vector-orb-slam3:locked --format '{{.Id}}' > "$RUNNER_TEMP/results/orb_slam3/image-id.txt"
+      - name: Build pinned OpenVINS host runner
+        run: |
+          docker build --pull --build-arg OPENVINS_SHA="$OPENVINS_SHA" -f "$GITHUB_WORKSPACE/tools/vio/openvins/Dockerfile" -t vector-openvins:locked third_party/open_vins
+          docker image inspect vector-openvins:locked --format '{{.Id}}' > "$RUNNER_TEMP/results/openvins/image-id.txt"
+      - name: Build actual upstream Basalt host runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test "$(git -C third_party/basalt/thirdparty/vcpkg rev-parse --is-shallow-repository)" = true; then
+            git -C third_party/basalt/thirdparty/vcpkg fetch --unshallow
+          fi
+          git -C third_party/basalt/thirdparty/vcpkg show 05442024c3fda64320bd25d2251cc9807b84fb6f:versions/baseline.json > /dev/null
+          pinned_image=vladyslavusenko/basalt-ci@sha256:3553facf6bf25baf283547fab7fad0dd74d47ba79fb9a9c9f9c11fb777d3a502
+          docker pull "$pinned_image"
+          resolved_image=$(docker image inspect "$pinned_image" --format '{{index .RepoDigests 0}}')
+          echo "$resolved_image" > "$RUNNER_TEMP/results/basalt/build-image.txt"
+          mkdir -p "$RUNNER_TEMP/basalt-cache/archives" "$RUNNER_TEMP/basalt-cache/downloads"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/basalt-cache
+          key: vio-comparison-basalt-${{ runner.os }}-3553facf6bf25baf283547fab7fad0dd74d47ba79fb9a9c9f9c11fb777d3a502
+      - name: Compile actual Basalt C++ estimator
+        shell: bash
+        run: |
+          set -euo pipefail
+          pinned_image=$(cat "$RUNNER_TEMP/results/basalt/build-image.txt")
+          docker run --rm \
+            -v "$PWD/third_party/basalt:/engine" \
+            -v "$PWD/tools/vio/basalt:/overlay:ro" \
+            -v "$RUNNER_TEMP/basalt-cache:/cache" \
+            -e VCPKG_DOWNLOADS=/cache/downloads \
+            -e 'VCPKG_BINARY_SOURCES=clear;files,/cache/archives,readwrite' \
+            -e VCPKG_MAX_CONCURRENCY=2 \
+            -w /engine "$pinned_image" bash -lc '
+              set -euo pipefail
+              thirdparty/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+              cmake --preset release -DVCPKG_OVERLAY_TRIPLETS=/overlay -DVCPKG_TARGET_TRIPLET=x64-linux-release -DCXX_MARCH=x86-64 -DBASALT_FULLY_STATIC_BINARIES=OFF -DBASALT_INSTANTIATIONS_DOUBLE=OFF
+              cmake --build --preset release --target basalt_vio -j2
+              build/release/basalt_vio --help
+            '
+          python tools/vio/basalt/build_record.py --source third_party/basalt --image-file "$RUNNER_TEMP/results/basalt/build-image.txt" --out "$RUNNER_TEMP/results/basalt/build.json"
+      - name: Run all three engines with only the same staged sensor tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          pinned_image=$(cat "$RUNNER_TEMP/results/basalt/build-image.txt")
+          mkdir -p "$RUNNER_TEMP/native-basalt" "$RUNNER_TEMP/openvins-home" "$RUNNER_TEMP/orb-tmp"
+          docker run --rm --network none --read-only --tmpfs /tmp:rw,size=2g \
+            -v "$PWD/third_party/basalt:/engine:ro" \
+            -v "$RUNNER_TEMP/sensors:/sensors:ro" \
+            -v "$PWD/tools/vio/basalt/container_run.py:/runner.py:ro" \
+            -v "$RUNNER_TEMP/native-basalt:/out" -w /out "$pinned_image" python3 /runner.py
+          docker run --rm --network none --read-only --tmpfs /tmp:rw,size=2g \
+            -v "$RUNNER_TEMP/sensors:/sensors:ro" \
+            -v "$PWD/tools/vio/orb_slam3:/adapters:ro" \
+            -v "$RUNNER_TEMP/results/orb_slam3:/out" -w /out vector-orb-slam3:locked \
+            python3 /adapters/run_euroc.py --sensors /sensors --out /out
+          docker run --rm --network none --read-only --tmpfs /tmp:rw,size=2g \
+            -v "$RUNNER_TEMP/sensors:/sensors:ro" \
+            -v "$PWD/tools/vio/openvins:/adapters:ro" \
+            -v "$RUNNER_TEMP/results/openvins:/out" -w /out vector-openvins:locked \
+            bash -lc 'source /opt/ros/noetic/setup.bash && source /ws/devel/setup.bash && python3 /adapters/run_euroc.py --sensors /sensors --source /opt/open_vins --out /out'
+      - name: Score only after isolated inference has finished
+        shell: bash
+        run: |
+          set -euo pipefail
+          reference="$RUNNER_TEMP/euroc/raw/mav0/state_groundtruth_estimate0/data.csv"
+          basalt_config_sha=$(cat third_party/basalt/data/euroc_config.json third_party/basalt/data/euroc_eucm_calib.json | sha256sum | cut -d' ' -f1)
+          orb_config_sha=$(sha256sum third_party/orb_slam3/Examples/Stereo-Inertial/EuRoC.yaml | cut -d' ' -f1)
+          ov_config_sha=$(cat "$RUNNER_TEMP/results/openvins/config/euroc_mav/estimator_config.yaml" "$RUNNER_TEMP/results/openvins/config/euroc_mav/kalibr_imu_chain.yaml" "$RUNNER_TEMP/results/openvins/config/euroc_mav/kalibr_imucam_chain.yaml" | sha256sum | cut -d' ' -f1)
+          python tools/vio/basalt/euroc_adapter.py score --reference "$reference" --trajectory "$RUNNER_TEMP/native-basalt/trajectory.txt" --staged "$RUNNER_TEMP/results/staged.json" --runtime "$RUNNER_TEMP/native-basalt/runtime.json" --engine-name 'actual upstream Basalt C++ visual-inertial estimator' --engine-source-sha "$BASALT_SHA" --engine-config-sha256 "$basalt_config_sha" --out "$RUNNER_TEMP/results/basalt/score.json"
+          python tools/vio/basalt/euroc_adapter.py score --reference "$reference" --trajectory "$RUNNER_TEMP/results/orb_slam3/trajectory.tum" --staged "$RUNNER_TEMP/results/staged.json" --runtime "$RUNNER_TEMP/results/orb_slam3/runtime.json" --engine-name 'actual upstream ORB-SLAM3 stereo-inertial estimator' --engine-source-sha "$ORB_SLAM3_SHA" --engine-config-sha256 "$orb_config_sha" --out "$RUNNER_TEMP/results/orb_slam3/score.json"
+          python tools/vio/basalt/euroc_adapter.py score --reference "$reference" --trajectory "$RUNNER_TEMP/results/openvins/trajectory.tum" --staged "$RUNNER_TEMP/results/staged.json" --runtime "$RUNNER_TEMP/results/openvins/runtime.json" --engine-name 'actual upstream OpenVINS stereo-inertial estimator' --engine-source-sha "$OPENVINS_SHA" --engine-config-sha256 "$ov_config_sha" --out "$RUNNER_TEMP/results/openvins/score.json"
+          rm -f "$RUNNER_TEMP/results/openvins/openvins_euroc.bag"
+          python tools/vio/compare_euroc_engine_runs.py \
+            "$RUNNER_TEMP/results/basalt/score.json" "$RUNNER_TEMP/results/orb_slam3/score.json" "$RUNNER_TEMP/results/openvins/score.json" \
+            --out "$RUNNER_TEMP/results/engine-comparison.json"
+          cat "$RUNNER_TEMP/results/engine-comparison.json"
+      - name: Preserve compact evidence (exclude sensor data, truth, source and binaries)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vio-euroc-same-input-engine-results
+          path: |
+            ${{ runner.temp }}/results/
+            ${{ runner.temp }}/native-basalt/runtime.json
+            ${{ runner.temp }}/native-basalt/trajectory.txt
+          if-no-files-found: ignore
+          retention-days: 14

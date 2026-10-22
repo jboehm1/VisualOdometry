@@ -87,6 +87,16 @@ class AdapterTests(unittest.TestCase):
         self.assertGreater(r['posthoc_rigid_se3_diagnostic']['ate_rmse_m'],5)
         self.assertEqual(1,r['posthoc_rigid_se3_diagnostic']['estimated_scale_correction'])
 
+    def test_score_records_exact_engine_source_and_configuration(self):
+        gt,est,staged,runtime=self.scoring_fixture()
+        source='c'*40; config='d'*64
+        result=adapter.score(gt,est,staged,runtime,'test engine',source,config)
+        self.assertEqual('vector-vio-host-real/1',result['schema'])
+        self.assertEqual(source,result['engine_source_sha'])
+        self.assertEqual(config,result['engine_config_sha256'])
+        with self.assertRaisesRegex(ValueError,'immutable commit SHA'):
+            adapter.score(gt,est,staged,runtime,'test engine','not-a-sha')
+
     def test_missing_isolation_or_failed_engine_receipt_rejected(self):
         gt,est,staged,runtime=self.scoring_fixture()
         runtime['exit_code']=1
