@@ -99,7 +99,7 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                     s.status().split("\\n",2)[0];
                 sharedHud.update(snap,status,details,0);
                 sharedHud.updateDataStatus(s==null?"DATA OFF":"BASALT RUN","GPS OFF");
-                sharedHud.updateScene(null,customImuReadout(),0);
+                sharedHud.updateScene(null,customImuReadout(),s==null?0:s.poseHz());
             }
             ui.postDelayed(this,500);
         }
