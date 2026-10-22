@@ -39,6 +39,8 @@ public final class CustomVioSession implements AutoCloseable {
     private final JSONObject metadata;
     private long lastPair,lastPose,firstPair,frames,drops,poseRows;
     private int lastQuality;
+    private volatile float measuredPoseHz;
+    private volatile long lastPoseArrivalNs;
     private boolean closed,failed;
     private volatile String status="Waiting for synchronized camera + IMU";
     private final long started=SystemClock.elapsedRealtimeNanos();
@@ -157,6 +159,12 @@ public final class CustomVioSession implements AutoCloseable {
         boolean fresh=quality==2&&time[0]<=frameTime&&frameTime-time[0]<500_000_000L;
         if(!fresh)odometer.lostTracking();
         if(time[0]>lastPose){
+            if(lastPose>0){
+                double hz=1e9/(double)(time[0]-lastPose);
+                if(hz>=0&&hz<=240)
+                    measuredPoseHz=measuredPoseHz==0?(float)hz:(float)(.80*measuredPoseHz+.20*hz);
+            }
+            lastPoseArrivalNs=SystemClock.elapsedRealtimeNanos();
             lastPose=time[0];Odometer.Result result=fresh?odometer.onPose(values[0],values[1],values[2],time[0]):Odometer.Result.INACTIVE;
             try{poses.write(time[0]+","+SystemClock.elapsedRealtimeNanos()+csv(values)+","+quality+","+odometer.snapshot(SystemClock.elapsedRealtime()).totalMeters+","+result+"\n");poseRows++;}
             catch(IOException e){fail("Pose storage failed");return;}
@@ -176,6 +184,12 @@ public final class CustomVioSession implements AutoCloseable {
      */
     public Odometer.Snapshot snapshotForHud(){
         return odometer.snapshot(SystemClock.elapsedRealtime());
+    }
+    public float poseHz(){
+        long last=lastPoseArrivalNs;
+        long now=SystemClock.elapsedRealtimeNanos();
+        return active()&&last>0&&now>=last&&now-last<1_000_000_000L?
+            measuredPoseHz:0;
     }
     public boolean active(){return !closed&&!failed;}
     public String status(){return status;}
