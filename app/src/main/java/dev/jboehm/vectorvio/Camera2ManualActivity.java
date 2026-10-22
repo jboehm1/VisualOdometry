@@ -928,7 +928,13 @@ public final class Camera2ManualActivity extends Activity implements TextureView
                     createSession(generation);
                 }
                 @Override public void onDisconnected(CameraDevice c){
-                    c.close();opening=false;if(generation==captureGeneration)fail("Camera disconnected");
+                    c.close();opening=false;
+                    if(generation==captureGeneration){
+                        if(customSession!=null)
+                            handleBasaltFailure("CAMERA_DISCONNECTED",
+                                new IllegalStateException("Camera2 camera disconnected"));
+                        else fail("Camera disconnected. Open Basalt again; no pose continuation.");
+                    }
                 }
                 @Override public void onError(CameraDevice c,int code){
                     c.close();opening=false;
