@@ -6,13 +6,13 @@ public final class ShortHorizonGyroTest {
     @Test public void integratesHalfTurnZInDeviceCoordinatesWithoutPosition(){
         ShortHorizonGyro g=new ShortHorizonGyro();
         g.anchor(1_000_000_000L);
-        for(int i=1;i<=100;i++){
+        for(int i=1;i<=101;i++){
             long t=1_000_000_000L+i*10_000_000L;
             g.gyro(t,0,0,Math.PI/2);
         }
-        ShortHorizonGyro.Estimate r=g.snapshot(2_000_000_000L);
+        ShortHorizonGyro.Estimate r=g.snapshot(2_010_000_000L);
         assertTrue(r.reason,r.usable);
-        assertEquals(100,r.samples);
+        assertEquals(101,r.samples);
         assertEquals(0.,r.x,1e-8);
         assertEquals(0.,r.y,1e-8);
         assertEquals(Math.sqrt(.5),r.z,1e-6);
