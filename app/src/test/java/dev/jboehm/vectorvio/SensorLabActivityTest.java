@@ -21,6 +21,11 @@ public final class SensorLabActivityTest {
         try{
             SensorLabActivity a=c.get();
             assertNotNull(a.getWindow().getDecorView());
+            android.widget.Spinner context=a.getWindow()
+                .getDecorView().findViewWithTag("sensor_lab_condition");
+            assertNotNull(context);
+            assertEquals(8,context.getCount());
+            assertEquals("STATIONARY_BRIGHT",context.getSelectedItem());
             java.util.ArrayList<View> matches=new java.util.ArrayList<>();
             a.getWindow().getDecorView().findViewsWithText(matches,"POSITION: UNKNOWN",View.FIND_VIEWS_WITH_TEXT);
             assertFalse(matches.isEmpty());
