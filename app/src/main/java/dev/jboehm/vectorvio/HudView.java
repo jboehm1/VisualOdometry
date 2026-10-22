@@ -306,7 +306,16 @@ public final class HudView extends View {
     private void drawLiveMap(Canvas c,float l,float top,float width,float height,Odometer.Snapshot s) {
         box(c,l,top,l+width,top+height,14,0xE9071825,0x8063A9B5);
         label(c,localGpx.isEmpty()?"TRACE VIO · X/Z":"TRACE VIO + GPX APPROX.",l+d(11),top+d(19),10,CYAN,true);
-        if(scene==null){label(c,"Waiting for tracked geometry…",l+d(15),top+d(48),11,MUTED,false);return;}
+        if(scene==null){
+            // Basalt uses the SAME HudView with an Odometer.Snapshot, but
+            // does not have ARCore surface geometry or GPX anchors. Render
+            // actual native estimator trail rather than an empty map.
+            if(s!=null&&!s.worldTrail.isEmpty()){
+                drawMiniMap(c,l+d(11),top+d(28),width-d(22),height-d(44),s);
+                label(c,"LOCAL VIO · camera/GPS anchors unavailable",l+d(14),top+height-d(7),9,AMBER,true);
+            }else label(c,"Waiting for estimator poses…",l+d(15),top+d(48),11,MUTED,false);
+            return;
+        }
         double minX=scene.cameraX,maxX=minX,minZ=scene.cameraZ,maxZ=minZ;
         // Fit to trail and GPX, not distant point-cloud features.
         for(float[] edge:localGpx){
